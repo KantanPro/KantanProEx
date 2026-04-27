@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.53
+Stable tag: 1.2.54
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -324,6 +324,10 @@ curl -sS -X POST \
 * 推奨PHP拡張: GD（画像処理用）
 
 == 変更履歴 ==
+
+= 1.2.54 - 2026年04月27日 =
+* 受注書詳細をカードレイアウトへ刷新し、概要カードのスタイルを追加
+* 受注書メモの保存時サニタイズ処理を実装し、入力データの安全性を改善
 
 = 1.2.53 - 2026年04月27日 =
 * 受注書まわりの機能拡張（補助処理クラス `includes/class-ktpwp-order-auxiliary.php` を新設、受注メイン／UI・AJAX との連携強化）
