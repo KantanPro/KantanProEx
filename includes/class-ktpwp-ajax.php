@@ -3513,6 +3513,23 @@ class KTPWP_Ajax {
 	}
 
 	/**
+	 * 受注書 memo カラム用（最大10000文字、KantanBiz相当）
+	 *
+	 * @param mixed $raw POST の生値（未 unstslash 可）
+	 * @return string
+	 */
+	private function sanitize_ktp_order_memo( $raw ) {
+		$memo = sanitize_textarea_field( wp_unslash( $raw ) );
+		if ( function_exists( 'mb_strlen' ) && mb_strlen( $memo ) > 10000 ) {
+			return mb_substr( $memo, 0, 10000 );
+		}
+		if ( strlen( $memo ) > 10000 ) {
+			return substr( $memo, 0, 10000 );
+		}
+		return $memo;
+	}
+
+	/**
 	 * 納期フィールドの保存処理
 	 */
 	public function ajax_save_delivery_date() {
@@ -3521,9 +3538,13 @@ class KTPWP_Ajax {
 			error_log( 'KTPWP Ajax save_delivery_date called with POST data: ' . print_r( $_POST, true ) );
 
 			// パラメータ取得
-			$order_id    = isset( $_POST['order_id'] ) ? absint( $_POST['order_id'] ) : 0;
-			$field_name  = isset( $_POST['field_name'] ) ? sanitize_text_field( $_POST['field_name'] ) : '';
-			$field_value = isset( $_POST['field_value'] ) ? sanitize_text_field( $_POST['field_value'] ) : '';
+			$order_id   = isset( $_POST['order_id'] ) ? absint( $_POST['order_id'] ) : 0;
+			$field_name = isset( $_POST['field_name'] ) ? sanitize_text_field( wp_unslash( $_POST['field_name'] ) ) : '';
+			if ( $field_name === 'memo' ) {
+				$field_value = isset( $_POST['field_value'] ) ? $this->sanitize_ktp_order_memo( $_POST['field_value'] ) : '';
+			} else {
+				$field_value = isset( $_POST['field_value'] ) ? sanitize_text_field( wp_unslash( $_POST['field_value'] ) ) : '';
+			}
 
 			if ( $order_id <= 0 ) {
 				throw new Exception( '無効な受注書IDです。' );
@@ -3549,7 +3570,7 @@ class KTPWP_Ajax {
 				$column_names[] = $column->Field;
 			}
 
-			$delivery_columns = array( 'desired_delivery_date', 'expected_delivery_date', 'completion_date' );
+			$delivery_columns = array( 'promised_delivery_date', 'desired_delivery_date', 'expected_delivery_date', 'completion_date' );
 			foreach ( $delivery_columns as $delivery_column ) {
 				if ( ! in_array( $delivery_column, $column_names ) ) {
 					error_log( 'KTPWP Ajax: Adding missing column: ' . $delivery_column );
@@ -3607,13 +3628,13 @@ class KTPWP_Ajax {
 			}
 
 			// フィールド名の検証
-			$allowed_fields = array( 'desired_delivery_date', 'expected_delivery_date', 'completion_date' );
+			$allowed_fields = array( 'promised_delivery_date', 'desired_delivery_date', 'expected_delivery_date', 'completion_date', 'memo' );
 			if ( ! in_array( $field_name, $allowed_fields ) ) {
 				throw new Exception( '無効なフィールド名です。' );
 			}
 
-			// 日付形式の検証
-			if ( ! empty( $field_value ) ) {
+			// 日付形式の検証（memo は対象外）
+			if ( $field_name !== 'memo' && ! empty( $field_value ) ) {
 				$date_obj = DateTime::createFromFormat( 'Y-m-d', $field_value );
 				if ( ! $date_obj || $date_obj->format( 'Y-m-d' ) !== $field_value ) {
 					throw new Exception( '無効な日付形式です。' );
@@ -3634,9 +3655,10 @@ class KTPWP_Ajax {
 				throw new Exception( 'データベースの更新に失敗しました: ' . $wpdb->last_error );
 			}
 
+			$save_ok_message = ( $field_name === 'memo' ) ? 'メモが正常に保存されました。' : '納期が正常に保存されました。';
 			wp_send_json_success(
 				array(
-					'message'     => '納期が正常に保存されました。',
+					'message'     => $save_ok_message,
 					'order_id'    => $order_id,
 					'field_name'  => $field_name,
 					'field_value' => $field_value,
@@ -3691,7 +3713,11 @@ class KTPWP_Ajax {
 			// POSTデータの取得とサニタイズ
 			$order_id = $this->sanitize_ajax_input( 'order_id', 'int' );
 			$field    = $this->sanitize_ajax_input( 'field', 'text' );
-			$value    = $this->sanitize_ajax_input( 'value', 'text' );
+			if ( $field === 'memo' ) {
+				$value = isset( $_POST['value'] ) ? $this->sanitize_ktp_order_memo( $_POST['value'] ) : '';
+			} else {
+				$value = $this->sanitize_ajax_input( 'value', 'text' );
+			}
 
 			// バリデーション
 			if ( $order_id <= 0 ) {
@@ -3700,14 +3726,14 @@ class KTPWP_Ajax {
 			}
 
 			// フィールド名の検証
-			$allowed_fields = array( 'desired_delivery_date', 'expected_delivery_date', 'completion_date' );
+			$allowed_fields = array( 'promised_delivery_date', 'desired_delivery_date', 'expected_delivery_date', 'completion_date', 'memo' );
 			if ( ! in_array( $field, $allowed_fields ) ) {
 				wp_send_json_error( array( 'message' => __( '無効なフィールド名です', 'ktpwp' ) ) );
 				return;
 			}
 
-			// 日付形式の検証（空の場合は許可）
-			if ( ! empty( $value ) ) {
+			// 日付形式の検証（空の場合は許可、memo は対象外）
+			if ( $field !== 'memo' && ! empty( $value ) ) {
 				$date_obj = DateTime::createFromFormat( 'Y-m-d', $value );
 				if ( ! $date_obj || $date_obj->format( 'Y-m-d' ) !== $value ) {
 					wp_send_json_error( array( 'message' => __( '無効な日付形式です', 'ktpwp' ) ) );
@@ -3728,6 +3754,15 @@ class KTPWP_Ajax {
 			$table_exists = $wpdb->get_var( "SHOW TABLES LIKE '{$table_name}'" );
 			error_log( 'KTPWP Ajax: Table exists: ' . ( $table_exists ? 'YES' : 'NO' ) );
 
+			// 日付カラムが未作成の環境向けに自動追加
+			$auto_add_date_fields = array( 'promised_delivery_date', 'desired_delivery_date', 'expected_delivery_date', 'completion_date' );
+			if ( in_array( $field, $auto_add_date_fields, true ) ) {
+				$column_exists = $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM `{$table_name}` LIKE %s", $field ) );
+				if ( ! $column_exists ) {
+					$wpdb->query( "ALTER TABLE `{$table_name}` ADD COLUMN `{$field}` DATE NULL" );
+				}
+			}
+
 			// カラムの存在確認
 			$column_exists = $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM `{$table_name}` LIKE %s", $field ) );
 			error_log( 'KTPWP Ajax: Column exists: ' . ( $column_exists ? 'YES' : 'NO' ) );
@@ -3746,9 +3781,10 @@ class KTPWP_Ajax {
 				error_log( 'KTPWP Ajax: Last error: ' . $wpdb->last_error );
 			}
 
+			$ok_message = ( $field === 'memo' ) ? __( 'メモを更新しました', 'ktpwp' ) : __( '納期を更新しました', 'ktpwp' );
 			wp_send_json_success(
 				array(
-					'message' => __( '納期を更新しました', 'ktpwp' ),
+					'message' => $ok_message,
 					'field'   => $field,
 					'value'   => $value,
 				)
@@ -4303,7 +4339,11 @@ class KTPWP_Ajax {
 			// パラメータ取得
 			$order_id = isset( $_POST['order_id'] ) ? absint( $_POST['order_id'] ) : 0;
 			$field_name = isset( $_POST['field_name'] ) ? sanitize_text_field( wp_unslash( $_POST['field_name'] ) ) : '';
-			$field_value = isset( $_POST['field_value'] ) ? sanitize_text_field( wp_unslash( $_POST['field_value'] ) ) : '';
+			if ( $field_name === 'memo' ) {
+				$field_value = isset( $_POST['field_value'] ) ? $this->sanitize_ktp_order_memo( $_POST['field_value'] ) : '';
+			} else {
+				$field_value = isset( $_POST['field_value'] ) ? sanitize_text_field( wp_unslash( $_POST['field_value'] ) ) : '';
+			}
 
 			if ( $order_id <= 0 ) {
 				wp_send_json_error( '受注書IDが無効です' );
@@ -4314,13 +4354,21 @@ class KTPWP_Ajax {
 			}
 
 			// 許可されたフィールド名のみ更新可能
-			$allowed_fields = array( 'completion_date', 'expected_delivery_date' );
+			$allowed_fields = array( 'promised_delivery_date', 'desired_delivery_date', 'completion_date', 'expected_delivery_date', 'memo' );
 			if ( ! in_array( $field_name, $allowed_fields ) ) {
 				wp_send_json_error( '許可されていないフィールドです' );
 			}
 
 			global $wpdb;
 			$table_name = $wpdb->prefix . 'ktp_order';
+
+			$date_autocreate = array( 'promised_delivery_date', 'desired_delivery_date', 'expected_delivery_date', 'completion_date' );
+			if ( in_array( $field_name, $date_autocreate, true ) ) {
+				$col = $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM `{$table_name}` LIKE %s", $field_name ) );
+				if ( ! $col ) {
+					$wpdb->query( "ALTER TABLE `{$table_name}` ADD COLUMN `{$field_name}` DATE NULL" );
+				}
+			}
 
 			// データベース更新
 			$update_data = array( $field_name => $field_value );
