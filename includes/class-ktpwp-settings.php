@@ -4829,8 +4829,7 @@ define( 'WP_DEBUG_DISPLAY', false );
      * @return void
      */
     public function print_central_banner_section_info() {
-        echo '<p>' . esc_html__( 'ここで設定した内容は、KantanPro配布先へ配信する共通バナー情報として利用します。', 'ktpwp' ) . '</p>';
-        echo '<p>' . esc_html__( '配布先では「外部参照URL」が空でも、公式サイトの既定バナー JSON を自動取得します（各サイトへの個別設定は不要です）。表示を止める場合は開発者設定の配信有効をオフにするか、テーマの functions.php 等でフィルター kantanpro_auto_fetch_official_central_banner を false にしてください。', 'ktpwp' ) . '</p>';
+        echo '<p>' . esc_html__( 'KantanProEX では不特定の配布先サイト向けに広告バナーを出さない方針のため、フロント表示・KTP Banner 連携・REST（/wp-json/kantanpro/v1/central-banner）によるバナー配信は行いません。', 'ktpwp' ) . '</p>';
     }
 
     /**
@@ -4966,32 +4965,13 @@ define( 'WP_DEBUG_DISPLAY', false );
      * @return WP_REST_Response
      */
     public function get_central_banner_rest_response() {
-        $settings = $this->get_central_banner_settings();
-        $legacy_banner = get_option( 'ktp_banner_options', array() );
-
-        $image_url = '';
-        $link_url  = '';
-        $alt_text  = '';
-
-        // 1) KTP Banner: 「有効」かつ画像ありのときだけ配信（中央バナーのチェックと独立）
-        if ( is_array( $legacy_banner ) && ! empty( $legacy_banner['enabled'] ) && ! empty( $legacy_banner['image_url'] ) ) {
-            $image_url = esc_url_raw( $legacy_banner['image_url'] );
-            $link_url  = isset( $legacy_banner['link_url'] ) ? esc_url_raw( $legacy_banner['link_url'] ) : '';
-            $alt_text  = isset( $legacy_banner['alt_text'] ) ? sanitize_text_field( $legacy_banner['alt_text'] ) : '';
-        } elseif ( ! empty( $settings['enabled'] ) && ! empty( $settings['image_url'] ) ) {
-            // 2) KTP Banner なし: 中央バナー「配信有効」かつ配布用画像あり
-            $image_url = esc_url_raw( $settings['image_url'] );
-            $link_url  = isset( $settings['link_url'] ) ? esc_url_raw( $settings['link_url'] ) : '';
-            $alt_text  = isset( $settings['alt_text'] ) ? sanitize_text_field( $settings['alt_text'] ) : '';
-        }
-
-        // 配布先は enabled と image_url の両方を見るため、実際に配信する内容があるときは true にそろえる
+        // 配布版では他サイト・クライアントが取得して表示する経路を閉じる
         $payload = array(
-            'enabled'   => ( '' !== $image_url ),
-            'image_url' => $image_url,
-            'link_url'  => $link_url,
-            'alt_text'  => $alt_text,
-            'updated_at'=> current_time( 'mysql' ),
+            'enabled'    => false,
+            'image_url'  => '',
+            'link_url'   => '',
+            'alt_text'   => '',
+            'updated_at' => current_time( 'mysql' ),
         );
 
         return rest_ensure_response( $payload );

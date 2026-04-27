@@ -183,6 +183,9 @@ class KTPWP_Shortcodes {
      * @return string
      */
     private function render_ktp_banner_from_option() {
+        if ( defined( 'KTPWP_EDITION' ) && 'pro' === KTPWP_EDITION ) {
+            return '';
+        }
         $options = $this->get_central_banner_options();
         if ( empty( $options ) ) {
             $options = $this->get_legacy_banner_options();
@@ -273,6 +276,9 @@ class KTPWP_Shortcodes {
      * @return bool
      */
     private function should_fetch_official_central_banner_feed( $options ) {
+        if ( defined( 'KTPWP_EDITION' ) && 'pro' === KTPWP_EDITION ) {
+            return false;
+        }
         if ( ! apply_filters( 'kantanpro_auto_fetch_official_central_banner', true ) ) {
             return false;
         }
