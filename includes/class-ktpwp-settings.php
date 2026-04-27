@@ -3713,8 +3713,6 @@ class KTPWP_Settings {
             
             <div class="ktp-image-preview" style="margin-bottom: 10px;">
                 <img id="header_bg_image_preview" src="<?php echo esc_url( $image_url ); ?>" style="max-width: 300px; max-height: 200px; border: 1px solid #ddd; border-radius: 4px;" />
-                <br>
-                <button type="button" class="button ktp-remove-image" style="margin-top: 5px;">画像を削除</button>
             </div>
             
             <button type="button" class="button ktp-upload-image">
