@@ -4827,7 +4827,7 @@ define( 'WP_DEBUG_DISPLAY', false );
      * @return void
      */
     public function print_central_banner_section_info() {
-        echo '<p>' . esc_html__( 'KantanProEX では不特定の配布先サイト向けに広告バナーを出さない方針のため、フロント表示・KTP Banner 連携・REST（/wp-json/kantanpro/v1/central-banner）によるバナー配信は行いません。', 'ktpwp' ) . '</p>';
+        return;
     }
 
     /**
@@ -4963,12 +4963,30 @@ define( 'WP_DEBUG_DISPLAY', false );
      * @return WP_REST_Response
      */
     public function get_central_banner_rest_response() {
-        // 配布版では他サイト・クライアントが取得して表示する経路を閉じる
+        $settings = $this->get_central_banner_settings();
+        $legacy_banner = get_option( 'ktp_banner_options', array() );
+
+        $image_url = '';
+        $link_url  = '';
+        $alt_text  = '';
+
+        // EX 本体では広告バナーを表示しないが、配布先 KantanPro 向けの API 配信は許可する。
+        // 公式サイト側に KTP Banner がある場合は、その設定を優先して配信する。
+        if ( is_array( $legacy_banner ) && ! empty( $legacy_banner['enabled'] ) && ! empty( $legacy_banner['image_url'] ) ) {
+            $image_url = esc_url_raw( $legacy_banner['image_url'] );
+            $link_url  = isset( $legacy_banner['link_url'] ) ? esc_url_raw( $legacy_banner['link_url'] ) : '';
+            $alt_text  = isset( $legacy_banner['alt_text'] ) ? sanitize_text_field( $legacy_banner['alt_text'] ) : '';
+        } elseif ( ! empty( $settings['enabled'] ) && ! empty( $settings['image_url'] ) ) {
+            $image_url = esc_url_raw( $settings['image_url'] );
+            $link_url  = isset( $settings['link_url'] ) ? esc_url_raw( $settings['link_url'] ) : '';
+            $alt_text  = isset( $settings['alt_text'] ) ? sanitize_text_field( $settings['alt_text'] ) : '';
+        }
+
         $payload = array(
-            'enabled'    => false,
-            'image_url'  => '',
-            'link_url'   => '',
-            'alt_text'   => '',
+            'enabled'    => ( '' !== $image_url ),
+            'image_url'  => $image_url,
+            'link_url'   => $link_url,
+            'alt_text'   => $alt_text,
             'updated_at' => current_time( 'mysql' ),
         );
 
