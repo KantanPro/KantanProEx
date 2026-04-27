@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.54
+Stable tag: 1.2.55
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -324,6 +324,9 @@ curl -sS -X POST \
 * 推奨PHP拡張: GD（画像処理用）
 
 == 変更履歴 ==
+
+= 1.2.55 - 2026年04月27日 =
+* 管理画面のプラグイン一覧に表示する説明文へ、固定ページへのショートコード設置案内（`[ktpwp_all_tab]`）を追加
 
 = 1.2.54 - 2026年04月27日 =
 * 受注書詳細をカードレイアウトへ刷新し、概要カードのスタイルを追加
