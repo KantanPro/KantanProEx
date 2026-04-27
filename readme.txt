@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.57
+Stable tag: 1.2.58
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -324,6 +324,10 @@ curl -sS -X POST \
 * 推奨PHP拡張: GD（画像処理用）
 
 == 変更履歴 ==
+
+= 1.2.58 - 2026年04月28日 =
+* KantanProEX（WP）本体ではバナーを非表示のまま、配布先の KantanPro（WordPress版）向けに KTP Banner 設定を REST API で配信できるよう修正
+* 公式サイト側の KTP Banner 設定を優先し、設定がない場合のみ中央バナー設定をフォールバックとして利用するよう整理
 
 = 1.2.57 - 2026年04月28日 =
 * 直近のコミット履歴（1.2.56〜1.2.54）に基づき、システム名表示の固定化・プラグイン説明文の案内追記・受注書詳細カード化/メモ保存サニタイズ対応の内容をリリースノートへ整理
