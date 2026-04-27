@@ -1,10 +1,10 @@
-=== KantanPro ===
+=== KantanProEX ===
 Contributors: KantanPro
 Tags: business, order management, customer management, invoice, report, staff chat, mobile responsive
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.50
+Stable tag: 1.2.52
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -12,7 +12,7 @@ License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 == 説明 ==
 
-KantanProは、WordPress上で以下の業務を一元管理できる多機能プラグインです。
+KantanProEXは、WordPress上で以下の業務を一元管理できる多機能プラグインです。
 
 **主要機能：**
 - **6つの管理タブ**（仕事リスト・伝票処理・顧客・サービス・協力会社・レポート）
@@ -324,6 +324,12 @@ curl -sS -X POST \
 * 推奨PHP拡張: GD（画像処理用）
 
 == 変更履歴 ==
+
+= 1.2.52 - 2026年04月27日 =
+* ダウンロード販売版としてライセンスキー不要に統一。ライセンス設定メニュー・関連 UI を削除し、レポート・バックアップ・売上台帳 PDF 等のライセンスゲートを撤去（`is_license_valid` を常時有効扱いに）
+* KantanPro（無料版）との有効化競合の緩和（`register_activation_hook` の早期登録、遅延包含インクルード、誤った自己無効化ロジックの整理）
+* `init` 上で `[ktpwp_all_tab]` / `[kantanpro_ex]` のショートコード登録を保証し、読み込み順に依存しにくく変更
+* グラフダミー表示の文言・条件を整理
 
 = 1.2.50 - 2026年04月19日 =
 * プラグイン一覧の削除確認ダイアログを、更新操作では表示しないようさらに限定（`upgrade-plugin`・`update-selected`・`update.php` を含むリンクは除外、`plugins.php` 上の `action=delete` / `action=delete-selected` のみカスタム確認）。プラグイン更新時はデータベースの業務データは従来どおり保持
