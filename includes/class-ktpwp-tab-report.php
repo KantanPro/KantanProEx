@@ -57,54 +57,12 @@ if ( ! class_exists( 'KTPWP_Report_Class' ) ) {
 				return '<div class="error-message">' . esc_html__( 'このページにアクセスする権限がありません。', 'ktpwp' ) . '</div>';
 			}
 
-			// ライセンスマネージャーのインスタンスを取得
-			$license_manager = KTPWP_License_Manager::get_instance();
-			$is_license_valid = $license_manager->is_license_valid();
-
-			// デバッグログを追加
-			error_log( 'KTPWP Report: License check result = ' . ( $is_license_valid ? 'true' : 'false' ) );
-			
-			// 現在のライセンス状態を詳細にログ出力
-			$license_key = get_option( 'ktp_license_key' );
-			$license_status = get_option( 'ktp_license_status' );
-			error_log( 'KTPWP Report: Current license key = ' . ( empty( $license_key ) ? 'empty' : 'set' ) . ', status = ' . $license_status );
-
 			$ui_generator = new KTPWP_Ui_Generator();
-			$graph_renderer = new KTPWP_Graph_Renderer();
 
 			$content = $ui_generator->generate_controller();
-
-			if ( ! $is_license_valid ) {
-				error_log( 'KTPWP Report: Rendering license required message (license invalid)' );
-				// グラフ背景＋メッセージ重ね表示
-				$content .= $this->render_license_required_with_graph();
-			} else {
-				error_log( 'KTPWP Report: Rendering comprehensive reports (license valid)' );
-				$content .= $this->render_comprehensive_reports();
-			}
+			$content .= $this->render_comprehensive_reports();
 
 			return $content;
-		}
-
-		/**
-		 * ライセンス無効時にグラフを背景に重ねてメッセージを表示
-		 *
-		 * @return string
-		 */
-		private function render_license_required_with_graph() {
-			$graph_renderer = new KTPWP_Graph_Renderer();
-			$dummy_graph_url = esc_url( plugins_url( '../images/default/dummy_graph.png', __FILE__ ) );
-			return '<div style="position:relative;max-width:800px;margin:30px auto;">
-				<img src="' . $dummy_graph_url . '" alt="' . esc_attr__( 'Report Graph', 'ktpwp' ) . '" style="width:100%;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.1);filter:blur(3px);opacity:0.7;">
-				<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.3);border-radius:8px;display:flex;flex-direction:column;justify-content:flex-start;align-items:center;text-align:center;padding:20px;">
-					<h3 style="margin:50px 0 15px;color:#d32f2f;font-size:24px;text-shadow:0 1px 2px rgba(255,255,255,0.8);">レポート機能の利用にはライセンスが必要です</h3>
-					<p style="margin-bottom:20px;font-size:16px;line-height:1.6;color:#555;text-shadow:0 1px 2px rgba(255,255,255,0.8);">詳細な分析とレポート機能を利用するには、ライセンスキーを購入して設定してください。</p>
-					<div style="margin-bottom:20px;">
-						<a href="https://www.kantanpro.com/klm" target="_blank" class="button button-primary" style="padding:12px 24px;font-size:16px;text-decoration:none;background:#0073aa;color:#fff;border-radius:5px;display:inline-block;">ライセンスを購入</a>
-					</div>
-					<p style="font-size:18px;font-weight:bold;color:#0073aa;line-height:1.5;">ライセンス購入後は<a href="' . esc_url( admin_url( 'admin.php?page=ktp-license' ) ) . '" style="color:#0073aa;text-decoration:underline;">ライセンス設定</a>でライセンスキーを入力してください</p>
-				</div>
-			</div>';
 		}
 
 		/**

@@ -30,11 +30,27 @@ if ( ! function_exists( 'ktpwp_ex_detect_loaded_legacy_plugin' ) ) {
      * @return bool
      */
     function ktpwp_ex_detect_loaded_legacy_plugin() {
-        if ( defined( 'KANTANPRO_PLUGIN_FILE' ) && KANTANPRO_PLUGIN_FILE !== __FILE__ ) {
+        // 旧版が実際に読み込まれている場合のみ true
+        // （定数ベース判定だと誤検知するケースがあるため、関数存在で判定）
+        return function_exists( 'ktpwp_supplier_skills_template_redirect' );
+    }
+}
+
+if ( ! function_exists( 'ktpwp_ex_is_free_plugin_active' ) ) {
+    /**
+     * 無料版 KantanPro が有効化されているかを判定。
+     *
+     * @return bool
+     */
+    function ktpwp_ex_is_free_plugin_active() {
+        $free_plugin_basename = 'KantanPro/ktpwp.php';
+        $active_plugins = (array) get_option( 'active_plugins', array() );
+        if ( in_array( $free_plugin_basename, $active_plugins, true ) ) {
             return true;
         }
-        if ( defined( 'KTPWP_PLUGIN_FILE' ) && KTPWP_PLUGIN_FILE !== __FILE__ ) {
-            return true;
+        if ( is_multisite() ) {
+            $network_active_plugins = (array) get_site_option( 'active_sitewide_plugins', array() );
+            return isset( $network_active_plugins[ $free_plugin_basename ] );
         }
         return false;
     }
@@ -53,17 +69,6 @@ if ( ! function_exists( 'ktpwp_ex_is_activation_request' ) ) {
             && $request_action === 'activate'
             && $request_plugin === plugin_basename( __FILE__ );
     }
-}
-
-if ( ktpwp_ex_detect_loaded_legacy_plugin() ) {
-    if ( ktpwp_ex_is_activation_request() ) {
-        wp_die(
-            esc_html__( 'KantanProEX を有効化する前に、古い KantanPro（WordPress版）を無効化してください。', 'KantanPro' ),
-            esc_html__( 'KantanProEX 有効化エラー', 'KantanPro' ),
-            array( 'back_link' => true )
-        );
-    }
-    return;
 }
 
 if ( ! function_exists( 'ktpwp_ex_is_plugin_active_by_basename' ) ) {
@@ -90,60 +95,69 @@ if ( ! function_exists( 'ktpwp_ex_is_plugin_active_by_basename' ) ) {
     }
 }
 
-if ( ! function_exists( 'ktpwp_ex_prepare_activation_conflict_resolution' ) ) {
+if ( ! function_exists( 'ktpwp_ex_early_activation_compat' ) ) {
     /**
-     * EX有効化時、無料版との競合を先に解消する。
-     * 競合解消したリクエストでは本体ロードを中断し、次リクエストで通常起動させる。
+     * 無料版と同時読み込みで本体が早期 return しても必ず実行される有効化処理。
+     * register_activation_hook はこのブロックより後ろで登録するとフックが登録されないため、ここで登録する。
      *
-     * @return bool 本体をこのリクエストで続行してよいか
+     * @return void
      */
-    function ktpwp_ex_prepare_activation_conflict_resolution() {
-        $free_plugin_basename = 'KantanPro/ktpwp.php';
-        $ex_plugin_basename   = plugin_basename( __FILE__ );
-        $has_runtime_conflict = function_exists( 'ktpwp_upgrade' );
-
-        $request_action = isset( $_REQUEST['action'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['action'] ) ) : '';
-        $request_plugin = isset( $_REQUEST['plugin'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['plugin'] ) ) : '';
-        $is_ex_activation_request = is_admin()
-            && $request_action === 'activate'
-            && $request_plugin === $ex_plugin_basename;
-
-        $is_free_active = ktpwp_ex_is_plugin_active_by_basename( $free_plugin_basename );
-
-        if ( ! $has_runtime_conflict && ! $is_free_active ) {
-            return true;
-        }
-
+    function ktpwp_ex_early_activation_compat() {
         if ( ! function_exists( 'deactivate_plugins' ) ) {
             require_once ABSPATH . 'wp-admin/includes/plugin.php';
         }
-
-        if ( $is_free_active ) {
-            deactivate_plugins( $free_plugin_basename, true );
+        $free_basename = 'KantanPro/ktpwp.php';
+        if ( ktpwp_ex_is_plugin_active_by_basename( $free_basename ) ) {
+            deactivate_plugins( $free_basename, true );
             set_transient( 'ktpwp_ex_auto_deactivated_free_notice', 1, MINUTE_IN_SECONDS * 5 );
         }
-
-        if ( $is_ex_activation_request && $has_runtime_conflict ) {
-            deactivate_plugins( $ex_plugin_basename, true );
-            wp_die(
-                esc_html__( 'KantanProEX を有効化する前に、古い KantanPro（WordPress版）を無効化してください。', 'KantanPro' ),
-                esc_html__( 'KantanProEX 有効化エラー', 'KantanPro' ),
-                array( 'back_link' => true )
-            );
-        }
-
-        if ( ! $is_ex_activation_request && $has_runtime_conflict ) {
-            deactivate_plugins( $ex_plugin_basename, true );
-            return false;
-        }
-
         update_option( 'ktp_active_edition', 'pro', false );
-        return ! $is_ex_activation_request;
+        // この時点で ktpwp_comprehensive_activation が未定義なら、次リクエストの plugins_loaded で実行する。
+        if ( ! function_exists( 'ktpwp_comprehensive_activation' ) ) {
+            update_option( 'ktpwp_ex_defer_comprehensive_activation', 'yes', false );
+        }
     }
 }
 
-if ( ! ktpwp_ex_prepare_activation_conflict_resolution() ) {
+if ( ! function_exists( 'ktpwp_ex_run_deferred_comprehensive_activation' ) ) {
+    /**
+     * 早期 return により包括有効化がスキップされた場合の遅延実行。
+     *
+     * @return void
+     */
+    function ktpwp_ex_run_deferred_comprehensive_activation() {
+        if ( get_option( 'ktpwp_ex_defer_comprehensive_activation' ) !== 'yes' ) {
+            return;
+        }
+        if ( ! function_exists( 'ktpwp_comprehensive_activation' ) ) {
+            return;
+        }
+        delete_option( 'ktpwp_ex_defer_comprehensive_activation' );
+        ktpwp_comprehensive_activation();
+    }
+}
+
+register_activation_hook( __FILE__, 'ktpwp_ex_early_activation_compat' );
+add_action( 'plugins_loaded', 'ktpwp_ex_run_deferred_comprehensive_activation', 5 );
+
+if ( ktpwp_ex_detect_loaded_legacy_plugin() && ktpwp_ex_is_free_plugin_active() ) {
+    // このリクエストでは同名関数の二重定義を避ける。無効化・DB初期化は register_activation_hook / 遅延フックが担当。
     return;
+}
+
+/**
+ * 無料版が active_plugins に残っているが、停止モード等で実体が読み込まれていない不整合を解消する。
+ *
+ * 旧ロジックの function_exists( 'ktpwp_upgrade' ) 判定は、有料版自身が後から同じ名前を定義するため誤検知し、
+ * deactivate_plugins( KantanProEX ) で「有効化したのにすぐ無効」の原因になり得る。判定は「無料版の早期フックが載っているか」のみに限定する。
+ */
+if ( ktpwp_ex_is_free_plugin_active() && ! ktpwp_ex_detect_loaded_legacy_plugin() ) {
+    if ( ! function_exists( 'deactivate_plugins' ) ) {
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+    }
+    deactivate_plugins( 'KantanPro/ktpwp.php', true );
+    set_transient( 'ktpwp_ex_auto_deactivated_free_notice', 1, MINUTE_IN_SECONDS * 5 );
+    update_option( 'ktp_active_edition', 'pro', false );
 }
 
 /**
@@ -271,7 +285,7 @@ if ( ! function_exists( 'ktpwp_activate_pro_edition' ) ) {
     }
 }
 
-register_activation_hook( __FILE__, 'ktpwp_activate_pro_edition' );
+// 有効化時の無料版停止・エディション記録は ktpwp_ex_early_activation_compat（ファイル先頭）で実行済み。
 add_action( 'plugins_loaded', 'ktpwp_mark_pro_edition_active', 0 );
 
 if ( ! function_exists( 'ktpwp_ex_render_auto_deactivated_notice' ) ) {
@@ -3676,6 +3690,22 @@ if ( file_exists( MY_PLUGIN_PATH . 'includes/class-ktpwp-settings.php' ) ) {
 }
 
 add_action( 'plugins_loaded', 'KTPWP_Index' );
+
+/**
+ * ショートコード登録の保険処理。
+ * 何らかの理由で KTPWP_Index の登録が漏れても [ktpwp_all_tab] を利用可能にする。
+ */
+function ktpwp_ensure_shortcodes_registered() {
+    if ( shortcode_exists( 'ktpwp_all_tab' ) ) {
+        return;
+    }
+    if ( class_exists( 'KTPWP_Shortcodes' ) ) {
+        $shortcodes = KTPWP_Shortcodes::get_instance();
+        add_shortcode( 'ktpwp_all_tab', array( $shortcodes, 'render_all_tabs' ) );
+        add_shortcode( 'kantanpro_ex', array( $shortcodes, 'render_all_tabs' ) );
+    }
+}
+add_action( 'init', 'ktpwp_ensure_shortcodes_registered', 20 );
 
 function ktpwp_scripts_and_styles() {
     wp_enqueue_script( 'ktp-js', plugins_url( 'js/ktp-js.js', __FILE__ ) . '?v=' . time(), array( 'jquery' ), null, true );

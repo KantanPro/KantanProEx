@@ -30,13 +30,6 @@ function ktp_handle_sales_ledger_pdf_ajax() {
         return;
     }
 
-    // ライセンスチェック
-    $license_manager = KTPWP_License_Manager::get_instance();
-    if ( ! $license_manager->is_license_valid() ) {
-        wp_send_json_error( 'この機能を利用するにはライセンスが必要です。' );
-        return;
-    }
-
     $year = intval( $_POST['year'] ?? date('Y') );
     
     if ( $year < 2000 || $year > date('Y') + 10 ) {
