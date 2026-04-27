@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.58
+Stable tag: 1.2.59
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -324,6 +324,10 @@ curl -sS -X POST \
 * 推奨PHP拡張: GD（画像処理用）
 
 == 変更履歴 ==
+
+= 1.2.59 - 2026年04月28日 =
+* GitHub Releases の参照先を KantanProEX 用リポジトリ（`KantanPro/KantanProEx`）へ修正
+* 更新チェック時のプラグインベースネームと優先 ZIP アセット名を KantanProEX 向けに調整
 
 = 1.2.58 - 2026年04月28日 =
 * KantanProEX（WP）本体ではバナーを非表示のまま、配布先の KantanPro（WordPress版）向けに KTP Banner 設定を REST API で配信できるよう修正
