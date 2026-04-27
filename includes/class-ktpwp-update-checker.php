@@ -20,7 +20,7 @@ class KTPWP_Update_Checker {
     /**
      * GitHubリポジトリURL
      */
-    private $github_repo = 'KantanPro/KantanPro';
+    private $github_repo = 'KantanPro/KantanProEx';
     
     /**
      * GitHub Personal Access Token（非公開リポジトリ用）
@@ -63,7 +63,7 @@ class KTPWP_Update_Checker {
         
         // 備用のベースネーム取得方法
         if ( empty( $this->plugin_basename ) || $this->plugin_basename === basename( __FILE__ ) ) {
-            $this->plugin_basename = 'KantanPro/ktpwp.php';
+            $this->plugin_basename = 'KantanProEX/ktpwp.php';
         }
         
         $this->plugin_slug = dirname( $this->plugin_basename );
@@ -488,8 +488,8 @@ class KTPWP_Update_Checker {
                 $download_url = '';
                 if ( ! empty($data['assets']) ) {
                     foreach ( $data['assets'] as $asset ) {
-                        // 'KantanPro.zip' のような名前のファイルを優先する
-                        if ( $asset['name'] === 'KantanPro.zip' && $asset['content_type'] === 'application/zip') {
+                        // 'KantanProEX.zip' のようなEX用のZIPファイルを優先する
+                        if ( $asset['name'] === 'KantanProEX.zip' && $asset['content_type'] === 'application/zip') {
                             $download_url = $asset['browser_download_url'];
                             error_log('KantanPro: Found release asset: ' . $download_url);
                             break;
