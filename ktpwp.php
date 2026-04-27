@@ -2,7 +2,7 @@
 /**
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
- * Description: フリーランス・スモールビジネス向けの仕事効率化システム。ショートコード[ktpwp_all_tab]を固定ページに設置してください。古いKantanProを先に無効化してから有効化してください。
+ * Description: スモールビジネスのための販売支援ツール
  * Version: 1.2.52
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
@@ -200,7 +200,7 @@ if ( ! defined( 'KANTANPRO_PLUGIN_NAME' ) ) {
 }
 if ( ! defined( 'KANTANPRO_PLUGIN_DESCRIPTION' ) ) {
     // 翻訳読み込み警告を回避するため、initアクションで設定
-    define( 'KANTANPRO_PLUGIN_DESCRIPTION', 'フリーランス・スモールビジネス向けの仕事効率化システム。ショートコード[ktpwp_all_tab]を固定ページに設置してください。古いKantanProを先に無効化してから有効化してください。' );
+    define( 'KANTANPRO_PLUGIN_DESCRIPTION', 'スモールビジネスのための販売支援ツール' );
 }
 
 // Define KTPWP_PLUGIN_VERSION if not already defined, possibly aliasing KANTANPRO_PLUGIN_VERSION
@@ -440,6 +440,7 @@ function ktpwp_autoload_classes() {
         'KTPWP_Order_Items'     => 'includes/class-ktpwp-order-items.php',
         'KTPWP_Order_UI'        => 'includes/class-ktpwp-order-ui.php',
         'KTPWP_Staff_Chat'      => 'includes/class-ktpwp-staff-chat.php',
+        'KTPWP_Order_Auxiliary' => 'includes/class-ktpwp-order-auxiliary.php',
         'KTPWP_Service_DB'      => 'includes/class-ktpwp-service-db.php',
         'KTPWP_Service_UI'      => 'includes/class-ktpwp-service-ui.php',
         'KTPWP_UI_Generator'    => 'includes/class-ktpwp-ui-generator.php',
@@ -948,6 +949,20 @@ function ktpwp_run_auto_migrations() {
 }
 
 /**
+ * 受注書メール履歴・案件ファイル用テーブルを確保
+ */
+function ktpwp_ensure_order_auxiliary_tables() {
+	$path = KTPWP_PLUGIN_DIR . 'includes/class-ktpwp-order-auxiliary.php';
+	if ( ! file_exists( $path ) ) {
+		return;
+	}
+	require_once $path;
+	if ( class_exists( 'KTPWP_Order_Auxiliary' ) ) {
+		KTPWP_Order_Auxiliary::install_tables();
+	}
+}
+
+/**
  * 新規インストール時の基本構造初期化
  */
 function ktpwp_initialize_new_installation() {
@@ -959,6 +974,8 @@ function ktpwp_initialize_new_installation() {
         ktpwp_safe_create_department_table();
         ktpwp_safe_add_department_selection_column();
         ktpwp_safe_add_client_selected_department_column();
+
+        ktpwp_ensure_order_auxiliary_tables();
 
         // 3. 新規インストール完了フラグを設定
         update_option( 'ktpwp_new_installation_completed', true );
@@ -996,6 +1013,8 @@ function ktpwp_run_staged_migrations( $from_version, $to_version ) {
         ktpwp_safe_create_department_table();
         ktpwp_safe_add_department_selection_column();
         ktpwp_safe_add_client_selected_department_column();
+
+        ktpwp_ensure_order_auxiliary_tables();
 
         // 3. マイグレーションファイルの実行（順序付き・安全実行）
         ktpwp_safe_run_migration_files( $from_version, $to_version );
@@ -2303,6 +2322,24 @@ function ktpwp_plugin_deactivation() {
  * 更新履歴の初期化処理
  */
 
+
+// 受注書：メール履歴・案件ファイルのダウンロード（admin-post）
+add_action(
+	'plugins_loaded',
+	static function () {
+		if ( ! defined( 'KTPWP_PLUGIN_DIR' ) ) {
+			return;
+		}
+		$path = KTPWP_PLUGIN_DIR . 'includes/class-ktpwp-order-auxiliary.php';
+		if ( file_exists( $path ) ) {
+			require_once $path;
+			if ( class_exists( 'KTPWP_Order_Auxiliary' ) ) {
+				KTPWP_Order_Auxiliary::register_hooks();
+			}
+		}
+	},
+	14
+);
 
 // プラグイン読み込み時の差分マイグレーション（管理画面またはバージョン変更時のみ）
 if ( is_admin() || get_option( 'ktpwp_version', '0' ) !== KANTANPRO_PLUGIN_VERSION ) {
@@ -4170,9 +4207,11 @@ function KTPWP_Index() {
                 }
             }
 
-            // 設定からシステム名とシステムの説明を取得
+            // 設定からシステム名を取得。システムの説明は固定文言（一般設定と同一ソース）
             $system_name = get_option( 'ktp_system_name', 'KantanProEX' );
-            $system_description = get_option( 'ktp_system_description', '個人事業主・フリーランス・小規模ビジネスのための売管理システムです。' );
+            $system_description = defined( 'KANTANPRO_PLUGIN_DESCRIPTION' )
+                ? KANTANPRO_PLUGIN_DESCRIPTION
+                : 'スモールビジネスのための販売支援ツール';
 
             // ロゴマークを取得（デフォルトは既存のicon.png）
             $default_logo = plugins_url( 'images/default/icon.png', __FILE__ );

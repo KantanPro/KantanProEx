@@ -25,7 +25,375 @@
 .ktp_plugin_container .data_detail_box {
     contain: layout style;
 }
-/* コスト項目トグルボタン */
+/* 受注書：折りたたみ（メール履歴・案件ファイル・コスト・スタッフチャット共通） */
+.ktp-order-block {
+    margin-top: 16px;
+    margin-bottom: 24px;
+}
+.ktp-order-details-toggle {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 12px;
+    background: #fafafa;
+}
+.ktp-order-details-toggle > summary.ktp-order-details-summary {
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+    user-select: none;
+}
+.ktp-order-details-toggle > summary.ktp-order-details-summary::-webkit-details-marker {
+    display: none;
+}
+.ktp-order-details-toggle > summary.ktp-order-details-summary::before {
+    content: '▶︎ ';
+    display: inline-block;
+    margin-right: 4px;
+    font-size: 0.9em;
+}
+.ktp-order-details-toggle[open] > summary.ktp-order-details-summary::before {
+    content: '▼ ';
+}
+.ktp-order-details-hint {
+    font-size: 12px;
+    font-weight: normal;
+    color: #666;
+}
+.ktp-order-details-body {
+    margin-top: 12px;
+}
+
+/* メール履歴・案件ファイル：外枠直下の余白（.ktp-order-details-body 廃止） */
+.ktp-order-mail-log-details > summary + * {
+    margin-top: 12px;
+}
+
+.ktp-mail-log-entry + .ktp-mail-log-entry {
+    margin-top: 10px;
+}
+
+.ktp-order-files-details > summary + * {
+    margin-top: 12px;
+}
+
+.ktp-order-mail-log-empty,
+.ktp-order-files-empty {
+    margin-bottom: 0;
+}
+
+.ktp-mail-log-entry {
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.ktp-mail-log-entry-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.45;
+    gap: 4px 6px;
+}
+
+.ktp-mail-log-entry-date {
+    white-space: nowrap;
+    margin-right: 4px;
+}
+
+.ktp-mail-log-entry-sender {
+    color: #444;
+}
+
+.ktp-mail-log-entry-to {
+    color: #555;
+}
+
+.ktp-mail-log-entry-subj {
+    color: #333;
+}
+
+.ktp-mail-log-entry-body {
+    padding: 0 12px 12px;
+    font-size: 13px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.ktp-mail-log-context {
+    margin: 10px 0 8px;
+    font-size: 12px;
+    color: #555;
+}
+
+.ktp-mail-log-meta-table {
+    margin: 8px 0;
+    border-collapse: collapse;
+    font-size: 12px;
+    width: 100%;
+}
+
+.ktp-mail-log-meta-table th {
+    text-align: left;
+    padding: 4px 8px;
+    width: 80px;
+    vertical-align: top;
+}
+
+.ktp-mail-log-meta-table td {
+    padding: 4px 8px;
+}
+
+.ktp-mail-log-subject-cell {
+    word-break: break-all;
+}
+
+.ktp-mail-log-error-cell {
+    color: #c62828;
+    word-break: break-all;
+}
+
+.ktp-mail-log-cc-note {
+    padding: 4px 8px;
+    font-size: 11px;
+    color: #3949ab;
+}
+
+.ktp-mail-log-body-pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: #f9f9f9;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 10px;
+    margin: 8px 0 0;
+    font-size: 12px;
+    max-height: 320px;
+    overflow: auto;
+}
+
+.ktp-order-file-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.ktp-order-file-list .ktp-order-file-row {
+    padding: 10px 12px;
+    border-bottom: 1px solid #eee;
+}
+
+.ktp-order-file-list .ktp-order-file-row:last-child {
+    border-bottom: none;
+}
+
+.ktp-order-file-upload-form {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #e0e0e0;
+    box-sizing: border-box;
+}
+
+.ktp-order-file-upload-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+
+.ktp-order-file-upload-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.ktp-order-file-input {
+    font-size: 13px;
+}
+
+.ktp-order-file-upload-hint {
+    margin: 8px 0 0;
+}
+
+.order-cost-details > summary ~ * {
+    margin-top: 8px;
+}
+
+#staff-chat-content.staff-chat-content {
+    margin-top: 8px;
+}
+
+/* 案件ファイル：アップロード（グローバル .button はラッパー用のため専用クラス） */
+.ktp-order-files-wrap .ktp-order-file-upload-btn {
+    padding: 8px 18px;
+    background: #1976d2;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    line-height: 1.3;
+}
+.ktp-order-files-wrap .ktp-order-file-upload-btn:hover {
+    background: #1565c0;
+    color: #fff;
+}
+
+/* 案件ファイル1行：アイコン | ファイル名 | プレビュー | ダウンロード | 削除 */
+.ktp-order-files-wrap .ktp-order-file-row {
+    padding: 10px 12px;
+    border-bottom: 1px solid #eee;
+}
+
+.ktp-order-files-wrap .ktp-order-file-row-inner {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.ktp-order-files-wrap .ktp-order-file-icon {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #f5f5f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.ktp-order-files-wrap .ktp-order-file-icon img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    vertical-align: middle;
+}
+
+.ktp-order-files-wrap .ktp-order-file-icon-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #666;
+}
+
+.ktp-order-files-wrap .ktp-order-file-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.ktp-order-files-wrap .ktp-order-file-name {
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 1.35;
+    word-break: break-all;
+}
+
+.ktp-order-files-wrap .ktp-order-file-meta {
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
+    line-height: 1.3;
+}
+
+.ktp-order-files-wrap .ktp-order-file-actions {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 0;
+}
+
+.ktp-order-files-wrap .ktp-order-file-actions > a,
+.ktp-order-files-wrap .ktp-order-file-actions > form {
+    flex-shrink: 0;
+}
+
+.ktp-order-files-wrap .ktp-order-file-delete-form {
+    display: inline-flex;
+    margin: 0;
+    align-items: center;
+}
+
+.ktp-order-files-wrap .ktp-order-file-delete-form .ktp-order-file-delete-btn {
+    font-family: inherit;
+}
+
+@media (max-width: 720px) {
+    .ktp-order-files-wrap .ktp-order-file-row-inner {
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+
+    .ktp-order-files-wrap .ktp-order-file-actions {
+        flex: 1 1 100%;
+        justify-content: flex-start;
+        padding-left: 54px;
+        box-sizing: border-box;
+    }
+}
+
+@media (max-width: 480px) {
+    .ktp-order-files-wrap .ktp-order-file-actions {
+        flex-wrap: wrap;
+        padding-left: 0;
+    }
+}
+
+.ktp-order-files-wrap .ktp-order-file-action-btn {
+    display: inline-block;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.3;
+    border-radius: 4px;
+    text-decoration: none;
+    border: 1px solid #bdbdbd;
+    background: #fff;
+    color: #333;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.ktp-order-files-wrap .ktp-order-file-preview-btn:hover {
+    background: #f5f5f5;
+    color: #111;
+    border-color: #9e9e9e;
+}
+
+.ktp-order-files-wrap .ktp-order-file-download-btn {
+    background: #1976d2;
+    border-color: #1976d2;
+    color: #fff;
+}
+
+.ktp-order-files-wrap .ktp-order-file-download-btn:hover {
+    background: #1565c0;
+    border-color: #1565c0;
+    color: #fff;
+}
+
+.ktp-order-files-wrap .ktp-order-file-delete-btn {
+    background: #fff;
+    border: 1px solid #e57373;
+    color: #c62828;
+    cursor: pointer;
+}
+
+.ktp-order-files-wrap .ktp-order-file-delete-btn:hover {
+    background: #ffebee;
+    border-color: #c62828;
+    color: #b71c1c;
+}
+
+/* コスト項目トグルボタン（レガシー・未使用時は無害） */
 .toggle-cost-items {
     background: #007cba;
     color: #fff;
@@ -61,24 +429,6 @@
 }
 .toggle-staff-chat:hover {
     background: #005a87;
-}
-.order_cost_box {
-    margin-top: 16px;
-}
-.order_cost_box h4 {
-    margin-bottom: 8px;
-}
-.order_cost_box #cost-items-content {
-    margin-top: 8px;
-}
-.order_memo_box {
-    margin-top: 16px;
-}
-.order_memo_box h4 {
-    margin-bottom: 8px;
-}
-.order_memo_box #staff-chat-content {
-    margin-top: 8px;
 }
 /* 請求項目テーブル：交互色の透明行を白に */
 .invoice-items-table tr:nth-of-type(even) {

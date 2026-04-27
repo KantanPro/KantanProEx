@@ -920,7 +920,25 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 									if ( $my_email ) {
 										$headers[] = 'From: ' . sanitize_email( $my_email );
 									}
-									$sent = wp_mail( sanitize_email( $to ), $edit_subject, $edit_body, $headers );
+									if ( ! class_exists( 'KTPWP_Order_Auxiliary' ) ) {
+										require_once KTPWP_PLUGIN_DIR . 'includes/class-ktpwp-order-auxiliary.php';
+									}
+									$mail_outcome_form = KTPWP_Order_Auxiliary::run_wp_mail_with_result(
+										static function () use ( $to, $edit_subject, $edit_body, $headers ) {
+											return wp_mail( sanitize_email( $to ), $edit_subject, $edit_body, $headers );
+										}
+									);
+									$sent = $mail_outcome_form['success'];
+									if ( class_exists( 'KTPWP_Order_Auxiliary' ) ) {
+										KTPWP_Order_Auxiliary::record_customer_mail(
+											$order_id,
+											sanitize_email( $to ),
+											$edit_subject,
+											$edit_body,
+											$sent,
+											$mail_outcome_form['error_message']
+										);
+									}
 									if ( $sent ) {
 										// echo '<script>
 										// document.addEventListener("DOMContentLoaded", function() {
@@ -1179,6 +1197,13 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 
 				// 関連するスタッフチャットメッセージを削除
 				$this->Delete_Staff_Chat_Messages( $order_id_to_delete );
+
+				if ( ! class_exists( 'KTPWP_Order_Auxiliary' ) ) {
+					require_once KTPWP_PLUGIN_DIR . 'includes/class-ktpwp-order-auxiliary.php';
+				}
+				if ( class_exists( 'KTPWP_Order_Auxiliary' ) ) {
+					KTPWP_Order_Auxiliary::delete_all_for_order( $order_id_to_delete );
+				}
 
 				// 受注書を削除
 				$deleted = $wpdb->delete( $table_name, array( 'id' => $order_id_to_delete ), array( '%d' ) );
@@ -1476,6 +1501,24 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				if ( $order_data ) {
 					// 現在表示中の受注書IDをセッションに記憶（確実に保存）
 					$_SESSION['ktp_last_order_id'] = $order_id;
+
+					if ( isset( $_GET['ktp_of_notice'] ) ) {
+						$n = sanitize_key( wp_unslash( $_GET['ktp_of_notice'] ) );
+						$map = array(
+							'upload_ok'        => array( 'border-color:#4caf50;background:#e8f5e9;', __( 'ファイルを追加しました。', 'ktpwp' ) ),
+							'upload_err'       => array( 'border-color:#f44336;background:#ffebee;', __( 'ファイルを追加できませんでした。', 'ktpwp' ) ),
+							'upload_err_size'  => array( 'border-color:#f44336;background:#ffebee;', __( 'ファイルサイズが大きすぎます（最大 20MB）。', 'ktpwp' ) ),
+							'upload_err_type'  => array( 'border-color:#f44336;background:#ffebee;', __( 'PDF または画像（JPEG・PNG・GIF・WebP）のみアップロードできます。', 'ktpwp' ) ),
+							'upload_err_perm'  => array( 'border-color:#f44336;background:#ffebee;', __( '権限がありません。', 'ktpwp' ) ),
+							'upload_err_order' => array( 'border-color:#f44336;background:#ffebee;', __( '受注書が見つかりません。', 'ktpwp' ) ),
+							'del_ok'           => array( 'border-color:#4caf50;background:#e8f5e9;', __( 'ファイルを削除しました。', 'ktpwp' ) ),
+							'del_err'          => array( 'border-color:#f44336;background:#ffebee;', __( 'ファイルを削除できませんでした。', 'ktpwp' ) ),
+							'del_err_perm'     => array( 'border-color:#f44336;background:#ffebee;', __( '権限がありません。', 'ktpwp' ) ),
+						);
+						if ( isset( $map[ $n ] ) ) {
+							$content .= '<div class="ktp-of-notice" style="padding:12px 14px;margin:12px 0;border:1px solid;border-radius:6px;' . esc_attr( $map[ $n ][0] ) . '"><p style="margin:0;">' . esc_html( $map[ $n ][1] ) . '</p></div>';
+						}
+					}
 
 					// プレビューボタン用のHTML生成は削除（Ajax経由で最新データを取得）
 
@@ -1873,29 +1916,19 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					$content .= '<span class="toc2">■ 請求項目</span>';
 					$content .= $this->Generate_Invoice_Items_Table( $order_id );
 					$content .= '</div>'; // .order_invoice_box 終了
-					// コスト項目とメモ項目のセクションを追加
-					$content .= '<div class="order_cost_box box">';
-					$content .= '<div style="display: flex; align-items: center; gap: 8px;">';
-					$content .= '<span class="toc2">■ コスト項目</span>';
-					$content .= '<span class="toc2">';
-					$content .= '<button type="button" class="toggle-cost-items" aria-expanded="false" ';
-					$content .= 'title="' . esc_attr__( 'コスト項目の表示/非表示を切り替え', 'ktpwp' ) . '">';
-					$content .= esc_html__( '表示', 'ktpwp' );
-					$content .= '</button>';
-					$content .= '</span>';
-					$content .= '</div>';
-					// コスト項目テーブルをラップする（初期状態で非表示にする）
-					$content .= '<div id="cost-items-content" style="display:none;">';
-					// コスト項目テーブルを表示
+					// コスト項目（▶︎▼ 折りたたみ）
+					$content .= '<details class="ktp-order-block ktp-order-details-toggle order-cost-details">';
+					$content .= '<summary class="ktp-order-details-summary"><span class="toc2">' . esc_html__( 'コスト項目', 'ktpwp' ) . '</span></summary>';
 					$content .= $this->Generate_Cost_Items_Table( $order_id );
-					$content .= '</div>'; // #cost-items-content 終了
-					$content .= '</div>'; // .order_cost_box 終了
-					// スタッフチャットセクションを追加（タイトルなし）
-					$content .= '<!-- DEBUG: スタッフチャット開始 -->';
+					$content .= '</details>';
+					if ( ! class_exists( 'KTPWP_Order_Auxiliary' ) ) {
+						require_once KTPWP_PLUGIN_DIR . 'includes/class-ktpwp-order-auxiliary.php';
+					}
+					if ( class_exists( 'KTPWP_Order_Auxiliary' ) ) {
+						$content .= KTPWP_Order_Auxiliary::render_sections_html( $order_id );
+					}
 					$staff_chat_html = $this->Generate_Staff_Chat_HTML( $order_id );
-					$content .= '<!-- DEBUG: スタッフチャットHTML長: ' . strlen( $staff_chat_html ) . ' -->';
 					$content .= $staff_chat_html;
-					$content .= '<!-- DEBUG: スタッフチャット終了 -->';
 					// 受注書内容セクションの終了
 					$content .= '</div>'; // .order_contents 終了
 

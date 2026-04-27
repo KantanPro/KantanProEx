@@ -3412,7 +3412,7 @@ class KTPWP_Settings {
     private function get_fixed_system_description() {
         return defined( 'KANTANPRO_PLUGIN_DESCRIPTION' )
             ? KANTANPRO_PLUGIN_DESCRIPTION
-            : 'フリーランス・スモールビジネス向けの仕事効率化システム。';
+            : 'スモールビジネスのための販売支援ツール';
     }
 
     /**

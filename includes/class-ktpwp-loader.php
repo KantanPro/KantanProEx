@@ -97,6 +97,7 @@ class KTPWP_Loader {
             'KTPWP_Order_Items'     => 'includes/class-ktpwp-order-items.php',
             'KTPWP_Order_UI'        => 'includes/class-ktpwp-order-ui.php',
             'KTPWP_Staff_Chat'      => 'includes/class-ktpwp-staff-chat.php',
+            'KTPWP_Order_Auxiliary' => 'includes/class-ktpwp-order-auxiliary.php',
             'KTPWP_Service_DB'      => 'includes/class-ktpwp-service-db.php',
             'KTPWP_Service_UI'      => 'includes/class-ktpwp-service-ui.php',
             'KTPWP_UI_Generator'    => 'includes/class-ktpwp-ui-generator.php',
