@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.56
+Stable tag: 1.2.57
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -324,6 +324,10 @@ curl -sS -X POST \
 * 推奨PHP拡張: GD（画像処理用）
 
 == 変更履歴 ==
+
+= 1.2.57 - 2026年04月28日 =
+* 直近のコミット履歴（1.2.56〜1.2.54）に基づき、システム名表示の固定化・プラグイン説明文の案内追記・受注書詳細カード化/メモ保存サニタイズ対応の内容をリリースノートへ整理
+* 配布ドキュメント（`readme.txt` / `README.md`）のバージョン情報と更新日を同期
 
 = 1.2.56 - 2026年04月27日 =
 * ヘッダーのシステム名表示を固定化し、無料版の残存設定値がある環境でも「KantanProEX」と正しく表示されるよう修正
