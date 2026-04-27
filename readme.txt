@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.52
+Stable tag: 1.2.53
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -324,6 +324,13 @@ curl -sS -X POST \
 * 推奨PHP拡張: GD（画像処理用）
 
 == 変更履歴 ==
+
+= 1.2.53 - 2026年04月27日 =
+* 受注書まわりの機能拡張（補助処理クラス `includes/class-ktpwp-order-auxiliary.php` を新設、受注メイン／UI・AJAX との連携強化）
+* メール送信ポップアップ・発注メールまわりの処理改善（`js/ktp-email-popup.js`、`js/ktp-purchase-order-email.js`、`includes/class-ktpwp-ajax.php` 等）
+* フロントの受注・メール関連 UI／スタイルの調整（`css/styles.css`、`js/ktp-js.js`）
+* スタッフチャット・一般設定・更新チェッカー・プラグイン本体説明の更新（`ktpwp.php` ほか）
+* 配布用 ZIP 生成時に `.cursor` ディレクトリを含めないよう `create_release_zip.sh` を修正
 
 = 1.2.52 - 2026年04月27日 =
 * ダウンロード販売版としてライセンスキー不要に統一。ライセンス設定メニュー・関連 UI を削除し、レポート・バックアップ・売上台帳 PDF 等のライセンスゲートを撤去（`is_license_valid` を常時有効扱いに）
