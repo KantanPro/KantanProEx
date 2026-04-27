@@ -330,6 +330,7 @@ curl -sS -X POST \
 * KantanPro（無料版）との有効化競合の緩和（`register_activation_hook` の早期登録、遅延包含インクルード、誤った自己無効化ロジックの整理）
 * `init` 上で `[ktpwp_all_tab]` / `[kantanpro_ex]` のショートコード登録を保証し、読み込み順に依存しにくく変更
 * グラフダミー表示の文言・条件を整理
+* 配布先（不特定サイト）向けに、KTP Banner 連携・中央バナー・公式サイト既定 JSON の自動取得・REST `central-banner` によるバナー配信を行わないよう統一（KTP Banner プラグイン併用時も `KTPWP_EDITION` pro では非表示）
 
 = 1.2.50 - 2026年04月19日 =
 * プラグイン一覧の削除確認ダイアログを、更新操作では表示しないようさらに限定（`upgrade-plugin`・`update-selected`・`update.php` を含むリンクは除外、`plugins.php` 上の `action=delete` / `action=delete-selected` のみカスタム確認）。プラグイン更新時はデータベースの業務データは従来どおり保持
