@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.61
+Stable tag: 1.2.62
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -324,6 +324,12 @@ curl -sS -X POST \
 * 推奨PHP拡張: GD（画像処理用）
 
 == 変更履歴 ==
+
+= 1.2.62 - 2026年04月28日 =
+* 売上レポート・売上台帳PDFの期間集計を受付日ではなく完了日基準に統一し、完了日未設定の案件を集計対象外にするよう修正
+* レポート画面の売上計算説明に、期間集計が完了日基準であることを追記
+* GitHub Releases の取得・ダウンロード認証・更新後の再有効化処理を強化し、更新チェックとプラグイン更新処理の安定性を改善
+* GitHub zipball 展開時のディレクトリ名補正、更新キャッシュ削除、更新なし状態の transient 整理を追加
 
 = 1.2.61 - 2026年04月28日 =
 * GitHub Releases の更新情報取得で、設定済み GitHub トークンを使った API 認証に対応し、非公開リポジトリ/Release でも更新情報を取得できるよう修正

@@ -162,6 +162,7 @@ if ( ! class_exists( 'KTPWP_Report_Class' ) ) {
 			$content .= '<div style="font-weight:bold;color:#1976d2;margin-bottom:8px;">📊 売上計算について</div>';
 			$content .= '<div style="color:#333;font-size:14px;line-height:1.5;">';
 			$content .= '売上は「請求済」以降の進捗状況の案件のみを対象としています。<br>';
+			$content .= '※ 期間集計は受付日ではなく、完了日を基準にしています。<br>';
 			$content .= '※ 請求項目があっても進捗が「完了」以前の場合は売上に含まれません。<br>';
 			$content .= '※ 「ボツ」案件は売上計算から除外されています。';
 			$content .= '</div>';
@@ -354,11 +355,11 @@ if ( ! class_exists( 'KTPWP_Report_Class' ) ) {
 			$total_sales_query = "SELECT SUM(ii.amount) as total 
 								 FROM {$wpdb->prefix}ktp_order o 
 								 LEFT JOIN {$wpdb->prefix}ktp_order_invoice_items ii ON o.id = ii.order_id 
-								 WHERE 1=1 {$where_clause} AND ii.amount IS NOT NULL AND o.progress >= 5 AND o.progress != 7";
+								 WHERE 1=1 {$where_clause} AND ii.amount IS NOT NULL AND o.progress >= 5 AND o.progress != 7 AND o.completion_date IS NOT NULL";
 			$total_sales = $wpdb->get_var( $total_sales_query ) ?: 0;
 
 			// 案件数（請求済以降の進捗のみ）
-			$order_count_query = "SELECT COUNT(*) as count FROM {$wpdb->prefix}ktp_order o WHERE 1=1 {$where_clause} AND o.progress >= 5 AND o.progress != 7";
+			$order_count_query = "SELECT COUNT(*) as count FROM {$wpdb->prefix}ktp_order o WHERE 1=1 {$where_clause} AND o.progress >= 5 AND o.progress != 7 AND o.completion_date IS NOT NULL";
 			$order_count = $wpdb->get_var( $order_count_query ) ?: 0;
 
 			// 平均単価
@@ -407,6 +408,7 @@ if ( ! class_exists( 'KTPWP_Report_Class' ) ) {
 				AND ii.amount IS NOT NULL 
 				AND o.progress >= 5 
 				AND o.progress != 7 
+				AND o.completion_date IS NOT NULL
 				GROUP BY o.client_id 
 				ORDER BY total_sales DESC 
 				LIMIT 5";
@@ -459,6 +461,7 @@ if ( ! class_exists( 'KTPWP_Report_Class' ) ) {
 				AND ii.amount IS NOT NULL 
 				AND o.progress >= 5 
 				AND o.progress != 7 
+				AND o.completion_date IS NOT NULL
 				GROUP BY ii.product_name 
 				ORDER BY total_sales DESC 
 				LIMIT 5";
@@ -512,6 +515,7 @@ if ( ! class_exists( 'KTPWP_Report_Class' ) ) {
 				AND oci.supplier_id IS NOT NULL 
 				AND o.progress >= 5 
 				AND o.progress != 7 
+				AND o.completion_date IS NOT NULL
 				GROUP BY s.id 
 				ORDER BY total_contribution DESC 
 				LIMIT 5";
@@ -580,23 +584,23 @@ if ( ! class_exists( 'KTPWP_Report_Class' ) ) {
 		switch ( $period ) {
 			case 'current_year':
 			case 'this_year':
-				$where_clause = " AND YEAR(o.created_at) = YEAR(CURDATE())";
+				$where_clause = " AND YEAR(o.completion_date) = YEAR(CURDATE())";
 				break;
 			case 'last_year':
-				$where_clause = " AND YEAR(o.created_at) = YEAR(CURDATE()) - 1";
+				$where_clause = " AND YEAR(o.completion_date) = YEAR(CURDATE()) - 1";
 				break;
 			case 'current_month':
 			case 'this_month':
-				$where_clause = " AND YEAR(o.created_at) = YEAR(CURDATE()) AND MONTH(o.created_at) = MONTH(CURDATE())";
+				$where_clause = " AND YEAR(o.completion_date) = YEAR(CURDATE()) AND MONTH(o.completion_date) = MONTH(CURDATE())";
 				break;
 			case 'last_month':
-				$where_clause = " AND YEAR(o.created_at) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) AND MONTH(o.created_at) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))";
+				$where_clause = " AND YEAR(o.completion_date) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) AND MONTH(o.completion_date) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))";
 				break;
 			case 'last_3_months':
-				$where_clause = " AND o.created_at >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)";
+				$where_clause = " AND o.completion_date >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)";
 				break;
 			case 'last_6_months':
-				$where_clause = " AND o.created_at >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)";
+				$where_clause = " AND o.completion_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)";
 				break;
 			case 'all_time':
 			default:
@@ -805,18 +809,19 @@ if ( ! class_exists( 'KTPWP_Report_Class' ) ) {
 		$query = "SELECT 
 			o.id,
 			o.project_name as order_title,
-			o.created_at as date,
+			o.completion_date as date,
 			o.progress,
 			o.customer_name as client_name,
 			COALESCE(SUM(ii.amount), 0) as total_amount
 		FROM {$wpdb->prefix}ktp_order o
 		LEFT JOIN {$wpdb->prefix}ktp_order_invoice_items ii ON o.id = ii.order_id
-		WHERE YEAR(o.created_at) = %d
+		WHERE YEAR(o.completion_date) = %d
 		AND o.progress >= 5
 		AND o.progress != 7
 		AND ii.amount IS NOT NULL
+		AND o.completion_date IS NOT NULL
 		GROUP BY o.id
-		ORDER BY o.created_at DESC";
+		ORDER BY o.completion_date DESC";
 
 		$results = $wpdb->get_results( $wpdb->prepare( $query, $year ), ARRAY_A );
 

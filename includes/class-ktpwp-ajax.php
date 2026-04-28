@@ -5707,12 +5707,12 @@ class KTPWP_Ajax {
 
 		// 月別売上データ（請求済以降の進捗で、請求項目がある案件のみ）
 		$monthly_query = "SELECT 
-			DATE_FORMAT(o.created_at, '%Y-%m') as month,
+			DATE_FORMAT(o.completion_date, '%Y-%m') as month,
 			SUM(ii.amount) as total_sales
 			FROM {$wpdb->prefix}ktp_order o
 			LEFT JOIN {$wpdb->prefix}ktp_order_invoice_items ii ON o.id = ii.order_id
-			WHERE 1=1 {$where_clause} AND ii.amount IS NOT NULL AND o.progress >= 5 AND o.progress != 7
-			GROUP BY DATE_FORMAT(o.created_at, '%Y-%m')
+			WHERE 1=1 {$where_clause} AND ii.amount IS NOT NULL AND o.progress >= 5 AND o.progress != 7 AND o.completion_date IS NOT NULL
+			GROUP BY DATE_FORMAT(o.completion_date, '%Y-%m')
 			ORDER BY month";
 
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -5727,7 +5727,7 @@ class KTPWP_Ajax {
 
 		// 利益推移データ（請求済以降の進捗で、売上とコストを時系列で取得）
 		$profit_query = "SELECT 
-			DATE_FORMAT(o.created_at, '%Y-%m') as month,
+			DATE_FORMAT(o.completion_date, '%Y-%m') as month,
 			SUM(ii.amount) as total_sales,
 			SUM(COALESCE(oci.amount, 0)) as total_cost
 			FROM {$wpdb->prefix}ktp_order o
@@ -5741,8 +5741,8 @@ class KTPWP_Ajax {
 				FROM {$wpdb->prefix}ktp_order_cost_items 
 				GROUP BY order_id
 			) oci ON o.id = oci.order_id
-			WHERE 1=1 {$where_clause} AND ii.amount IS NOT NULL AND o.progress >= 5 AND o.progress != 7
-			GROUP BY DATE_FORMAT(o.created_at, '%Y-%m')
+			WHERE 1=1 {$where_clause} AND ii.amount IS NOT NULL AND o.progress >= 5 AND o.progress != 7 AND o.completion_date IS NOT NULL
+			GROUP BY DATE_FORMAT(o.completion_date, '%Y-%m')
 			ORDER BY month";
 
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -5816,6 +5816,7 @@ class KTPWP_Ajax {
 			AND ii.amount IS NOT NULL 
 			AND o.progress >= 5 
 			AND o.progress != 7
+			AND o.completion_date IS NOT NULL
 			GROUP BY o.customer_name
 			ORDER BY total_sales DESC
 			LIMIT 10";
@@ -5830,6 +5831,7 @@ class KTPWP_Ajax {
 			WHERE 1=1 {$where_clause} 
 			AND o.progress >= 5 
 			AND o.progress != 7
+			AND o.completion_date IS NOT NULL
 			GROUP BY o.customer_name
 			ORDER BY order_count DESC
 			LIMIT 10";
@@ -5887,6 +5889,7 @@ class KTPWP_Ajax {
 				AND ii.amount IS NOT NULL 
 				AND o.progress >= 5 
 				AND o.progress != 7
+				AND o.completion_date IS NOT NULL
 				GROUP BY ii.product_name 
 				ORDER BY total_sales DESC 
 				LIMIT 5";
@@ -5961,6 +5964,7 @@ class KTPWP_Ajax {
 				AND oci.supplier_id IS NOT NULL 
 				AND o.progress >= 5 
 				AND o.progress != 7
+				AND o.completion_date IS NOT NULL
 				GROUP BY s.id 
 				ORDER BY total_contribution DESC 
 				LIMIT 5";
@@ -6021,22 +6025,22 @@ class KTPWP_Ajax {
 
 		switch ( $period ) {
 			case 'this_year':
-				$where_clause = " AND YEAR(o.created_at) = YEAR(CURDATE())";
+				$where_clause = " AND YEAR(o.completion_date) = YEAR(CURDATE())";
 				break;
 			case 'last_year':
-				$where_clause = " AND YEAR(o.created_at) = YEAR(CURDATE()) - 1";
+				$where_clause = " AND YEAR(o.completion_date) = YEAR(CURDATE()) - 1";
 				break;
 			case 'this_month':
-				$where_clause = " AND YEAR(o.created_at) = YEAR(CURDATE()) AND MONTH(o.created_at) = MONTH(CURDATE())";
+				$where_clause = " AND YEAR(o.completion_date) = YEAR(CURDATE()) AND MONTH(o.completion_date) = MONTH(CURDATE())";
 				break;
 			case 'last_month':
-				$where_clause = " AND YEAR(o.created_at) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) AND MONTH(o.created_at) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))";
+				$where_clause = " AND YEAR(o.completion_date) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) AND MONTH(o.completion_date) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))";
 				break;
 			case 'last_3_months':
-				$where_clause = " AND o.created_at >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)";
+				$where_clause = " AND o.completion_date >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)";
 				break;
 			case 'last_6_months':
-				$where_clause = " AND o.created_at >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)";
+				$where_clause = " AND o.completion_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)";
 				break;
 			case 'all_time':
 			default:
