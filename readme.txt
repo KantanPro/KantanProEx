@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.63
+Stable tag: 1.2.64
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -324,6 +324,11 @@ curl -sS -X POST \
 * 推奨PHP拡張: GD（画像処理用）
 
 == 変更履歴 ==
+
+= 1.2.64 - 2026年04月28日 =
+* 仕事リストの検索フォームを追加し、顧客名・案件名・メモなどを対象にしたフリーワード検索に対応
+* 仕事リストの入力フィールド（案件名・金額・完了日）のサイズとフォントサイズを調整し、一覧画面の視認性と操作性を改善
+* 進捗メタ情報（data-progress）を行要素に付与し、フロント側での状態判定と表示連携を強化
 
 = 1.2.63 - 2026年04月28日 =
 * 仕事リストの受付日表示を年月日のみに統一し、時刻表示を廃止
