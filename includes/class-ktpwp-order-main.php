@@ -1548,11 +1548,11 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					$content .= '</button>';
 					$content .= '</form>';
 
-					// 右側：プレビューボタン、メールボタン
-					$content .= '<div style="display: flex; gap: 5px;">';
+					// 右側：プレビューボタン、メールボタン（軽量な共通クラスで描画）
+					$content .= '<div class="ktp-order-title-actions">';
 					// プレビューボタン（受注書IDのみ保持、最新データはAjaxで取得）
-					$content .= '<button id="orderPreviewButton" data-order-id="' . esc_attr( $order_data->id ) . '" title="' . esc_attr__( '印刷する', 'ktpwp' ) . '" style="padding: 6px 10px; font-size: 12px;">';
-					$content .= '<span class="material-symbols-outlined" aria-label="' . esc_attr__( '印刷する', 'ktpwp' ) . '" style="font-size: 16px;">print</span>';
+					$content .= '<button id="orderPreviewButton" class="ktp-title-icon-btn print-btn" data-order-id="' . esc_attr( $order_data->id ) . '" title="' . esc_attr__( '印刷する', 'ktpwp' ) . '" aria-label="' . esc_attr__( '印刷する', 'ktpwp' ) . '">';
+					$content .= '<span class="material-symbols-outlined" aria-hidden="true">print</span>';
 					$content .= '</button>';
 
 					// 顧客情報に基づいてメールボタンの状態を制御
@@ -1634,11 +1634,11 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 
 					// Email button (opens popup)
 					if ( $can_send_email ) {
-						$content .= '<button type="button" id="orderMailButton" class="order-mail-btn" onclick="ktpShowEmailPopup(' . esc_attr( $order_data->id ) . ')" title="' . $mail_button_title . '">';
+						$content .= '<button type="button" id="orderMailButton" class="ktp-title-icon-btn order-mail-btn" onclick="ktpShowEmailPopup(' . esc_attr( $order_data->id ) . ')" title="' . $mail_button_title . '" aria-label="' . esc_attr__( 'メール送信', 'ktpwp' ) . '">';
 					} else {
-						$content .= '<button type="button" id="orderMailButton" class="order-mail-btn" disabled title="' . $mail_button_title . '">';
+						$content .= '<button type="button" id="orderMailButton" class="ktp-title-icon-btn order-mail-btn" disabled title="' . $mail_button_title . '" aria-label="' . esc_attr__( 'メール送信不可', 'ktpwp' ) . '">';
 					}
-					$content .= '<span class="material-symbols-outlined" aria-label="' . esc_attr__( 'メール', 'ktpwp' ) . '" style="font-size: 14px;">mail</span>';
+					$content .= '<span class="material-symbols-outlined" aria-hidden="true">mail</span>';
 					$content .= '</button>';
 					$content .= '</div>'; // 右側のボタン群終了
 					$content .= '</div>'; // controller終了
@@ -1949,13 +1949,13 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					$content .= '受注書を削除';
 					$content .= '</button>';
 
-					// 右側：プレビューボタンと印刷ボタン（無効化）
-					$content .= '<div style="display: flex; gap: 5px;">';
-					$content .= '<button id="orderPreviewButton" disabled title="' . esc_attr__( '印刷する', 'ktpwp' ) . '" style="padding: 6px 10px; font-size: 12px;">';
-					$content .= '<span class="material-symbols-outlined" aria-label="' . esc_attr__( '印刷する', 'ktpwp' ) . '" style="font-size: 16px;">print</span>';
+					// 右側：プレビューボタンとメールボタン（無効化）
+					$content .= '<div class="ktp-order-title-actions">';
+					$content .= '<button id="orderPreviewButton" class="ktp-title-icon-btn print-btn" disabled title="' . esc_attr__( '印刷する', 'ktpwp' ) . '" aria-label="' . esc_attr__( '印刷する', 'ktpwp' ) . '">';
+					$content .= '<span class="material-symbols-outlined" aria-hidden="true">print</span>';
 					$content .= '</button>';
-					$content .= '<button disabled title="' . esc_attr__( '印刷する', 'ktpwp' ) . '" style="padding: 6px 10px; font-size: 12px;">';
-					$content .= '<span class="material-symbols-outlined" aria-label="' . esc_attr__( '印刷', 'ktpwp' ) . '" style="font-size: 16px;">print</span>';
+					$content .= '<button class="ktp-title-icon-btn order-mail-btn" disabled title="' . esc_attr__( 'メール送信不可', 'ktpwp' ) . '" aria-label="' . esc_attr__( 'メール送信不可', 'ktpwp' ) . '">';
+					$content .= '<span class="material-symbols-outlined" aria-hidden="true">mail</span>';
 					$content .= '</button>';
 					$content .= '</div>'; // 右側のボタン群終了
 					$content .= '</div>'; // controller終了
@@ -1977,13 +1977,13 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				$content .= '受注書を削除';
 				$content .= '</button>';
 
-				// 右側：プレビューボタンと印刷ボタン（無効化）
-				$content .= '<div style="display: flex; gap: 5px;">';
-				$content .= '<button id="orderPreviewButton" disabled title="' . esc_attr__( '印刷する', 'ktpwp' ) . '" style="padding: 6px 10px; font-size: 12px;">';
-				$content .= '<span class="material-symbols-outlined" aria-label="' . esc_attr__( '印刷する', 'ktpwp' ) . '" style="font-size: 16px;">print</span>';
+				// 右側：プレビューボタンとメールボタン（無効化）
+				$content .= '<div class="ktp-order-title-actions">';
+				$content .= '<button id="orderPreviewButton" class="ktp-title-icon-btn print-btn" disabled title="' . esc_attr__( '印刷する', 'ktpwp' ) . '" aria-label="' . esc_attr__( '印刷する', 'ktpwp' ) . '">';
+				$content .= '<span class="material-symbols-outlined" aria-hidden="true">print</span>';
 				$content .= '</button>';
-				$content .= '<button disabled title="' . esc_attr__( '印刷する', 'ktpwp' ) . '" style="padding: 6px 10px; font-size: 12px;">';
-				$content .= '<span class="material-symbols-outlined" aria-label="' . esc_attr__( '印刷', 'ktpwp' ) . '" style="font-size: 16px;">print</span>';
+				$content .= '<button class="ktp-title-icon-btn order-mail-btn" disabled title="' . esc_attr__( 'メール送信不可', 'ktpwp' ) . '" aria-label="' . esc_attr__( 'メール送信不可', 'ktpwp' ) . '">';
+				$content .= '<span class="material-symbols-outlined" aria-hidden="true">mail</span>';
 				$content .= '</button>';
 				$content .= '</div>'; // 右側のボタン群終了
 				$content .= '</div>'; // controller終了
