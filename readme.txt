@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.59
+Stable tag: 1.2.60
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -324,6 +324,11 @@ curl -sS -X POST \
 * 推奨PHP拡張: GD（画像処理用）
 
 == 変更履歴 ==
+
+= 1.2.60 - 2026年04月28日 =
+* 受注書の受付（登録日）をカレンダーで編集できるようにし、売上レポートの期間判定に使う登録日へ反映されるよう改善
+* 受注書詳細の日付欄（受付・約束納期・希望納期・納品予定日・完了日）を同一行・同一サイズのカレンダー表示に統一
+* 日付欄のクリアボタンを廃止し、ラベル表記を「項目名：」形式に揃えて受注書概要の視認性を改善
 
 = 1.2.59 - 2026年04月28日 =
 * GitHub Releases の参照先を KantanProEX 用リポジトリ（`KantanPro/KantanProEx`）へ修正
