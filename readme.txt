@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.60
+Stable tag: 1.2.61
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -324,6 +324,12 @@ curl -sS -X POST \
 * 推奨PHP拡張: GD（画像処理用）
 
 == 変更履歴 ==
+
+= 1.2.61 - 2026年04月28日 =
+* GitHub Releases の更新情報取得で、設定済み GitHub トークンを使った API 認証に対応し、非公開リポジトリ/Release でも更新情報を取得できるよう修正
+* バージョン付き配布 ZIP（例: `KantanProEX_1.2.60_20260428.zip`）を更新アセットとして優先検出できるよう改善
+* 受注書概要のカレンダー幅を広げ、日付が見切れないよう調整
+* 受付カレンダーを支払欄の末尾へ移動し、上段の進捗・支払・受付の並びを整理
 
 = 1.2.60 - 2026年04月28日 =
 * 受注書の受付（登録日）をカレンダーで編集できるようにし、売上レポートの期間判定に使う登録日へ反映されるよう改善

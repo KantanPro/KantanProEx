@@ -1873,18 +1873,18 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					$content .= '<input type="hidden" name="update_payment_timing_order_id" value="' . esc_attr( $order_data->id ) . '" />';
 					$content .= '<input type="hidden" name="ktp_payment_timing_nonce" value="' . esc_attr( wp_create_nonce( 'ktp_update_order_payment_timing' ) ) . '" />';
 					$content .= '</form></div>';
-
-					$content .= '</div>';
-
-					$content .= '</div>';
-
-					$content .= '<div class="ktp-order-summary-dates-grid">';
 					if ( $reception_date_value !== '' ) {
 						$content .= '<div class="ktp-order-summary-date-cell ktp-order-summary-date-cell--reception"><span class="ktp-order-summary-field-label">' . esc_html__( '受付', 'ktpwp' ) . '：</span>';
 						$content .= '<div class="ktp-order-summary-date-cell-inner">';
 						$content .= '<input type="date" id="order_created_at" name="created_at" value="' . esc_attr( $reception_date_value ) . '" data-order-id="' . esc_attr( $order_data->id ) . '" data-field="created_at" class="order-created-date-input ktp-order-summary-date-input" title="' . esc_attr__( '売上レポートの期間判定に使われる登録日です', 'ktpwp' ) . '" />';
 						$content .= '</div></div>';
 					}
+
+					$content .= '</div>';
+
+					$content .= '</div>';
+
+					$content .= '<div class="ktp-order-summary-dates-grid">';
 					$content .= '<div class="ktp-order-summary-date-cell"><span class="ktp-order-summary-field-label">' . esc_html__( '約束納期', 'ktpwp' ) . '：</span>';
 					$content .= '<div class="ktp-order-summary-date-cell-inner">';
 					$content .= '<input type="date" id="promised_delivery_date" name="promised_delivery_date" value="' . esc_attr( $promised_delivery_date ) . '" data-order-id="' . esc_attr( $order_data->id ) . '" data-field="promised_delivery_date" class="delivery-date-input ktp-order-summary-date-input" />';

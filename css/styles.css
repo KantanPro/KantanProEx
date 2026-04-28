@@ -4906,9 +4906,9 @@ body.ktpwp-modal-open {
 }
 .ktp-order-summary-date-input {
   flex: 0 0 auto;
-  width: 132px;
-  min-width: 132px;
-  max-width: 132px;
+  width: 156px;
+  min-width: 156px;
+  max-width: 156px;
   height: 28px;
   min-height: 28px;
   font-size: 12px;
