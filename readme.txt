@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.64
+Stable tag: 1.2.65
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -324,6 +324,9 @@ curl -sS -X POST \
 * 推奨PHP拡張: GD（画像処理用）
 
 == 変更履歴 ==
+
+= 1.2.65 - 2026年04月29日 =
+* CSSのスタイルを修正し、受注詳細のボタンを共通クラスで統一
 
 = 1.2.64 - 2026年04月28日 =
 * 仕事リストの検索フォームを追加し、顧客名・案件名・メモなどを対象にしたフリーワード検索に対応
