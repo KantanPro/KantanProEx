@@ -406,8 +406,30 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 			if ( $page_stage == '' ) {
 				$page_start = 0;
 			}
+			$list_search_where = '';
+			$list_search_args = array();
+			if ( $list_search !== '' ) {
+				$list_like = '%' . $wpdb->esc_like( $list_search ) . '%';
+				$order_cols = $wpdb->get_col( "SHOW COLUMNS FROM `{$table_name}`" );
+				$search_columns = array( 'customer_name', 'user_name', 'project_name' );
+				if ( is_array( $order_cols ) && in_array( 'memo', $order_cols, true ) ) {
+					$search_columns[] = 'memo';
+				}
+				if ( is_array( $order_cols ) && in_array( 'search_field', $order_cols, true ) ) {
+					$search_columns[] = 'search_field';
+				}
+				$search_parts = array();
+				foreach ( $search_columns as $search_column ) {
+					$search_parts[] = "`{$search_column}` LIKE %s";
+					$list_search_args[] = $list_like;
+				}
+				$list_search_where = ' AND ( ' . implode( ' OR ', $search_parts ) . ' )';
+			}
 			// 総件数取得
-			$total_query = $wpdb->prepare( "SELECT COUNT(*) FROM {$table_name} WHERE progress = %d", $selected_progress );
+			$total_query = $wpdb->prepare(
+				"SELECT COUNT(*) FROM {$table_name} WHERE progress = %d{$list_search_where}",
+				array_merge( array( $selected_progress ), $list_search_args )
+			);
 			$total_rows = $wpdb->get_var( $total_query );
 			$total_pages = ceil( $total_rows / $query_limit );
 			$current_page = floor( $page_start / $query_limit ) + 1;
@@ -425,17 +447,17 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
                         ELSE DATEDIFF(expected_delivery_date, CURDATE())
                     END as days_until_delivery
                 FROM {$table_name}
-                WHERE progress = %d
+                WHERE progress = %d{$list_search_where}
                 ORDER BY days_until_delivery ASC, time DESC",
-						$selected_progress
+						array_merge( array( $selected_progress ), $list_search_args )
 					);
 				} else {
 					// その他の進捗は従来通り時間順でソート
 					$query = $wpdb->prepare(
 						"SELECT * FROM {$table_name}
-                WHERE progress = %d
+                WHERE progress = %d{$list_search_where}
                 ORDER BY time DESC",
-						$selected_progress
+						array_merge( array( $selected_progress ), $list_search_args )
 					);
 				}
 			} else {
@@ -450,23 +472,19 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
                         ELSE DATEDIFF(expected_delivery_date, CURDATE())
                     END as days_until_delivery
                 FROM {$table_name} 
-                WHERE progress = %d 
+                WHERE progress = %d{$list_search_where}
                 ORDER BY days_until_delivery ASC, time DESC 
                 LIMIT %d, %d",
-						$selected_progress,
-						$page_start,
-						$query_limit
+						array_merge( array( $selected_progress ), $list_search_args, array( $page_start, $query_limit ) )
 					);
 				} else {
 					// その他の進捗は従来通り時間順でソート
 					$query = $wpdb->prepare(
                         "SELECT * FROM {$table_name} 
-                WHERE progress = %d 
+                WHERE progress = %d{$list_search_where}
                 ORDER BY time DESC 
                 LIMIT %d, %d",
-						$selected_progress,
-						$page_start,
-						$query_limit
+						array_merge( array( $selected_progress ), $list_search_args, array( $page_start, $query_limit ) )
 					);
 				}
 			}

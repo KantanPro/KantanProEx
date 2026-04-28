@@ -4896,10 +4896,33 @@ body.ktpwp-modal-open {
   line-height: 1.25;
   font-size: 14px;
 }
-@media screen and (max-width: 640px) {
+@media screen and (max-width: 767px) {
   .ktp-order-summary-row--topline .ktp-order-summary-progress-meta {
     margin-left: 0;
+    flex: 0 0 100%;
     width: 100%;
+    height: auto;
+    justify-content: flex-start;
+  }
+  .ktp-order-summary-row--topline .ktp-order-summary-progress-form.order-header-progress-form {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    width: auto !important;
+    min-width: max-content;
+  }
+  .ktp-order-summary-row--topline .ktp-order-summary-progress-form .ktp-order-summary-field-label {
+    display: inline-flex !important;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .ktp-order-summary-row--topline .ktp-order-summary-progress-select {
+    flex: 0 0 auto;
+    width: 120px !important;
+    max-width: 160px;
   }
 }
 .ktp-order-summary-dates-grid {
@@ -4941,9 +4964,9 @@ body.ktpwp-modal-open {
 }
 .ktp-order-summary-date-input {
   flex: 0 0 auto;
-  width: 156px;
-  min-width: 156px;
-  max-width: 156px;
+  width: 180px;
+  min-width: 180px;
+  max-width: 180px;
   height: 28px;
   min-height: 28px;
   font-size: 14px;
@@ -4953,6 +4976,15 @@ body.ktpwp-modal-open {
   border-radius: 4px;
   box-sizing: border-box;
   background: #fff;
+}
+.ktp-order-summary-card .ktp-order-summary-date-input,
+.ktp-order-summary-card .delivery-date-input.ktp-order-summary-date-input,
+.ktp-order-summary-card .completion-date-input.ktp-order-summary-date-input,
+.ktp-order-summary-card .order-created-date-input.ktp-order-summary-date-input {
+  flex: 0 0 180px !important;
+  width: 180px !important;
+  min-width: 180px !important;
+  max-width: 180px !important;
 }
 /* 受注書概要の日付クリア（WP .button と高さを揃え、幅 100% にならないようにする） */
 .ktp-order-summary-date-cell-inner .ktp-date-clear-btn {
