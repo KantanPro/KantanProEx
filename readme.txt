@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.62
+Stable tag: 1.2.63
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -324,6 +324,11 @@ curl -sS -X POST \
 * 推奨PHP拡張: GD（画像処理用）
 
 == 変更履歴 ==
+
+= 1.2.63 - 2026年04月28日 =
+* 仕事リストの受付日表示を年月日のみに統一し、時刻表示を廃止
+* 仕事リストの顧客詳細リンクを廃止し、行クリックで受注書詳細へ遷移する操作に統一
+* 受注書概要ヘッダーの案件名フィールド幅、進捗の右端配置、文字サイズを調整し、表示の揃いを改善
 
 = 1.2.62 - 2026年04月28日 =
 * 売上レポート・売上台帳PDFの期間集計を受付日ではなく完了日基準に統一し、完了日未設定の案件を集計対象外にするよう修正
