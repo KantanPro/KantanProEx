@@ -748,7 +748,7 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 						}
 					}
 
-					// 日時フォーマット変換
+					// 受付日フォーマット変換（仕事リストでは年月日のみ表示）
 					$raw_time = $order->time;
 					$formatted_time = '';
 					if ( ! empty( $raw_time ) ) {
@@ -763,9 +763,7 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 							$dt = date_create( $raw_time, new DateTimeZone( 'Asia/Tokyo' ) );
 						}
 						if ( $dt ) {
-							$week = array( '日', '月', '火', '水', '木', '金', '土' );
-							$w = $dt->format( 'w' );
-							$formatted_time = $dt->format( 'n/j' ) . '（' . $week[ $w ] . '）' . $dt->format( ' H:i' );
+							$formatted_time = $dt->format( 'Y/n/j' );
 						}
 					}
 					$time = esc_html( $formatted_time );
@@ -783,27 +781,17 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 
 					// プルダウンフォーム（警告バッジ対象の行は同じ赤強調）
 					$urgent_class = ( $is_urgent || $show_invoice_warning || $show_payment_warning ) ? 'urgent-delivery' : '';
-					$content .= "<li class='ktp_work_list_item {$urgent_class}'>";
+					$row_click_handler   = "if (!event.target.closest('input, select, button, a, form, label')) { window.location.href = this.dataset.detailUrl; }";
+					$row_keydown_handler = "if ((event.key === 'Enter' || event.key === ' ') && !event.target.closest('input, select, button, a, form, label')) { event.preventDefault(); window.location.href = this.dataset.detailUrl; }";
+					$content .= '<li class="ktp_work_list_item ' . esc_attr( $urgent_class ) . '" data-detail-url="' . esc_url( $detail_url ) . '" role="link" tabindex="0" onclick="' . esc_attr( $row_click_handler ) . '" onkeydown="' . esc_attr( $row_keydown_handler ) . '">';
 					// 左寄せブロック（ID・顧客名・担当者・プロジェクト・日時を一まとまりで左寄せ）
-					$content .= "<span class='ktp_work_list_item_text'>";
-					// 受注詳細リンク（ID）＋ 顧客会社名（該当顧客がいれば顧客タブへのリンク）
-					$content .= "<a href='" . esc_url( $detail_url ) . "'>ID: {$order_id}</a> - ";
-					if ( $client_id > 0 ) {
-						$client_url = add_query_arg(
-							array(
-								'tab_name' => 'client',
-								'data_id'  => $client_id,
-							)
-						);
-						$content .= "<a href='" . esc_url( $client_url ) . "' class='ktp-work-list-client-link' title='" . esc_attr__( '顧客詳細を表示', 'ktpwp' ) . "'>{$customer_name}</a>";
-					} else {
-						$content .= $customer_name;
-					}
-					$content .= " <a href='" . esc_url( $detail_url ) . "'>({$user_name})";
+					$content .= '<span class="ktp_work_list_item_text">';
+					// 行全体を受注書詳細へのリンクに統一し、顧客詳細リンクは廃止
+					$content .= "ID: {$order_id} - {$customer_name} ({$user_name})";
 					if ( $project_name !== '' ) {
 						$content .= " - <span class='project_name'>{$project_name}</span>";
 					}
-					$content .= " - {$time}</a>";
+					$content .= " - {$time}";
 					// 前払いラベル（前入金済 / EC受注）
 					if ( class_exists( 'KTPWP_Payment_Timing' ) ) {
 						$prepay_label = KTPWP_Payment_Timing::get_prepay_label( $order, null );
