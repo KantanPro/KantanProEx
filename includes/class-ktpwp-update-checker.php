@@ -370,6 +370,12 @@ class KTPWP_Update_Checker {
         // 更新チェック実行
         $this->clear_plugin_cache();
         $update_available = $this->check_github_updates();
+        $debug_info = array(
+            'current_version' => $this->current_version,
+            'github_repo' => $this->github_repo,
+            'latest_version' => get_option( 'ktpwp_latest_version' ),
+            'update_available' => get_option( 'ktpwp_update_available' ),
+        );
         
         if ( $update_available && is_array($update_available) ) {
             wp_send_json_success( array(
@@ -410,11 +416,16 @@ class KTPWP_Update_Checker {
             $timeout = 30;
             $headers = array(
                 'Accept' => 'application/vnd.github.v3+json',
+                'X-GitHub-Api-Version' => '2022-11-28',
             );
-            
-            // 公開リポジトリ用のため、トークン認証は無効化
-            // 配布用プラグインではセキュリティ上の理由でトークンを使用しない
-            error_log( 'KantanPro: 公開リポジトリとしてAPIに接続します' );
+
+            $github_token = trim( (string) $this->github_token );
+            if ( $github_token !== '' ) {
+                $headers['Authorization'] = 'Bearer ' . $github_token;
+                error_log( 'KantanPro: GitHubトークン認証でAPIに接続します' );
+            } else {
+                error_log( 'KantanPro: GitHubトークン未設定のため公開APIとして接続します' );
+            }
             
             $args = array(
                 'timeout' => $timeout,
@@ -441,13 +452,12 @@ class KTPWP_Update_Checker {
                 $response_body = wp_remote_retrieve_body( $response );
                 error_log( 'KantanPro: GitHub API エラーレスポンス: ' . $response_code . ' - ' . $response_body );
                 
-                // 公開リポジトリ用のエラーハンドリング
                 if ( $response_code === 404 ) {
-                    error_log( 'KantanPro: リポジトリが見つかりません。リポジトリ名またはURLを確認してください。' );
+                    error_log( 'KantanPro: リリース情報が見つかりません。リポジトリ名、GitHub Releaseの有無、または非公開リポジトリ用トークン設定を確認してください。' );
                 } elseif ( $response_code === 403 ) {
                     error_log( 'KantanPro: GitHub APIレート制限に達しました。しばらく時間をおいて再試行してください。' );
                 } elseif ( $response_code === 401 ) {
-                    error_log( 'KantanPro: GitHub API認証エラー。公開リポジトリの場合は認証は不要です。' );
+                    error_log( 'KantanPro: GitHub API認証エラー。GitHubトークンの権限または有効期限を確認してください。' );
                 }
                 
                 return false;
@@ -488,8 +498,11 @@ class KTPWP_Update_Checker {
                 $download_url = '';
                 if ( ! empty($data['assets']) ) {
                     foreach ( $data['assets'] as $asset ) {
-                        // 'KantanProEX.zip' のようなEX用のZIPファイルを優先する
-                        if ( $asset['name'] === 'KantanProEX.zip' && $asset['content_type'] === 'application/zip') {
+                        // EX用の固定名または配布スクリプトのバージョン付きZIPを優先する
+                        if (
+                            ( $asset['name'] === 'KantanProEX.zip' || preg_match( '/^KantanProEX_.*\.zip$/', $asset['name'] ) )
+                            && $asset['content_type'] === 'application/zip'
+                        ) {
                             $download_url = $asset['browser_download_url'];
                             error_log('KantanPro: Found release asset: ' . $download_url);
                             break;
@@ -1565,11 +1578,6 @@ class KTPWP_Update_Checker {
             $update_data = $this->check_github_updates();
         }
         
-        // プラグインの更新情報キャッシュをクリアして、最新情報を取得
-        if ( $update_data && is_array( $update_data ) ) {
-            delete_site_transient( 'update_plugins' );
-        }
-
         if ( $update_data && is_array( $update_data ) && isset( $update_data['version'] ) ) {
             $latest_version = $this->clean_version( $update_data['version'] );
             $current_version = $this->clean_version( $this->current_version );
