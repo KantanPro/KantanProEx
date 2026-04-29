@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.67
+Stable tag: 1.2.68
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -324,6 +324,10 @@ curl -sS -X POST \
 * 推奨PHP拡張: GD（画像処理用）
 
 == 変更履歴 ==
+
+= 1.2.68 - 2026年04月30日 =
+* WooCommerce 注文取り込み時の請求先氏名を姓名順に統一
+* WooCommerce から取り込む郵便番号のハイフンを除去し、既存顧客データの形式補正にも対応
 
 = 1.2.67 - 2026年04月29日 =
 * フッターの利用規約リンクから開く公開ページのタイトルを「KantanProEX 1.2.67利用規約」に修正
