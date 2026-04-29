@@ -301,7 +301,7 @@ kantanpro22@gmail.com
 
                 <h3><?php echo esc_html__( '利用規約の表示', 'ktpwp' ); ?></h3>
                 <div style="background: #f9f9f9; padding: 20px; border: 1px solid #ddd; border-radius: 4px;">
-                    <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 20px;">KantanPro<?php echo KANTANPRO_PLUGIN_VERSION; ?>利用規約</h2>
+                    <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 20px;"><?php echo esc_html( 'KantanProEX ' . KANTANPRO_PLUGIN_VERSION . '利用規約' ); ?></h2>
                     <?php echo $this->format_terms_content( $terms ? $terms->terms_content : '' ); ?>
                 </div>
             </div>
@@ -743,13 +743,14 @@ kantanpro22@gmail.com
      */
     private function display_public_terms_page() {
         $terms_content = $this->get_terms_content();
+        $terms_title   = 'KantanProEX ' . KANTANPRO_PLUGIN_VERSION . '利用規約';
         ?>
         <!DOCTYPE html>
         <html lang="ja">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>KantanPro<?php echo KANTANPRO_PLUGIN_VERSION; ?>利用規約</title>
+            <title><?php echo esc_html( $terms_title ); ?></title>
             <style>
                 body {
                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -809,7 +810,7 @@ kantanpro22@gmail.com
         </head>
         <body>
             <div class="container">
-                <h1>KantanPro<?php echo KANTANPRO_PLUGIN_VERSION; ?>利用規約</h1>
+                <h1><?php echo esc_html( $terms_title ); ?></h1>
                 <?php echo $this->format_terms_content( $terms_content ); ?>
                 
                 <div class="back-link">
