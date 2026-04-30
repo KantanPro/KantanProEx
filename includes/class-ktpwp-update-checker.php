@@ -1561,6 +1561,9 @@ class KTPWP_Update_Checker {
         // バージョンが変更された場合
         if ( $old_version !== $new_version ) {
             $this->clear_plugin_cache();
+            if ( is_admin() && $old_version !== '0' ) {
+                set_transient( $this->key( 'admin_reload' ), 1, 5 * MINUTE_IN_SECONDS );
+            }
             
             // 新しいバージョンを保存
             update_option( 'ktpwp_version', $new_version );
@@ -1944,7 +1947,7 @@ class KTPWP_Update_Checker {
      * @return void
      */
     public function maybe_reload_admin_after_activation() {
-        if ( ! is_admin() || ! current_user_can( 'activate_plugins' ) ) {
+        if ( ! is_admin() || ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) || ! current_user_can( 'manage_options' ) ) {
             return;
         }
 
@@ -1953,7 +1956,7 @@ class KTPWP_Update_Checker {
         }
 
         if ( ! isset( $_GET['ktpwp_reloaded'] ) ) {
-            wp_safe_redirect( add_query_arg( 'ktpwp_reloaded', '1' ) );
+            wp_safe_redirect( admin_url( 'admin.php?page=ktp-settings&ktpwp_reloaded=1&ktpwp_updated=1' ) );
             exit;
         }
 
