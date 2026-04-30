@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.2.90
+ * Version: 1.2.91
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -23,11 +23,12 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-// 更新処理中に一時展開ディレクトリ由来の同一ファイルが二重ロードされるケースを防止
-if ( defined( 'KTPWP_EX_MAIN_LOADED' ) ) {
+// 更新処理中に一時展開ディレクトリが別パスで二重ロードされるケースを防止
+// （define はファイルパスごとに別定数になるため、グローバルフラグで一意に判定する）
+if ( ! empty( $GLOBALS['ktpwp_ex_main_plugin_booted'] ) ) {
     return;
 }
-define( 'KTPWP_EX_MAIN_LOADED', true );
+$GLOBALS['ktpwp_ex_main_plugin_booted'] = true;
 
 if ( ! function_exists( 'ktpwp_ex_publish_pro_identity' ) ) {
     /**
@@ -454,8 +455,6 @@ register_activation_hook( __FILE__, 'ktpwp_comprehensive_activation' );
 // === WordPress標準更新システム ===
 // シンプルなバージョン管理
 
-add_action( 'admin_init', 'ktpwp_upgrade', 10, 0 );
-
 /**
  * 協力会社「職能」POST をテーマ出力より前に処理する（投稿名パーマリンク等で the_content 内リダイレクトが失敗し白画面になるのを防ぐ）。
  */
@@ -500,48 +499,53 @@ if ( ! function_exists( 'ktpwp_supplier_skills_template_redirect' ) ) {
  * 改善されたアップグレード処理
  * バージョン変更時に確実にマイグレーションを実行
  */
-function ktpwp_upgrade() {
-    $old_ver = get_option( 'ktpwp_version', '0' );
-    $new_ver = KANTANPRO_PLUGIN_VERSION;
+if ( ! function_exists( 'ktpwp_upgrade' ) ) {
+    function ktpwp_upgrade() {
+        $old_ver = get_option( 'ktpwp_version', '0' );
+        $new_ver = KANTANPRO_PLUGIN_VERSION;
 
-    if ( $old_ver === $new_ver ) {
-        return;
-    }
-
-    if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-        error_log( 'KTPWP: アップグレード処理開始 - ' . $old_ver . ' → ' . $new_ver );
-    }
-
-    do_action( 'ktpwp_upgrade', $new_ver, $old_ver );
-
-    // アップグレード時の自動マイグレーションを確実に実行
-    try {
-        if ( function_exists('ktpwp_run_auto_migrations') ) {
-            ktpwp_run_auto_migrations();
+        if ( $old_ver === $new_ver ) {
+            return;
         }
-        
-        // 適格請求書ナンバー機能のマイグレーション（確実に実行）
-        if ( function_exists('ktpwp_run_qualified_invoice_migration') ) {
-            ktpwp_run_qualified_invoice_migration();
-        }
-        
-        // コスト項目テーブルに適格請求書番号カラムを追加
-        if ( function_exists('ktpwp_run_qualified_invoice_number_cost_items_migration') ) {
-            ktpwp_run_qualified_invoice_number_cost_items_migration();
-        }
-        
+
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'KTPWP: アップグレード処理正常完了' );
+            error_log( 'KTPWP: アップグレード処理開始 - ' . $old_ver . ' → ' . $new_ver );
         }
-        
-    } catch ( Exception $e ) {
-        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'KTPWP: アップグレード処理でエラー発生: ' . $e->getMessage() );
-        }
-    }
 
-    update_option( 'ktpwp_version', $new_ver );
-    update_option( 'ktpwp_upgrade_timestamp', current_time( 'mysql' ) );
+        do_action( 'ktpwp_upgrade', $new_ver, $old_ver );
+
+        // アップグレード時の自動マイグレーションを確実に実行
+        try {
+            if ( function_exists( 'ktpwp_run_auto_migrations' ) ) {
+                ktpwp_run_auto_migrations();
+            }
+
+            // 適格請求書ナンバー機能のマイグレーション（確実に実行）
+            if ( function_exists( 'ktpwp_run_qualified_invoice_migration' ) ) {
+                ktpwp_run_qualified_invoice_migration();
+            }
+
+            // コスト項目テーブルに適格請求書番号カラムを追加
+            if ( function_exists( 'ktpwp_run_qualified_invoice_number_cost_items_migration' ) ) {
+                ktpwp_run_qualified_invoice_number_cost_items_migration();
+            }
+
+            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( 'KTPWP: アップグレード処理正常完了' );
+            }
+        } catch ( Exception $e ) {
+            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( 'KTPWP: アップグレード処理でエラー発生: ' . $e->getMessage() );
+            }
+        }
+
+        update_option( 'ktpwp_version', $new_ver );
+        update_option( 'ktpwp_upgrade_timestamp', current_time( 'mysql' ) );
+    }
+}
+
+if ( ! has_action( 'admin_init', 'ktpwp_upgrade' ) ) {
+    add_action( 'admin_init', 'ktpwp_upgrade', 10, 0 );
 }
 
 /**

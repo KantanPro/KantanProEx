@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.90
+Stable tag: 1.2.91
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,10 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.2.91 - 2026年05月01日 =
+* 一時展開ディレクトリが別パスになると定数ガードが効かず二重ロードされる問題を修正（`ktpwp_upgrade()` 再定義Fatal対策）
+* `admin_init` への重複登録も避けるよう調整
 
 = 1.2.90 - 2026年05月01日 =
 * 更新中の二重ロードを防止し、関数再定義Fatalで有効化されず停止する問題を修正
