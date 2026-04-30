@@ -225,7 +225,18 @@ class KTPWP_Update_Checker {
         $normalized_target = $this->normalize_basename( $this->plugin_basename );
         $normalized_given  = $this->normalize_basename( $basename );
 
-        return $normalized_target === $normalized_given;
+        if ( $normalized_target === $normalized_given ) {
+            return true;
+        }
+
+        // GitHub zipball 展開時の一時ディレクトリ名（例: KantanPro-KantanProEx-xxxx/ktpwp.php）も対象として扱う
+        $file = strtolower( basename( $basename ) );
+        $dir  = strtolower( dirname( $basename ) );
+        if ( $file === 'ktpwp.php' && strpos( $dir, 'kantanproex' ) !== false ) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -440,8 +451,54 @@ class KTPWP_Update_Checker {
     public function admin_init() {
         // 管理画面でのスクリプトとスタイルの読み込み
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ) );
+        $this->sanitize_update_plugins_transient();
         $this->retry_pending_activation();
         $this->maybe_reload_admin_after_activation();
+    }
+
+    /**
+     * update_plugins トランジェント内の一時ベースネームを正規化する
+     *
+     * @return void
+     */
+    private function sanitize_update_plugins_transient() {
+        $transient = get_site_transient( 'update_plugins' );
+        if ( ! is_object( $transient ) ) {
+            return;
+        }
+
+        $changed = false;
+        foreach ( array( 'checked', 'response', 'no_update' ) as $bucket ) {
+            if ( ! isset( $transient->{$bucket} ) || ! is_array( $transient->{$bucket} ) ) {
+                continue;
+            }
+
+            foreach ( array_keys( $transient->{$bucket} ) as $basename ) {
+                if ( ! $this->is_target_plugin_basename( $basename ) ) {
+                    continue;
+                }
+                if ( $basename === $this->plugin_basename ) {
+                    continue;
+                }
+
+                $value = $transient->{$bucket}[ $basename ];
+                unset( $transient->{$bucket}[ $basename ] );
+
+                if ( $bucket === 'response' && is_object( $value ) ) {
+                    $value->plugin = $this->plugin_basename;
+                    if ( property_exists( $value, 'id' ) ) {
+                        $value->id = $this->plugin_slug;
+                    }
+                }
+
+                $transient->{$bucket}[ $this->plugin_basename ] = $value;
+                $changed = true;
+            }
+        }
+
+        if ( $changed ) {
+            set_site_transient( 'update_plugins', $transient );
+        }
     }
     
     /**
