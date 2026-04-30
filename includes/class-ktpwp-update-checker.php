@@ -139,6 +139,14 @@ class KTPWP_Update_Checker {
 
         $plugins = get_plugins();
         if ( is_array( $plugins ) ) {
+            // 安定ディレクトリ（KantanProEX/）を最優先
+            if ( isset( $plugins['KantanProEX/ktpwp.php'] ) ) {
+                $name = isset( $plugins['KantanProEX/ktpwp.php']['Name'] ) ? (string) $plugins['KantanProEX/ktpwp.php']['Name'] : '';
+                if ( stripos( $name, 'KantanProEX' ) !== false ) {
+                    return 'KantanProEX/ktpwp.php';
+                }
+            }
+
             foreach ( $plugins as $basename => $plugin_data ) {
                 if ( basename( $basename ) !== 'ktpwp.php' ) {
                     continue;
@@ -151,6 +159,12 @@ class KTPWP_Update_Checker {
 
                 // 一時展開ディレクトリ由来のベースネームは採用しない
                 if ( strpos( $basename, '~' ) !== false ) {
+                    continue;
+                }
+
+                // GitHub zip 更新時の一時フォルダ（例: KantanPro-KantanProEx-a6ca47e）は正規キーにしない
+                $dir = dirname( $basename );
+                if ( preg_match( '/^KantanPro-KantanProEx-[a-f0-9]{6,}$/i', $dir ) ) {
                     continue;
                 }
 

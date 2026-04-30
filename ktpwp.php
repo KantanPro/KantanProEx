@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.2.92
+ * Version: 1.2.93
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -23,8 +23,190 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+if ( ! function_exists( 'ktpwp_ex_is_main_ex_plugin_slug' ) ) {
+    /**
+     * KantanProEX メイン（ktpwp.php）の active_plugins 行か（無料版 KantanPro は除外）。
+     *
+     * @param string $plugin_basename active_plugins の値。
+     * @return bool
+     */
+    function ktpwp_ex_is_main_ex_plugin_slug( $plugin_basename ) {
+        if ( ! is_string( $plugin_basename ) || $plugin_basename === '' ) {
+            return false;
+        }
+        if ( strtolower( basename( $plugin_basename ) ) !== 'ktpwp.php' ) {
+            return false;
+        }
+        $dir = strtolower( dirname( $plugin_basename ) );
+        return strpos( $dir, 'kantanproex' ) !== false;
+    }
+}
+
+if ( ! function_exists( 'ktpwp_ex_normalize_plugin_basename_list' ) ) {
+    /**
+     * active_plugins 比較用にソート・一意化する。
+     *
+     * @param array<int, string> $plugins プラグインベース名の配列。
+     * @return array<int, string>
+     */
+    function ktpwp_ex_normalize_plugin_basename_list( $plugins ) {
+        $plugins = array_values(
+            array_unique(
+                array_filter(
+                    array_map( 'strval', (array) $plugins )
+                )
+            )
+        );
+        sort( $plugins );
+        return $plugins;
+    }
+}
+
+if ( ! function_exists( 'ktpwp_ex_repair_plugin_storage_paths' ) ) {
+    /**
+     * active_plugins / sitewide / update_plugins に残った欠損・重複の KantanProEX パスを整理する。
+     * （同一リクエストの require 列は固定だが、次回以降の Warning / 二重定義を防ぐ）
+     *
+     * @return void
+     */
+    function ktpwp_ex_repair_plugin_storage_paths() {
+        if ( ! function_exists( 'get_option' ) || ! function_exists( 'update_option' ) ) {
+            return;
+        }
+
+        if ( ! defined( 'WP_PLUGIN_DIR' ) || WP_PLUGIN_DIR === '' ) {
+            return;
+        }
+
+        if ( ! function_exists( 'plugin_basename' ) ) {
+            return;
+        }
+
+        $current = plugin_basename( __FILE__ );
+        if ( ! ktpwp_ex_is_main_ex_plugin_slug( $current ) ) {
+            return;
+        }
+
+        $plugin_root = trailingslashit( WP_PLUGIN_DIR );
+
+        // --- active_plugins ---
+        $active = get_option( 'active_plugins', array() );
+        if ( is_array( $active ) && ! empty( $active ) ) {
+            $other   = array();
+            $ex_ok   = array();
+            foreach ( $active as $p ) {
+                if ( ! is_string( $p ) || $p === '' ) {
+                    continue;
+                }
+                if ( ! ktpwp_ex_is_main_ex_plugin_slug( $p ) ) {
+                    $other[] = $p;
+                    continue;
+                }
+                if ( ! is_readable( $plugin_root . $p ) ) {
+                    continue;
+                }
+                $ex_ok[] = $p;
+            }
+
+            $ex_final = $ex_ok;
+            if ( count( $ex_final ) > 1 ) {
+                $ex_final = in_array( $current, $ex_final, true ) ? array( $current ) : array( $ex_final[0] );
+            }
+            if ( empty( $ex_final ) && is_readable( __FILE__ ) ) {
+                $ex_final = array( $current );
+            }
+
+            $merged = array_merge( $other, $ex_final );
+            $merged = array_values( array_unique( $merged ) );
+
+            if ( ktpwp_ex_normalize_plugin_basename_list( $merged ) !== ktpwp_ex_normalize_plugin_basename_list( $active ) ) {
+                update_option( 'active_plugins', $merged, false );
+                if ( function_exists( 'wp_clean_plugins_cache' ) ) {
+                    wp_clean_plugins_cache();
+                }
+            }
+        }
+
+        // --- active_sitewide_plugins ---
+        if ( function_exists( 'is_multisite' ) && is_multisite() && function_exists( 'get_site_option' ) && function_exists( 'update_site_option' ) ) {
+            $sitewide = get_site_option( 'active_sitewide_plugins', array() );
+            if ( is_array( $sitewide ) && ! empty( $sitewide ) ) {
+                $new_sw        = $sitewide;
+                $valid_ex_keys = array();
+
+                foreach ( array_keys( $sitewide ) as $key ) {
+                    if ( ! ktpwp_ex_is_main_ex_plugin_slug( $key ) ) {
+                        continue;
+                    }
+                    if ( ! is_readable( $plugin_root . $key ) ) {
+                        unset( $new_sw[ $key ] );
+                        continue;
+                    }
+                    $valid_ex_keys[] = $key;
+                }
+
+                if ( count( $valid_ex_keys ) > 1 ) {
+                    $keep = in_array( $current, $valid_ex_keys, true ) ? $current : $valid_ex_keys[0];
+                    $ts   = isset( $sitewide[ $keep ] ) ? (int) $sitewide[ $keep ] : time();
+                    foreach ( $valid_ex_keys as $key ) {
+                        if ( $key !== $keep ) {
+                            unset( $new_sw[ $key ] );
+                        }
+                    }
+                    $new_sw[ $keep ] = $ts;
+                }
+
+                $still_ex = false;
+                foreach ( array_keys( $new_sw ) as $key ) {
+                    if ( ktpwp_ex_is_main_ex_plugin_slug( $key ) && is_readable( $plugin_root . $key ) ) {
+                        $still_ex = true;
+                        break;
+                    }
+                }
+                if ( ! $still_ex && is_readable( __FILE__ ) ) {
+                    $new_sw[ $current ] = isset( $sitewide[ $current ] ) ? (int) $sitewide[ $current ] : time();
+                }
+
+                if ( serialize( $new_sw ) !== serialize( $sitewide ) ) {
+                    update_site_option( 'active_sitewide_plugins', $new_sw );
+                    if ( function_exists( 'wp_clean_plugins_cache' ) ) {
+                        wp_clean_plugins_cache();
+                    }
+                }
+            }
+        }
+
+        // --- site_transient update_plugins（欠損パス参照で file_get_contents Warning が出るのを抑止）---
+        if ( function_exists( 'get_site_transient' ) && function_exists( 'set_site_transient' ) ) {
+            $transient = get_site_transient( 'update_plugins' );
+            if ( is_object( $transient ) ) {
+                $changed = false;
+                foreach ( array( 'checked', 'response', 'no_update' ) as $bucket ) {
+                    if ( empty( $transient->{$bucket} ) || ! is_array( $transient->{$bucket} ) ) {
+                        continue;
+                    }
+                    foreach ( array_keys( $transient->{$bucket} ) as $basename ) {
+                        if ( ! ktpwp_ex_is_main_ex_plugin_slug( $basename ) ) {
+                            continue;
+                        }
+                        if ( is_readable( $plugin_root . $basename ) ) {
+                            continue;
+                        }
+                        unset( $transient->{$bucket}[ $basename ] );
+                        $changed = true;
+                    }
+                }
+                if ( $changed ) {
+                    set_site_transient( 'update_plugins', $transient );
+                }
+            }
+        }
+    }
+}
+
+ktpwp_ex_repair_plugin_storage_paths();
+
 // 更新の一時展開で別パスから本ファイルが二重 require される場合の対策。
-// 先頭の define/同一 $GLOBALS キーだけでは抑止できないケースがあるため、
 // グローバル関数（本体ブート完了時点で必ず定義される）の存在で二重実行を判定する。
 if ( function_exists( 'ktpwp_autoload_classes' ) ) {
     return;
@@ -551,7 +733,8 @@ if ( ! has_action( 'admin_init', 'ktpwp_upgrade' ) ) {
 /**
  * プラグインクラスの自動読み込み
  */
-function ktpwp_autoload_classes() {
+if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
+    function ktpwp_autoload_classes() {
     $classes = array(
         'KTPWP_Client_Class'    => 'includes/class-ktpwp-client.php',
         'KTPWP_Service_Class'   => 'includes/class-ktpwp-service-main.php',
@@ -616,6 +799,7 @@ function ktpwp_autoload_classes() {
     $tax_policy_file = __DIR__ . '/includes/class-ktpwp-tax-policy.php';
     if ( file_exists( $tax_policy_file ) ) {
         require_once $tax_policy_file;
+    }
     }
 }
 
