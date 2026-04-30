@@ -63,7 +63,8 @@ class KTPWP_Update_Checker {
         
         // 備用のベースネーム取得方法
         if ( empty( $this->plugin_basename ) || $this->plugin_basename === basename( __FILE__ ) ) {
-            $this->plugin_basename = 'KantanProEX/ktpwp.php';
+            $main_plugin_file = dirname( __DIR__ ) . '/ktpwp.php';
+            $this->plugin_basename = plugin_basename( $main_plugin_file );
         }
         
         $this->plugin_slug = dirname( $this->plugin_basename );

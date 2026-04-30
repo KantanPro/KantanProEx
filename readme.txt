@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.85
+Stable tag: 1.2.86
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.2.86 - 2026年05月01日 =
+* 更新時のプラグインベースネーム解決を実ファイル基準に変更し、ktpwp.php参照Warningを修正
 
 = 1.2.85 - 2026年05月01日 =
 * データベース更新通知・手動更新ボタン周辺の文言を翻訳対応し、多言語画面で日本語固定表示される問題を修正
