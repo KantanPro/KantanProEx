@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.2.84
+ * Version: 1.2.85
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -2884,9 +2884,17 @@ function ktpwp_admin_migration_status() {
     }
     
     if ( $status['needs_migration'] ) {
+        $db_update_required_text = __( 'データベースの更新が必要です。', 'ktpwp' );
+        $update_now_text         = __( '今すぐ更新', 'ktpwp' );
+        $updating_text           = __( '更新中...', 'ktpwp' );
+        $update_done_text        = __( '更新完了', 'ktpwp' );
+        $unknown_error_text      = __( '不明なエラー', 'ktpwp' );
+        $update_failed_prefix    = __( '更新に失敗しました: ', 'ktpwp' );
+        $network_error_text      = __( '更新に失敗しました。ネットワークエラーが発生しました。', 'ktpwp' );
+
         echo '<div class="notice notice-warning is-dismissible">';
-        echo '<p><strong>' . esc_html( KANTANPRO_PLUGIN_NAME ) . ':</strong> データベースの更新が必要です。 ';
-        echo '<button type="button" class="button button-primary button-small" id="ktpwp-manual-db-update">今すぐ更新</button></p>';
+        echo '<p><strong>' . esc_html( KANTANPRO_PLUGIN_NAME ) . ':</strong> ' . esc_html( $db_update_required_text ) . ' ';
+        echo '<button type="button" class="button button-primary button-small" id="ktpwp-manual-db-update">' . esc_html( $update_now_text ) . '</button></p>';
         echo '</div>';
         
         // JavaScript for manual database update
@@ -2897,23 +2905,23 @@ function ktpwp_admin_migration_status() {
                 var $button = $(this);
                 var originalText = $button.text();
                 
-                $button.text('更新中...').prop('disabled', true);
+                $button.text(<?php echo wp_json_encode( $updating_text ); ?>).prop('disabled', true);
                 
                 $.post(ajaxurl, {
                     action: 'ktpwp_manual_db_update',
                     nonce: '<?php echo wp_create_nonce( 'ktpwp_manual_db_update' ); ?>'
                 }, function(response) {
                     if (response.success) {
-                        $button.text('更新完了').removeClass('button-primary').addClass('button-secondary');
+                        $button.text(<?php echo wp_json_encode( $update_done_text ); ?>).removeClass('button-primary').addClass('button-secondary');
                         setTimeout(function() {
                             window.location.reload();
                         }, 2000);
                     } else {
-                        alert('更新に失敗しました: ' + (response.data || '不明なエラー'));
+                        alert(<?php echo wp_json_encode( $update_failed_prefix ); ?> + (response.data || <?php echo wp_json_encode( $unknown_error_text ); ?>));
                         $button.text(originalText).prop('disabled', false);
                     }
                 }).fail(function() {
-                    alert('更新に失敗しました。ネットワークエラーが発生しました。');
+                    alert(<?php echo wp_json_encode( $network_error_text ); ?>);
                     $button.text(originalText).prop('disabled', false);
                 });
             });
@@ -2925,9 +2933,17 @@ function ktpwp_admin_migration_status() {
     // 適格請求書ナンバー機能の状態表示
     $qualified_invoice = $status['qualified_invoice'];
     if ( ! $qualified_invoice['migrated'] ) {
+        $qualified_migration_required_text = __( '適格請求書ナンバー機能のマイグレーションが必要です。プラグインを再有効化してください。', 'ktpwp' );
+        $qualified_enable_text             = __( '適格請求書機能を有効化', 'ktpwp' );
+        $qualified_enabling_text           = __( '有効化中...', 'ktpwp' );
+        $qualified_enabled_text            = __( '有効化完了', 'ktpwp' );
+        $qualified_enable_failed_prefix    = __( '有効化に失敗しました: ', 'ktpwp' );
+        $qualified_network_error_text      = __( '有効化に失敗しました。ネットワークエラーが発生しました。', 'ktpwp' );
+        $unknown_error_text                = __( '不明なエラー', 'ktpwp' );
+
         echo '<div class="notice notice-warning is-dismissible">';
-        echo '<p><strong>' . esc_html( KANTANPRO_PLUGIN_NAME ) . ':</strong> 適格請求書ナンバー機能のマイグレーションが必要です。プラグインを再有効化してください。</p>';
-        echo '<p><button type="button" class="button button-primary" id="ktpwp-run-qualified-invoice-migration">適格請求書機能を有効化</button></p>';
+        echo '<p><strong>' . esc_html( KANTANPRO_PLUGIN_NAME ) . ':</strong> ' . esc_html( $qualified_migration_required_text ) . '</p>';
+        echo '<p><button type="button" class="button button-primary" id="ktpwp-run-qualified-invoice-migration">' . esc_html( $qualified_enable_text ) . '</button></p>';
         echo '</div>';
         
         // JavaScript for qualified invoice migration
@@ -2938,23 +2954,23 @@ function ktpwp_admin_migration_status() {
                 var $button = $(this);
                 var originalText = $button.text();
                 
-                $button.text('有効化中...').prop('disabled', true);
+                $button.text(<?php echo wp_json_encode( $qualified_enabling_text ); ?>).prop('disabled', true);
                 
                 $.post(ajaxurl, {
                     action: 'ktpwp_run_qualified_invoice_migration',
                     nonce: '<?php echo wp_create_nonce( 'ktpwp_run_qualified_invoice_migration' ); ?>'
                 }, function(response) {
                     if (response.success) {
-                        $button.text('有効化完了').removeClass('button-primary').addClass('button-secondary');
+                        $button.text(<?php echo wp_json_encode( $qualified_enabled_text ); ?>).removeClass('button-primary').addClass('button-secondary');
                         setTimeout(function() {
                             window.location.reload();
                         }, 2000);
                     } else {
-                        alert('有効化に失敗しました: ' + (response.data || '不明なエラー'));
+                        alert(<?php echo wp_json_encode( $qualified_enable_failed_prefix ); ?> + (response.data || <?php echo wp_json_encode( $unknown_error_text ); ?>));
                         $button.text(originalText).prop('disabled', false);
                     }
                 }).fail(function() {
-                    alert('有効化に失敗しました。ネットワークエラーが発生しました。');
+                    alert(<?php echo wp_json_encode( $qualified_network_error_text ); ?>);
                     $button.text(originalText).prop('disabled', false);
                 });
             });
