@@ -451,9 +451,48 @@ class KTPWP_Update_Checker {
     public function admin_init() {
         // 管理画面でのスクリプトとスタイルの読み込み
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ) );
+        $this->reconcile_active_plugin_keys();
         $this->sanitize_update_plugins_transient();
         $this->retry_pending_activation();
         $this->maybe_reload_admin_after_activation();
+    }
+
+    /**
+     * active_plugins 内に残った一時ベースネームを正規キーへ補正する
+     *
+     * @return void
+     */
+    private function reconcile_active_plugin_keys() {
+        $active_plugins = get_option( 'active_plugins', array() );
+        if ( ! is_array( $active_plugins ) || empty( $active_plugins ) ) {
+            return;
+        }
+
+        $changed = false;
+        $has_canonical = in_array( $this->plugin_basename, $active_plugins, true );
+
+        foreach ( $active_plugins as $index => $basename ) {
+            if ( ! $this->is_target_plugin_basename( $basename ) ) {
+                continue;
+            }
+            if ( $basename === $this->plugin_basename ) {
+                continue;
+            }
+
+            unset( $active_plugins[ $index ] );
+            $changed = true;
+        }
+
+        if ( ! $has_canonical ) {
+            $active_plugins[] = $this->plugin_basename;
+            $changed = true;
+        }
+
+        if ( $changed ) {
+            $active_plugins = array_values( array_unique( $active_plugins ) );
+            update_option( 'active_plugins', $active_plugins, false );
+            wp_clean_plugins_cache();
+        }
     }
 
     /**
