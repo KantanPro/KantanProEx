@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.2.82
+ * Version: 1.2.83
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -389,6 +389,52 @@ if ( ! function_exists( 'ktpwp_ex_render_auto_deactivated_notice' ) ) {
     }
 }
 add_action( 'admin_notices', 'ktpwp_ex_render_auto_deactivated_notice' );
+
+if ( ! function_exists( 'ktpwp_ex_customize_delete_confirm_text' ) ) {
+    /**
+     * プラグイン削除確認メッセージを実際のアンインストール設定に合わせる。
+     *
+     * @return void
+     */
+    function ktpwp_ex_customize_delete_confirm_text() {
+        if ( ! is_admin() || ! current_user_can( 'delete_plugins' ) ) {
+            return;
+        }
+
+        $screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+        if ( ! $screen || ! in_array( $screen->id, array( 'plugins', 'plugins-network' ), true ) ) {
+            return;
+        }
+
+        $settings = get_option( 'ktp_uninstall_settings', array() );
+        $mode     = isset( $settings['uninstall_mode'] ) ? (string) $settings['uninstall_mode'] : 'keep_data';
+
+        $message_keep = __( '本当に KantanProEX を削除してもよいですか？\n\n現在の設定は「データを残す」です。プラグインファイルのみ削除され、データは残ります。', 'ktpwp' );
+        $message_full = __( '本当に KantanProEX とそのデータを削除してもよいですか？\n\n現在の設定は「完全削除」です。関連データも削除されます。', 'ktpwp' );
+        $message      = ( $mode === 'full_delete' ) ? $message_full : $message_keep;
+        ?>
+        <script>
+        (function() {
+            var row = document.querySelector('tr[data-plugin="KantanProEX/ktpwp.php"]');
+            if (!row) return;
+
+            var deleteLink = row.querySelector('.delete a');
+            if (!deleteLink) return;
+
+            deleteLink.addEventListener('click', function(event) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                if (window.confirm(<?php echo wp_json_encode( $message ); ?>)) {
+                    window.location.href = deleteLink.getAttribute('href');
+                }
+            }, true);
+        })();
+        </script>
+        <?php
+    }
+}
+add_action( 'admin_footer', 'ktpwp_ex_customize_delete_confirm_text', 99 );
 
 /**
  * プラグイン有効化フック（包括的マイグレーション）
