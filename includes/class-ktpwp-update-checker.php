@@ -158,9 +158,9 @@ class KTPWP_Update_Checker {
      *
      * @return array
      */
-    private function get_github_headers() {
+    private function get_github_headers( $accept = 'application/vnd.github.v3+json' ) {
         $headers = array(
-            'Accept' => 'application/vnd.github.v3+json',
+            'Accept' => $accept,
             'X-GitHub-Api-Version' => '2022-11-28',
             'User-Agent' => 'KantanPro-Plugin/' . $this->current_version,
             'Cache-Control' => 'no-cache',
@@ -176,6 +176,34 @@ class KTPWP_Update_Checker {
         }
 
         return $headers;
+    }
+
+    /**
+     * GitHubダウンロード用ヘッダーを生成する
+     *
+     * @param string $url ダウンロードURL
+     * @return array
+     */
+    private function get_github_download_headers( $url = '' ) {
+        $accept = 'application/vnd.github.v3+json';
+        if ( strpos( $url, 'api.github.com' ) !== false && strpos( $url, '/releases/assets/' ) !== false ) {
+            $accept = 'application/octet-stream';
+        }
+
+        return $this->get_github_headers( $accept );
+    }
+
+    /**
+     * GitHub関連URLかどうかを判定する
+     *
+     * @param string $url URL
+     * @return bool
+     */
+    private function is_github_url( $url ) {
+        return is_string( $url ) && (
+            strpos( $url, 'github.com' ) !== false ||
+            strpos( $url, 'githubusercontent.com' ) !== false
+        );
     }
 
     /**
@@ -554,7 +582,7 @@ class KTPWP_Update_Checker {
                             ( $asset['name'] === 'KantanProEX.zip' || preg_match( '/^KantanProEX_.*\.zip$/', $asset['name'] ) )
                             && $asset['content_type'] === 'application/zip'
                         ) {
-                            $download_url = $asset['browser_download_url'];
+                            $download_url = ! empty( $asset['url'] ) ? $asset['url'] : $asset['browser_download_url'];
                             error_log('KantanPro: Found release asset: ' . $download_url);
                             break;
                         }
@@ -564,7 +592,7 @@ class KTPWP_Update_Checker {
                 if ( empty($download_url) && ! empty($data['assets']) ) {
                     foreach ( $data['assets'] as $asset ) {
                         if ( substr($asset['name'], -4) === '.zip' ) {
-                            $download_url = $asset['browser_download_url'];
+                            $download_url = ! empty( $asset['url'] ) ? $asset['url'] : $asset['browser_download_url'];
                             error_log('KantanPro: Found a .zip release asset: ' . $download_url);
                             break;
                         }
@@ -1198,7 +1226,17 @@ class KTPWP_Update_Checker {
         }
         
         // 一時ファイルにダウンロード
+        $added_download_filter = false;
+        if ( $this->is_github_url( $download_url ) ) {
+            add_filter( 'http_request_args', array( $this, 'github_download_args' ), 10, 2 );
+            $added_download_filter = true;
+        }
+
         $temp_file = download_url( $download_url );
+        if ( $added_download_filter ) {
+            remove_filter( 'http_request_args', array( $this, 'github_download_args' ), 10 );
+        }
+
         if ( is_wp_error( $temp_file ) ) {
             $this->recursive_rmdir( $temp_dir );
             return new WP_Error( 'download_failed', 'ファイルのダウンロードに失敗しました: ' . $temp_file->get_error_message() );
@@ -1738,7 +1776,7 @@ class KTPWP_Update_Checker {
      * @return mixed
      */
     public function upgrader_pre_download( $reply, $package, $upgrader ) {
-        if ( is_string( $package ) && strpos( $package, 'github.com' ) !== false ) {
+        if ( $this->is_github_url( $package ) ) {
             add_filter( 'http_request_args', array( $this, 'github_download_args' ), 10, 2 );
         }
 
@@ -1753,10 +1791,10 @@ class KTPWP_Update_Checker {
      * @return array
      */
     public function github_download_args( $args, $url ) {
-        if ( strpos( $url, 'github.com' ) !== false ) {
+        if ( $this->is_github_url( $url ) ) {
             $args['timeout'] = 60;
             $args['headers'] = isset( $args['headers'] ) && is_array( $args['headers'] ) ? $args['headers'] : array();
-            $args['headers'] = array_merge( $args['headers'], $this->get_github_headers() );
+            $args['headers'] = array_merge( $args['headers'], $this->get_github_download_headers( $url ) );
         }
 
         return $args;
