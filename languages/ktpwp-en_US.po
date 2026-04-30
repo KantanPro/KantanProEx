@@ -760,7 +760,7 @@ msgstr ""
 
 #: includes/class-ktpwp-order-auxiliary.php:292
 msgid "システム"
-msgstr "システム"
+msgstr "System"
 
 #: includes/class-ktpwp-settings.php:2392
 msgid "システムの説明"
