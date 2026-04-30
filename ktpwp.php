@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.2.72
+ * Version: 1.2.73
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -2758,7 +2758,7 @@ function ktpwp_admin_migration_status() {
     
     if ( $status['needs_migration'] ) {
         echo '<div class="notice notice-warning is-dismissible">';
-        echo '<p><strong>KantanPro:</strong> データベースの更新が必要です。 ';
+        echo '<p><strong>' . esc_html( KANTANPRO_PLUGIN_NAME ) . ':</strong> データベースの更新が必要です。 ';
         echo '<button type="button" class="button button-primary button-small" id="ktpwp-manual-db-update">今すぐ更新</button></p>';
         echo '</div>';
         
@@ -2799,7 +2799,7 @@ function ktpwp_admin_migration_status() {
     $qualified_invoice = $status['qualified_invoice'];
     if ( ! $qualified_invoice['migrated'] ) {
         echo '<div class="notice notice-warning is-dismissible">';
-        echo '<p><strong>KantanPro:</strong> 適格請求書ナンバー機能のマイグレーションが必要です。プラグインを再有効化してください。</p>';
+        echo '<p><strong>' . esc_html( KANTANPRO_PLUGIN_NAME ) . ':</strong> 適格請求書ナンバー機能のマイグレーションが必要です。プラグインを再有効化してください。</p>';
         echo '<p><button type="button" class="button button-primary" id="ktpwp-run-qualified-invoice-migration">適格請求書機能を有効化</button></p>';
         echo '</div>';
         
@@ -2985,53 +2985,58 @@ function ktpwp_translate_admin_notice_message( $message ) {
     return isset( $messages[ $message ] ) ? $messages[ $message ] : $message;
 }
 
+function ktpwp_admin_notice_label() {
+    return defined( 'KANTANPRO_PLUGIN_NAME' ) ? KANTANPRO_PLUGIN_NAME : 'KantanPro';
+}
+
 function ktpwp_admin_notices() {
+    $notice_label = ktpwp_admin_notice_label();
     // 有効化完了通知
     if ( get_transient( 'ktpwp_activation_message' ) ) {
         echo '<div class="notice notice-success is-dismissible">';
-        echo '<p><strong>KantanPro:</strong> ' . esc_html( ktpwp_translate_admin_notice_message( get_transient( 'ktpwp_activation_message' ) ) ) . '</p>';
+        echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> ' . esc_html( ktpwp_translate_admin_notice_message( get_transient( 'ktpwp_activation_message' ) ) ) . '</p>';
         echo '</div>';
     }
     
     // 有効化エラー通知
     if ( get_transient( 'ktpwp_activation_error' ) ) {
         echo '<div class="notice notice-error is-dismissible">';
-        echo '<p><strong>KantanPro:</strong> ' . esc_html( get_transient( 'ktpwp_activation_error' ) ) . '</p>';
+        echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> ' . esc_html( get_transient( 'ktpwp_activation_error' ) ) . '</p>';
         echo '</div>';
     }
     
     // 新規インストール完了通知
     if ( get_transient( 'ktpwp_new_installation_message' ) ) {
         echo '<div class="notice notice-success is-dismissible">';
-        echo '<p><strong>KantanPro:</strong> ' . esc_html( get_transient( 'ktpwp_new_installation_message' ) ) . '</p>';
+        echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> ' . esc_html( get_transient( 'ktpwp_new_installation_message' ) ) . '</p>';
         echo '</div>';
     }
     
     // 新規インストールエラー通知
     if ( get_transient( 'ktpwp_new_installation_error' ) ) {
         echo '<div class="notice notice-error is-dismissible">';
-        echo '<p><strong>KantanPro:</strong> ' . esc_html( get_transient( 'ktpwp_new_installation_error' ) ) . '</p>';
+        echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> ' . esc_html( get_transient( 'ktpwp_new_installation_error' ) ) . '</p>';
         echo '</div>';
     }
     
     // 再有効化完了通知
     if ( get_transient( 'ktpwp_reactivation_message' ) ) {
         echo '<div class="notice notice-success is-dismissible">';
-        echo '<p><strong>KantanPro:</strong> ' . esc_html( get_transient( 'ktpwp_reactivation_message' ) ) . '</p>';
+        echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> ' . esc_html( get_transient( 'ktpwp_reactivation_message' ) ) . '</p>';
         echo '</div>';
     }
     
     // 再有効化エラー通知
     if ( get_transient( 'ktpwp_reactivation_error' ) ) {
         echo '<div class="notice notice-error is-dismissible">';
-        echo '<p><strong>KantanPro:</strong> ' . esc_html( get_transient( 'ktpwp_reactivation_error' ) ) . '</p>';
+        echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> ' . esc_html( get_transient( 'ktpwp_reactivation_error' ) ) . '</p>';
         echo '</div>';
     }
     
     // アップデート完了通知
     if ( get_transient( 'ktpwp_upgrade_message' ) ) {
         echo '<div class="notice notice-success is-dismissible">';
-        echo '<p><strong>KantanPro:</strong> ' . esc_html( ktpwp_translate_admin_notice_message( get_transient( 'ktpwp_upgrade_message' ) ) ) . '</p>';
+        echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> ' . esc_html( ktpwp_translate_admin_notice_message( get_transient( 'ktpwp_upgrade_message' ) ) ) . '</p>';
         echo '</div>';
     }
 }
