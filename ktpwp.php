@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.2.91
+ * Version: 1.2.92
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -23,12 +23,12 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-// 更新処理中に一時展開ディレクトリが別パスで二重ロードされるケースを防止
-// （define はファイルパスごとに別定数になるため、グローバルフラグで一意に判定する）
-if ( ! empty( $GLOBALS['ktpwp_ex_main_plugin_booted'] ) ) {
+// 更新の一時展開で別パスから本ファイルが二重 require される場合の対策。
+// 先頭の define/同一 $GLOBALS キーだけでは抑止できないケースがあるため、
+// グローバル関数（本体ブート完了時点で必ず定義される）の存在で二重実行を判定する。
+if ( function_exists( 'ktpwp_autoload_classes' ) ) {
     return;
 }
-$GLOBALS['ktpwp_ex_main_plugin_booted'] = true;
 
 if ( ! function_exists( 'ktpwp_ex_publish_pro_identity' ) ) {
     /**
