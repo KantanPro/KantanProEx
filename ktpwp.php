@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.2.75
+ * Version: 1.2.76
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -3088,20 +3088,19 @@ function ktpwp_footer_update_complete_guide() {
         return;
     }
 
-    delete_transient( 'ktpwp_show_update_complete_guide' );
     delete_transient( 'ktpwp_redirect_to_settings_after_update' );
     $plugins_url = admin_url( 'plugins.php' );
     $settings_url = admin_url( 'admin.php?page=ktp-settings&ktpwp_updated=1' );
     echo '<div class="notice notice-success" style="margin:20px 0;padding:20px;border-left:4px solid #00a32a;background:#f0f9f0;border-radius:4px;">';
     echo '<p style="font-size:15px;margin:0 0 8px 0;"><strong>✅ KantanProEX の更新とマイグレーションが完了しました。</strong></p>';
-    echo '<p style="margin:0 0 12px 0;">設定ページへ移動します。自動で移動しない場合は下のボタンをクリックしてください。</p>';
+    echo '<p style="margin:0 0 12px 0;">プラグイン一覧へ戻ります。通常の管理画面読み込み後に設定を開いてください。</p>';
     echo '<p style="margin:0;"><a href="' . esc_url( $plugins_url ) . '" class="button button-primary">プラグイン一覧へ</a> ';
     echo '<a href="' . esc_url( $settings_url ) . '" class="button">KantanProEX 設定を開く</a></p>';
     echo '</div>';
 
     if ( $should_redirect ) {
         echo '<script>';
-        echo 'window.setTimeout(function(){ window.top.location.href = ' . wp_json_encode( $settings_url ) . '; }, 800);';
+        echo 'window.setTimeout(function(){ window.top.location.href = ' . wp_json_encode( add_query_arg( 'ktpwp_updated', '1', $plugins_url ) ) . '; }, 800);';
         echo '</script>';
     }
 }
