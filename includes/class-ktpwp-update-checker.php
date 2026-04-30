@@ -228,6 +228,54 @@ class KTPWP_Update_Checker {
     }
 
     /**
+     * 対象プラグインを有効化し、成功可否を返す
+     *
+     * @param string $basename ベースネーム
+     * @param bool $network_active ネットワーク有効化フラグ
+     * @return bool
+     */
+    private function activate_target_plugin( $basename, $network_active = false ) {
+        if ( ! function_exists( 'is_plugin_active' ) || ! function_exists( 'activate_plugin' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
+        $resolved_basename = $this->resolve_installed_basename( $basename );
+        if ( ! $this->is_target_plugin_basename( $resolved_basename ) ) {
+            return false;
+        }
+
+        if ( is_plugin_active( $resolved_basename ) ) {
+            return true;
+        }
+
+        if ( $network_active ) {
+            $activation_result = activate_plugin( $resolved_basename, '', true );
+        } else {
+            $activation_result = activate_plugin( $resolved_basename );
+        }
+
+        return ! is_wp_error( $activation_result );
+    }
+
+    /**
+     * 保留中の再有効化を再試行する
+     *
+     * @return void
+     */
+    private function retry_pending_activation() {
+        $pending = get_site_transient( $this->key( 'pending_activation' ) );
+        if ( ! is_array( $pending ) || empty( $pending['basename'] ) ) {
+            return;
+        }
+
+        $network_active = ! empty( $pending['network_active'] );
+        if ( $this->activate_target_plugin( (string) $pending['basename'], $network_active ) ) {
+            delete_site_transient( $this->key( 'pending_activation' ) );
+            set_transient( $this->key( 'admin_reload' ), 1, 5 * MINUTE_IN_SECONDS );
+        }
+    }
+
+    /**
      * GitHub API/ダウンロード用ヘッダーを生成する
      *
      * @return array
@@ -348,6 +396,7 @@ class KTPWP_Update_Checker {
     public function admin_init() {
         // 管理画面でのスクリプトとスタイルの読み込み
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ) );
+        $this->retry_pending_activation();
         $this->maybe_reload_admin_after_activation();
     }
     
@@ -2014,11 +2063,21 @@ class KTPWP_Update_Checker {
             $activation_basename = $target_basename;
         }
 
-        if ( $pre_update_state && ! empty( $pre_update_state['was_active'] ) && ! is_plugin_active( $activation_basename ) ) {
-            if ( ! empty( $pre_update_state['network_active'] ) ) {
-                activate_plugin( $activation_basename, '', true );
+        $should_reactivate = $pre_update_state && ! empty( $pre_update_state['was_active'] );
+        $network_active    = $should_reactivate && ! empty( $pre_update_state['network_active'] );
+
+        if ( $should_reactivate && ! is_plugin_active( $activation_basename ) ) {
+            if ( ! $this->activate_target_plugin( $activation_basename, $network_active ) ) {
+                set_site_transient(
+                    $this->key( 'pending_activation' ),
+                    array(
+                        'basename' => $activation_basename,
+                        'network_active' => $network_active,
+                    ),
+                    30 * MINUTE_IN_SECONDS
+                );
             } else {
-                activate_plugin( $activation_basename );
+                delete_site_transient( $this->key( 'pending_activation' ) );
             }
         }
 
