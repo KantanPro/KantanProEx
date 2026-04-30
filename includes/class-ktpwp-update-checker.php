@@ -57,15 +57,7 @@ class KTPWP_Update_Checker {
      * コンストラクタ
      */
     public function __construct() {
-        // プラグインベースネームを確実に取得
-        $plugin_file = defined( 'KANTANPRO_PLUGIN_FILE' ) ? KANTANPRO_PLUGIN_FILE : __FILE__;
-        $this->plugin_basename = plugin_basename( $plugin_file );
-        
-        // 備用のベースネーム取得方法
-        if ( empty( $this->plugin_basename ) || $this->plugin_basename === basename( __FILE__ ) ) {
-            $main_plugin_file = dirname( __DIR__ ) . '/ktpwp.php';
-            $this->plugin_basename = plugin_basename( $main_plugin_file );
-        }
+        $this->plugin_basename = $this->detect_canonical_plugin_basename();
         
         $this->plugin_slug = dirname( $this->plugin_basename );
         $this->current_version = defined( 'KANTANPRO_PLUGIN_VERSION' ) ? KANTANPRO_PLUGIN_VERSION : '1.0.5';
@@ -131,6 +123,57 @@ class KTPWP_Update_Checker {
         // デバッグ用のログ出力
         error_log( 'KantanPro Update Checker: 初期化完了 - basename: ' . $this->plugin_basename );
         error_log( 'KantanPro Update Checker: 管理画面: ' . ( is_admin() ? 'はい' : 'いいえ' ) );
+    }
+
+    /**
+     * 一時展開パスを避け、現在の正規プラグインベースネームを検出する
+     *
+     * @return string
+     */
+    private function detect_canonical_plugin_basename() {
+        $fallback = 'KantanProEX/ktpwp.php';
+
+        if ( ! function_exists( 'get_plugins' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
+        $plugins = get_plugins();
+        if ( is_array( $plugins ) ) {
+            foreach ( $plugins as $basename => $plugin_data ) {
+                if ( basename( $basename ) !== 'ktpwp.php' ) {
+                    continue;
+                }
+
+                $name = isset( $plugin_data['Name'] ) ? (string) $plugin_data['Name'] : '';
+                if ( stripos( $name, 'KantanProEX' ) === false ) {
+                    continue;
+                }
+
+                // 一時展開ディレクトリ由来のベースネームは採用しない
+                if ( strpos( $basename, '~' ) !== false ) {
+                    continue;
+                }
+
+                return (string) $basename;
+            }
+        }
+
+        if ( defined( 'KANTANPRO_PLUGIN_FILE' ) && file_exists( KANTANPRO_PLUGIN_FILE ) ) {
+            $detected = plugin_basename( KANTANPRO_PLUGIN_FILE );
+            if ( is_string( $detected ) && $detected !== '' && strpos( $detected, '~' ) === false ) {
+                return $detected;
+            }
+        }
+
+        $main_plugin_file = dirname( __DIR__ ) . '/ktpwp.php';
+        if ( file_exists( $main_plugin_file ) ) {
+            $detected = plugin_basename( $main_plugin_file );
+            if ( is_string( $detected ) && $detected !== '' && strpos( $detected, '~' ) === false ) {
+                return $detected;
+            }
+        }
+
+        return $fallback;
     }
     
     /**
@@ -1794,6 +1837,24 @@ class KTPWP_Update_Checker {
         }
 
         $transient->checked[ $this->plugin_basename ] = $this->current_version;
+
+        // 一時展開ディレクトリ由来の古いキーを除去し、functions.phpの file_get_contents 警告を回避する
+        foreach ( array( 'checked', 'response', 'no_update' ) as $bucket ) {
+            if ( ! isset( $transient->{$bucket} ) || ! is_array( $transient->{$bucket} ) ) {
+                continue;
+            }
+
+            foreach ( array_keys( $transient->{$bucket} ) as $basename ) {
+                if ( ! $this->is_target_plugin_basename( $basename ) ) {
+                    continue;
+                }
+                if ( $basename === $this->plugin_basename ) {
+                    continue;
+                }
+
+                unset( $transient->{$bucket}[ $basename ] );
+            }
+        }
 
         // キャッシュされた更新情報を取得
         $update_data = get_option( 'ktpwp_update_available' );
