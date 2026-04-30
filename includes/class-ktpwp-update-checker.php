@@ -154,6 +154,59 @@ class KTPWP_Update_Checker {
     }
 
     /**
+     * プラグインベースネームを比較用に正規化する
+     *
+     * @param string $basename ベースネーム
+     * @return string
+     */
+    private function normalize_basename( $basename ) {
+        $file = strtolower( basename( $basename ) );
+        $dir  = strtolower( dirname( $basename ) );
+        $dir  = str_replace( array( '-', '_', '.', '/' ), '', $dir );
+
+        return $dir . '/' . $file;
+    }
+
+    /**
+     * 指定ベースネームがこの更新対象プラグインか判定する
+     *
+     * @param string $basename ベースネーム
+     * @return bool
+     */
+    private function is_target_plugin_basename( $basename ) {
+        if ( ! is_string( $basename ) || $basename === '' ) {
+            return false;
+        }
+
+        $normalized_target = $this->normalize_basename( $this->plugin_basename );
+        $normalized_given  = $this->normalize_basename( $basename );
+
+        return $normalized_target === $normalized_given;
+    }
+
+    /**
+     * 更新フック引数から対象プラグインのベースネームを解決する
+     *
+     * @param array $hook_extra フック情報
+     * @return string
+     */
+    private function resolve_target_basename( $hook_extra ) {
+        if ( isset( $hook_extra['plugin'] ) && $this->is_target_plugin_basename( $hook_extra['plugin'] ) ) {
+            return (string) $hook_extra['plugin'];
+        }
+
+        if ( ! empty( $hook_extra['plugins'] ) && is_array( $hook_extra['plugins'] ) ) {
+            foreach ( $hook_extra['plugins'] as $plugin_basename ) {
+                if ( $this->is_target_plugin_basename( $plugin_basename ) ) {
+                    return (string) $plugin_basename;
+                }
+            }
+        }
+
+        return $this->plugin_basename;
+    }
+
+    /**
      * GitHub API/ダウンロード用ヘッダーを生成する
      *
      * @return array
@@ -1812,7 +1865,8 @@ class KTPWP_Update_Checker {
      * @return mixed
      */
     public function before_update( $response, $hook_extra, $result = null ) {
-        if ( ! isset( $hook_extra['plugin'] ) || $hook_extra['plugin'] !== $this->plugin_basename ) {
+        $target_basename = $this->resolve_target_basename( $hook_extra );
+        if ( ! $this->is_target_plugin_basename( $target_basename ) ) {
             return $response;
         }
 
@@ -1820,20 +1874,21 @@ class KTPWP_Update_Checker {
             require_once ABSPATH . 'wp-admin/includes/plugin.php';
         }
 
-        $was_network_active = is_multisite() && is_plugin_active_for_network( $this->plugin_basename );
-        $was_active = is_plugin_active( $this->plugin_basename ) || $was_network_active;
+        $was_network_active = is_multisite() && is_plugin_active_for_network( $target_basename );
+        $was_active = is_plugin_active( $target_basename ) || $was_network_active;
 
         set_site_transient(
             $this->key( 'pre_update_state' ),
             array(
                 'was_active' => $was_active,
                 'network_active' => $was_network_active,
+                'basename' => $target_basename,
             ),
             30 * MINUTE_IN_SECONDS
         );
 
         if ( $was_active ) {
-            deactivate_plugins( $this->plugin_basename, true, $was_network_active );
+            deactivate_plugins( $target_basename, true, $was_network_active );
         }
 
         return $response;
@@ -1848,7 +1903,8 @@ class KTPWP_Update_Checker {
      * @return mixed
      */
     public function rename_github_source( $response, $hook_extra, $result ) {
-        if ( ! isset( $hook_extra['plugin'] ) || $hook_extra['plugin'] !== $this->plugin_basename ) {
+        $target_basename = $this->resolve_target_basename( $hook_extra );
+        if ( ! $this->is_target_plugin_basename( $target_basename ) ) {
             return $response;
         }
 
@@ -1887,7 +1943,8 @@ class KTPWP_Update_Checker {
      * @return mixed
      */
     public function after_update( $response, $hook_extra, $result ) {
-        if ( isset( $hook_extra['plugin'] ) && $hook_extra['plugin'] === $this->plugin_basename ) {
+        $target_basename = $this->resolve_target_basename( $hook_extra );
+        if ( $this->is_target_plugin_basename( $target_basename ) ) {
             remove_filter( 'http_request_args', array( $this, 'github_download_args' ), 10 );
             delete_option( 'ktpwp_update_available' );
             delete_option( 'ktpwp_latest_version' );
@@ -1920,7 +1977,8 @@ class KTPWP_Update_Checker {
             return;
         }
 
-        if ( empty( $options['plugins'] ) || ! in_array( $this->plugin_basename, (array) $options['plugins'], true ) ) {
+        $target_basename = $this->resolve_target_basename( $options );
+        if ( ! $this->is_target_plugin_basename( $target_basename ) ) {
             return;
         }
 
@@ -1929,11 +1987,16 @@ class KTPWP_Update_Checker {
         }
 
         $pre_update_state = get_site_transient( $this->key( 'pre_update_state' ) );
-        if ( $pre_update_state && ! empty( $pre_update_state['was_active'] ) && ! is_plugin_active( $this->plugin_basename ) ) {
+        $activation_basename = ! empty( $pre_update_state['basename'] ) ? $pre_update_state['basename'] : $target_basename;
+        if ( ! $this->is_target_plugin_basename( $activation_basename ) ) {
+            $activation_basename = $target_basename;
+        }
+
+        if ( $pre_update_state && ! empty( $pre_update_state['was_active'] ) && ! is_plugin_active( $activation_basename ) ) {
             if ( ! empty( $pre_update_state['network_active'] ) ) {
-                activate_plugin( $this->plugin_basename, '', true );
+                activate_plugin( $activation_basename, '', true );
             } else {
-                activate_plugin( $this->plugin_basename );
+                activate_plugin( $activation_basename );
             }
         }
 
