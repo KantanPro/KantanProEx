@@ -207,6 +207,27 @@ class KTPWP_Update_Checker {
     }
 
     /**
+     * 実在するプラグインベースネームへ解決する
+     *
+     * @param string $basename 候補ベースネーム
+     * @return string
+     */
+    private function resolve_installed_basename( $basename ) {
+        if ( ! function_exists( 'get_plugins' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
+        $installed_plugins = get_plugins();
+        foreach ( array_keys( $installed_plugins ) as $installed_basename ) {
+            if ( $this->is_target_plugin_basename( $installed_basename ) ) {
+                return (string) $installed_basename;
+            }
+        }
+
+        return (string) $basename;
+    }
+
+    /**
      * GitHub API/ダウンロード用ヘッダーを生成する
      *
      * @return array
@@ -1865,7 +1886,7 @@ class KTPWP_Update_Checker {
      * @return mixed
      */
     public function before_update( $response, $hook_extra, $result = null ) {
-        $target_basename = $this->resolve_target_basename( $hook_extra );
+        $target_basename = $this->resolve_installed_basename( $this->resolve_target_basename( $hook_extra ) );
         if ( ! $this->is_target_plugin_basename( $target_basename ) ) {
             return $response;
         }
@@ -1903,7 +1924,7 @@ class KTPWP_Update_Checker {
      * @return mixed
      */
     public function rename_github_source( $response, $hook_extra, $result ) {
-        $target_basename = $this->resolve_target_basename( $hook_extra );
+        $target_basename = $this->resolve_installed_basename( $this->resolve_target_basename( $hook_extra ) );
         if ( ! $this->is_target_plugin_basename( $target_basename ) ) {
             return $response;
         }
@@ -1977,7 +1998,7 @@ class KTPWP_Update_Checker {
             return;
         }
 
-        $target_basename = $this->resolve_target_basename( $options );
+        $target_basename = $this->resolve_installed_basename( $this->resolve_target_basename( $options ) );
         if ( ! $this->is_target_plugin_basename( $target_basename ) ) {
             return;
         }
@@ -1988,6 +2009,7 @@ class KTPWP_Update_Checker {
 
         $pre_update_state = get_site_transient( $this->key( 'pre_update_state' ) );
         $activation_basename = ! empty( $pre_update_state['basename'] ) ? $pre_update_state['basename'] : $target_basename;
+        $activation_basename = $this->resolve_installed_basename( $activation_basename );
         if ( ! $this->is_target_plugin_basename( $activation_basename ) ) {
             $activation_basename = $target_basename;
         }
