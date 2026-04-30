@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.70
+Stable tag: 1.2.71
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -324,6 +324,9 @@ curl -sS -X POST \
 * 推奨PHP拡張: GD（画像処理用）
 
 == 変更履歴 ==
+
+= 1.2.71 - 2026年04月30日 =
+* 既存バージョンからの更新救済のため、GitHub の source archive 経由で更新できる配布方式に変更
 
 = 1.2.70 - 2026年04月30日 =
 * GitHub Release asset のダウンロード方式を改善し、非公開リポジトリ環境で更新 ZIP の取得に失敗する問題を修正
