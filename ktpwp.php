@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.2.81
+ * Version: 1.2.82
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -77,16 +77,50 @@ if ( ! function_exists( 'ktpwp_ex_is_free_plugin_active' ) ) {
 
 if ( ! function_exists( 'ktpwp_ex_delete_free_plugin_if_exists' ) ) {
     /**
+     * データを残したままディレクトリを再帰削除する。
+     *
+     * @param string $dir 削除対象ディレクトリ
+     * @return bool
+     */
+    function ktpwp_ex_remove_directory_preserve_data( $dir ) {
+        if ( ! is_dir( $dir ) ) {
+            return true;
+        }
+
+        $entries = scandir( $dir );
+        if ( $entries === false ) {
+            return false;
+        }
+
+        foreach ( $entries as $entry ) {
+            if ( $entry === '.' || $entry === '..' ) {
+                continue;
+            }
+
+            $path = $dir . DIRECTORY_SEPARATOR . $entry;
+            if ( is_dir( $path ) ) {
+                if ( ! ktpwp_ex_remove_directory_preserve_data( $path ) ) {
+                    return false;
+                }
+                continue;
+            }
+
+            if ( ! @unlink( $path ) ) {
+                return false;
+            }
+        }
+
+        return @rmdir( $dir );
+    }
+
+    /**
      * 無料版 KantanPro が存在する場合に削除する（失敗時は無効化のみ）。
      *
      * @return void
      */
     function ktpwp_ex_delete_free_plugin_if_exists() {
-        if ( ! function_exists( 'deactivate_plugins' ) || ! function_exists( 'delete_plugins' ) ) {
+        if ( ! function_exists( 'deactivate_plugins' ) ) {
             require_once ABSPATH . 'wp-admin/includes/plugin.php';
-            require_once ABSPATH . 'wp-admin/includes/file.php';
-            require_once ABSPATH . 'wp-admin/includes/misc.php';
-            require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
         }
 
         $free_basename = 'KantanPro/ktpwp.php';
@@ -100,9 +134,9 @@ if ( ! function_exists( 'ktpwp_ex_delete_free_plugin_if_exists' ) ) {
             return;
         }
 
-        $delete_result = delete_plugins( array( $free_basename ) );
-        if ( is_wp_error( $delete_result ) ) {
-            set_transient( 'ktpwp_ex_free_delete_failed_notice', $delete_result->get_error_message(), MINUTE_IN_SECONDS * 10 );
+        $free_plugin_dir = trailingslashit( WP_PLUGIN_DIR ) . 'KantanPro';
+        if ( ! ktpwp_ex_remove_directory_preserve_data( $free_plugin_dir ) ) {
+            set_transient( 'ktpwp_ex_free_delete_failed_notice', 'remove_directory_failed', MINUTE_IN_SECONDS * 10 );
             return;
         }
 
@@ -349,7 +383,7 @@ if ( ! function_exists( 'ktpwp_ex_render_auto_deactivated_notice' ) ) {
         if ( $delete_failed_reason ) {
             delete_transient( 'ktpwp_ex_free_delete_failed_notice' );
             echo '<div class="notice notice-warning is-dismissible"><p>';
-            echo esc_html__( 'KantanProEX は有効化されましたが、KantanPro（無料版）の自動削除に失敗しました。無料版プラグインを手動で削除してください。', 'ktpwp' );
+            echo esc_html__( 'KantanProEX は有効化されましたが、KantanPro（無料版）の自動削除に失敗しました。データを残すためアンインストール処理は実行せず、プラグインファイルのみ手動削除してください。', 'ktpwp' );
             echo '</p></div>';
         }
     }
