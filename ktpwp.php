@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.2.73
+ * Version: 1.2.74
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -22,6 +22,25 @@
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
+
+if ( ! function_exists( 'ktpwp_ex_publish_pro_identity' ) ) {
+    /**
+     * EX本体が早期 return する場合でも、有料版としての識別情報を先に公開する。
+     *
+     * @return void
+     */
+    function ktpwp_ex_publish_pro_identity() {
+        if ( ! defined( 'KTPWP_EDITION' ) ) {
+            define( 'KTPWP_EDITION', 'pro' );
+        }
+        if ( ! defined( 'KANTANPRO_PLUGIN_NAME' ) ) {
+            define( 'KANTANPRO_PLUGIN_NAME', 'KantanProEX' );
+        }
+
+        update_option( 'ktp_active_edition', 'pro', false );
+    }
+}
+ktpwp_ex_publish_pro_identity();
 
 if ( ! function_exists( 'ktpwp_ex_detect_loaded_legacy_plugin' ) ) {
     /**
@@ -111,7 +130,7 @@ if ( ! function_exists( 'ktpwp_ex_early_activation_compat' ) ) {
             deactivate_plugins( $free_basename, true );
             set_transient( 'ktpwp_ex_auto_deactivated_free_notice', 1, MINUTE_IN_SECONDS * 5 );
         }
-        update_option( 'ktp_active_edition', 'pro', false );
+        ktpwp_ex_publish_pro_identity();
         // この時点で ktpwp_comprehensive_activation が未定義なら、次リクエストの plugins_loaded で実行する。
         if ( ! function_exists( 'ktpwp_comprehensive_activation' ) ) {
             update_option( 'ktpwp_ex_defer_comprehensive_activation', 'yes', false );
@@ -141,7 +160,8 @@ register_activation_hook( __FILE__, 'ktpwp_ex_early_activation_compat' );
 add_action( 'plugins_loaded', 'ktpwp_ex_run_deferred_comprehensive_activation', 5 );
 
 if ( ktpwp_ex_detect_loaded_legacy_plugin() && ktpwp_ex_is_free_plugin_active() ) {
-    // このリクエストでは同名関数の二重定義を避ける。無効化・DB初期化は register_activation_hook / 遅延フックが担当。
+    ktpwp_ex_publish_pro_identity();
+    // このリクエストでは同名関数の二重定義を避けるが、有料版判定は先に成立させる。
     return;
 }
 
@@ -157,7 +177,7 @@ if ( ktpwp_ex_is_free_plugin_active() && ! ktpwp_ex_detect_loaded_legacy_plugin(
     }
     deactivate_plugins( 'KantanPro/ktpwp.php', true );
     set_transient( 'ktpwp_ex_auto_deactivated_free_notice', 1, MINUTE_IN_SECONDS * 5 );
-    update_option( 'ktp_active_edition', 'pro', false );
+    ktpwp_ex_publish_pro_identity();
 }
 
 /**
@@ -5360,12 +5380,13 @@ function ktpwp_show_update_complete_guide() {
     delete_transient( 'ktpwp_show_update_complete_guide' );
     $plugins_url = admin_url( 'plugins.php' );
     $settings_url = admin_url( 'admin.php?page=ktp-settings' );
+    $notice_label = ktpwp_admin_notice_label();
     echo '<div class="notice notice-success" style="border-left-color:#00a32a;padding:16px 20px;margin:20px 0;">';
-    echo '<p style="font-size:15px;margin:0 0 10px 0;"><strong>✅ KantanPro の更新とマイグレーションが完了しました。</strong></p>';
+    echo '<p style="font-size:15px;margin:0 0 10px 0;"><strong>✅ ' . esc_html( $notice_label ) . ' の更新とマイグレーションが完了しました。</strong></p>';
     echo '<p style="margin:0 0 12px 0;">このあと、下のいずれかで通常どおりご利用いただけます。</p>';
     echo '<p style="margin:0;">';
     echo '<a href="' . esc_url( $plugins_url ) . '" class="button button-primary">プラグイン一覧へ</a> ';
-    echo '<a href="' . esc_url( $settings_url ) . '" class="button">KantanPro 設定を開く</a>';
+    echo '<a href="' . esc_url( $settings_url ) . '" class="button">' . esc_html( $notice_label ) . ' 設定を開く</a>';
     echo '</p></div>';
 }
 
@@ -5373,11 +5394,13 @@ function ktpwp_distribution_admin_notices() {
     if ( ! current_user_can( 'manage_options' ) ) {
         return;
     }
+
+    $notice_label = ktpwp_admin_notice_label();
     
     // 有効化成功通知
     if ( $success_message = get_transient( 'ktpwp_activation_success' ) ) {
         echo '<div class="notice notice-success is-dismissible">';
-        echo '<p><strong>KantanPro:</strong> ' . esc_html( ktpwp_translate_admin_notice_message( $success_message ) ) . '</p>';
+        echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> ' . esc_html( ktpwp_translate_admin_notice_message( $success_message ) ) . '</p>';
         echo '</div>';
         delete_transient( 'ktpwp_activation_success' );
     }
@@ -5385,7 +5408,7 @@ function ktpwp_distribution_admin_notices() {
     // 再有効化成功通知
     if ( $success_message = get_transient( 'ktpwp_reactivation_success' ) ) {
         echo '<div class="notice notice-success is-dismissible">';
-        echo '<p><strong>KantanPro:</strong> ' . esc_html( ktpwp_translate_admin_notice_message( $success_message ) ) . '</p>';
+        echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> ' . esc_html( ktpwp_translate_admin_notice_message( $success_message ) ) . '</p>';
         echo '</div>';
         delete_transient( 'ktpwp_reactivation_success' );
     }
@@ -5393,7 +5416,7 @@ function ktpwp_distribution_admin_notices() {
     // 新規インストール成功通知
     if ( $success_message = get_transient( 'ktpwp_new_installation_success' ) ) {
         echo '<div class="notice notice-success is-dismissible">';
-        echo '<p><strong>KantanPro:</strong> ' . esc_html( ktpwp_translate_admin_notice_message( $success_message ) ) . '</p>';
+        echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> ' . esc_html( ktpwp_translate_admin_notice_message( $success_message ) ) . '</p>';
         echo '</div>';
         delete_transient( 'ktpwp_new_installation_success' );
     }
@@ -5401,7 +5424,7 @@ function ktpwp_distribution_admin_notices() {
     // 有効化エラー通知
     if ( $error_message = get_transient( 'ktpwp_activation_error' ) ) {
         echo '<div class="notice notice-error is-dismissible">';
-        echo '<p><strong>KantanPro:</strong> ' . esc_html( $error_message ) . '</p>';
+        echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> ' . esc_html( $error_message ) . '</p>';
         echo '<p><a href="' . esc_url( add_query_arg( 'ktpwp_manual_migration', '1' ) ) . '" class="button">手動マイグレーション実行</a></p>';
         echo '</div>';
         delete_transient( 'ktpwp_activation_error' );
@@ -5410,7 +5433,7 @@ function ktpwp_distribution_admin_notices() {
     // 再有効化エラー通知
     if ( $error_message = get_transient( 'ktpwp_reactivation_error' ) ) {
         echo '<div class="notice notice-error is-dismissible">';
-        echo '<p><strong>KantanPro:</strong> ' . esc_html( $error_message ) . '</p>';
+        echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> ' . esc_html( $error_message ) . '</p>';
         echo '<p><a href="' . esc_url( add_query_arg( 'ktpwp_manual_migration', '1' ) ) . '" class="button">手動マイグレーション実行</a></p>';
         echo '</div>';
         delete_transient( 'ktpwp_reactivation_error' );
@@ -5419,7 +5442,7 @@ function ktpwp_distribution_admin_notices() {
     // 新規インストールエラー通知
     if ( $error_message = get_transient( 'ktpwp_new_installation_error' ) ) {
         echo '<div class="notice notice-error is-dismissible">';
-        echo '<p><strong>KantanPro:</strong> ' . esc_html( $error_message ) . '</p>';
+        echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> ' . esc_html( $error_message ) . '</p>';
         echo '<p><a href="' . esc_url( add_query_arg( 'ktpwp_manual_migration', '1' ) ) . '" class="button">手動マイグレーション実行</a></p>';
         echo '</div>';
         delete_transient( 'ktpwp_new_installation_error' );
@@ -5432,7 +5455,7 @@ function ktpwp_distribution_admin_notices() {
         } else {
             // nonceが無い場合は確認画面を表示
             echo '<div class="notice notice-warning">';
-            echo '<p><strong>KantanPro:</strong> 手動マイグレーションを実行しますか？</p>';
+            echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> 手動マイグレーションを実行しますか？</p>';
             echo '<p><a href="' . esc_url( wp_nonce_url( add_query_arg( 'ktpwp_manual_migration', '1' ), 'ktpwp_manual_migration' ) ) . '" class="button button-primary">実行する</a></p>';
             echo '</div>';
         }
@@ -5445,7 +5468,7 @@ function ktpwp_distribution_admin_notices() {
         } else {
             // nonceが無い場合は確認画面を表示
             echo '<div class="notice notice-warning">';
-            echo '<p><strong>KantanPro:</strong> invoice_itemsカラム修正を実行しますか？</p>';
+            echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> invoice_itemsカラム修正を実行しますか？</p>';
             echo '<p><a href="' . esc_url( wp_nonce_url( add_query_arg( 'ktpwp_invoice_items_fix', '1' ), 'ktpwp_invoice_items_fix' ) ) . '" class="button button-primary">実行する</a></p>';
             echo '</div>';
         }
@@ -5454,7 +5477,7 @@ function ktpwp_distribution_admin_notices() {
     // マイグレーション進行中の通知
     if ( get_option( 'ktpwp_migration_in_progress', false ) ) {
         echo '<div class="notice notice-info is-dismissible">';
-        echo '<p><strong>KantanPro:</strong> データベースの更新を実行中です。完了までお待ちください。</p>';
+        echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> データベースの更新を実行中です。完了までお待ちください。</p>';
         echo '</div>';
     }
     
@@ -5463,7 +5486,7 @@ function ktpwp_distribution_admin_notices() {
     // invoice_itemsカラム修正成功通知
     if ( $success_message = get_transient( 'ktpwp_invoice_items_fix_success' ) ) {
         echo '<div class="notice notice-success is-dismissible">';
-        echo '<p><strong>KantanPro:</strong> ' . esc_html( ktpwp_translate_admin_notice_message( $success_message ) ) . '</p>';
+        echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> ' . esc_html( ktpwp_translate_admin_notice_message( $success_message ) ) . '</p>';
         echo '</div>';
         delete_transient( 'ktpwp_invoice_items_fix_success' );
     }
@@ -5471,7 +5494,7 @@ function ktpwp_distribution_admin_notices() {
     // invoice_itemsカラム修正エラー通知
     if ( $error_message = get_transient( 'ktpwp_invoice_items_fix_error' ) ) {
         echo '<div class="notice notice-error is-dismissible">';
-        echo '<p><strong>KantanPro:</strong> ' . esc_html( $error_message ) . '</p>';
+        echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> ' . esc_html( $error_message ) . '</p>';
         echo '</div>';
         delete_transient( 'ktpwp_invoice_items_fix_error' );
     }
@@ -5483,7 +5506,7 @@ function ktpwp_distribution_admin_notices() {
     // マイグレーションが完了していない場合のみ通知を表示
     if ( ! $migration_completed && ! $notification_dismissed ) {
         echo '<div class="notice notice-info is-dismissible" id="ktpwp-invoice-items-fix-notice">';
-        echo '<p><strong>KantanPro:</strong> データベースエラーが発生している場合は、以下のボタンで修正してください。</p>';
+        echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> データベースエラーが発生している場合は、以下のボタンで修正してください。</p>';
         echo '<p><a href="' . esc_url( wp_nonce_url( add_query_arg( 'ktpwp_invoice_items_fix', '1' ), 'ktpwp_invoice_items_fix' ) ) . '" class="button button-primary">invoice_itemsカラム修正を実行</a></p>';
         echo '<p><a href="#" class="button button-secondary" onclick="dismissInvoiceItemsFixNotification(); return false;">この通知を非表示にする</a></p>';
         echo '</div>';
