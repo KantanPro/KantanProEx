@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.98
+Stable tag: 1.2.99
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,12 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.2.99 - 2026年05月02日 =
+* 請求書プレビューを KantanBiz 寄りのレイアウトに刷新（サマリーボックス、表形式の明細、請求金額・案件合計・月別合計に税率別の内税／消費税内訳サフィックス）
+* 部署・担当者行、請求済（進捗5）バッジ、HTML エスケープ、自社情報・振込ブロックの二重枠解消を追加
+* 請求プレビュー関連の英語表示用に i18n マッピングを追加（件、税額、部署、ご担当者名、代表窓口、請求済（入金予定日超過）など）
+* 印刷用スタイルを表組み明細・2 カラムの会社／振込グリッドに追随
 
 = 1.2.98 - 2026年05月02日 =
 * 前回タグ（v1.2.97）以降の main 上に追加コミットはなく、配布・GitHub Release 用のバージョン番号のみ更新

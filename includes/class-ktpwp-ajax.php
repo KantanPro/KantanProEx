@@ -5069,7 +5069,7 @@ class KTPWP_Ajax {
 		
 		wp_send_json_success($response_data);
 	}
-	
+
 	/**
 	 * 請求書プレビュー用に住所を1～2行の文字列へまとめる（郵便・都道府県・市区町村・番地・建物。従来は address のみ返して空になりがちだった）
 	 *
