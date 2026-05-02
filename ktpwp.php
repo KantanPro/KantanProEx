@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.2.96
+ * Version: 1.2.97
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -22,6 +22,111 @@
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
+
+if ( ! function_exists( 'ktpwp_ex_maybe_self_relocate_from_zipball_dir' ) ) {
+    /**
+     * GitHub zipball 由来のフォルダ名（KantanPro-KantanProEx-<hash>）のまま残っている場合、
+     * KantanProEX/ へ移し active_plugins 等のベースネームを更新する。
+     * 成功時は同一リクエストで __DIR__ が無効になるためリダイレクトして終了する。
+     *
+     * @return void
+     */
+    function ktpwp_ex_maybe_self_relocate_from_zipball_dir() {
+        if ( ! defined( 'WP_PLUGIN_DIR' ) || WP_PLUGIN_DIR === '' ) {
+            return;
+        }
+
+        if ( defined( 'DOING_CRON' ) && DOING_CRON ) {
+            return;
+        }
+
+        $dir_name = basename( dirname( __FILE__ ) );
+        if ( ! preg_match( '/^KantanPro-KantanProEx-[a-f0-9]{6,}$/i', $dir_name ) ) {
+            return;
+        }
+
+        $source_dir = dirname( __FILE__ );
+        $target_dir  = untrailingslashit( trailingslashit( WP_PLUGIN_DIR ) . 'KantanProEX' );
+
+        if ( is_dir( $target_dir ) ) {
+            return;
+        }
+
+        if ( ! is_dir( $source_dir ) || ! is_readable( $source_dir . '/ktpwp.php' ) ) {
+            return;
+        }
+
+        if ( ! @rename( $source_dir, $target_dir ) ) {
+            return;
+        }
+
+        $old_basename = $dir_name . '/ktpwp.php';
+        $new_basename = 'KantanProEX/ktpwp.php';
+
+        if ( function_exists( 'get_option' ) && function_exists( 'update_option' ) ) {
+            $active = get_option( 'active_plugins', array() );
+            if ( is_array( $active ) ) {
+                $changed = false;
+                foreach ( $active as $i => $p ) {
+                    if ( $p === $old_basename ) {
+                        $active[ $i ] = $new_basename;
+                        $changed      = true;
+                    }
+                }
+                if ( $changed ) {
+                    update_option( 'active_plugins', array_values( array_unique( $active ) ), false );
+                }
+            }
+        }
+
+        if ( function_exists( 'is_multisite' ) && is_multisite() && function_exists( 'get_site_option' ) && function_exists( 'update_site_option' ) ) {
+            $sw = get_site_option( 'active_sitewide_plugins', array() );
+            if ( is_array( $sw ) && isset( $sw[ $old_basename ] ) ) {
+                $ts = $sw[ $old_basename ];
+                unset( $sw[ $old_basename ] );
+                $sw[ $new_basename ] = $ts;
+                update_site_option( 'active_sitewide_plugins', $sw );
+            }
+        }
+
+        if ( function_exists( 'get_site_transient' ) && function_exists( 'set_site_transient' ) ) {
+            $transient = get_site_transient( 'update_plugins' );
+            if ( is_object( $transient ) ) {
+                $touched = false;
+                foreach ( array( 'checked', 'response', 'no_update' ) as $bucket ) {
+                    if ( empty( $transient->{$bucket} ) || ! is_array( $transient->{$bucket} ) ) {
+                        continue;
+                    }
+                    $new_bucket = array();
+                    foreach ( $transient->{$bucket} as $key => $val ) {
+                        if ( $key === $old_basename ) {
+                            $new_bucket[ $new_basename ] = $val;
+                            $touched                     = true;
+                        } else {
+                            $new_bucket[ $key ] = $val;
+                        }
+                    }
+                    $transient->{$bucket} = $new_bucket;
+                }
+                if ( $touched ) {
+                    set_site_transient( 'update_plugins', $transient );
+                }
+            }
+        }
+
+        if ( function_exists( 'wp_clean_plugins_cache' ) ) {
+            wp_clean_plugins_cache();
+        }
+
+        if ( function_exists( 'wp_safe_redirect' ) && function_exists( 'admin_url' ) && function_exists( 'wp_doing_ajax' ) && ! wp_doing_ajax() ) {
+            wp_safe_redirect( admin_url( 'plugins.php?ktpwp_ex_relocated=1' ) );
+            exit;
+        }
+
+        exit;
+    }
+}
+ktpwp_ex_maybe_self_relocate_from_zipball_dir();
 
 if ( ! function_exists( 'ktpwp_ex_is_main_ex_plugin_slug' ) ) {
     /**
