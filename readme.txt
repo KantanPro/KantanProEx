@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.93
+Stable tag: 1.2.94
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,11 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.2.94 - 2026年05月02日 =
+* 日本郵便 郵便番号・デジタルアドレスAPIによる郵便番号から住所の自動入力を追加（トークン取得・秘密情報はサーバー側のみで処理）
+* 管理画面に日本郵便APIの有効化・本番/スタブ環境・クレデンシャル設定を追加
+* 顧客・協力会社などの住所入力UIとAJAX連携、関連スタイル・請求書クライアント画面の調整
 
 = 1.2.93 - 2026年05月01日 =
 * `active_plugins` / `update_plugins` に残る欠損・重複の一時パスを先頭で自己修復し、`file_get_contents` Warning と関数再定義Fatalを抑止
