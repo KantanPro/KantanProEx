@@ -79,6 +79,7 @@ class KTPWP_Update_Checker {
             add_filter( 'site_transient_update_plugins', array( $this, 'check_for_plugin_update' ) );
             add_filter( 'plugins_api', array( $this, 'plugins_api_handler' ), 20, 3 );
             add_filter( 'upgrader_pre_download', array( $this, 'upgrader_pre_download' ), 10, 3 );
+            add_filter( 'upgrader_source_selection', array( $this, 'normalize_github_zipball_source' ), 1, 4 );
             add_filter( 'upgrader_pre_install', array( $this, 'before_update' ), 10, 3 );
             add_filter( 'upgrader_post_install', array( $this, 'rename_github_source' ), 9, 3 );
             add_filter( 'upgrader_post_install', array( $this, 'after_update' ), 10, 3 );
@@ -2137,6 +2138,68 @@ class KTPWP_Update_Checker {
     }
 
     /**
+     * GitHub zipball 展開直後にトップフォルダ名をプラグインディレクトリへ揃える
+     *
+     * WP は保護ディレクトリ直下へのインストール時に basename( $source ) をそのまま
+     * プラグインフォルダ名に使うため、KantanPro-KantanProEx-<hash> のままだと
+     * active_plugins の KantanProEX/ktpwp.php と不一致になる。post_install より前に補正する。
+     *
+     * @param string|WP_Error $source        選択されたソースパス。
+     * @param string          $remote_source 解凍ルート。
+     * @param WP_Upgrader     $upgrader      アップグレーダー。
+     * @param array           $hook_extra    フック情報。
+     * @return string|WP_Error
+     */
+    public function normalize_github_zipball_source( $source, $remote_source, $upgrader, $hook_extra ) {
+        if ( is_wp_error( $source ) || ! is_string( $source ) || '' === trim( $source ) ) {
+            return $source;
+        }
+
+        if ( empty( $hook_extra['type'] ) || 'plugin' !== $hook_extra['type'] ) {
+            return $source;
+        }
+
+        $explicit = isset( $hook_extra['plugin'] ) ? (string) $hook_extra['plugin'] : '';
+        if ( $explicit !== '' && ! $this->is_target_plugin_basename( $explicit ) ) {
+            return $source;
+        }
+
+        $candidate = trailingslashit( $source );
+        if ( ! is_dir( $candidate ) || ! file_exists( $candidate . 'ktpwp.php' ) ) {
+            return $source;
+        }
+
+        if ( ! function_exists( 'get_plugin_data' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
+        $plugin_data = get_plugin_data( $candidate . 'ktpwp.php', false, false );
+        $name        = isset( $plugin_data['Name'] ) ? (string) $plugin_data['Name'] : '';
+        if ( stripos( $name, 'KantanProEX' ) === false ) {
+            return $source;
+        }
+
+        $slug = $this->plugin_slug;
+        $src  = untrailingslashit( $source );
+        if ( strtolower( basename( $src ) ) === strtolower( $slug ) ) {
+            return $source;
+        }
+
+        $parent = dirname( $src );
+        $dest   = $parent . '/' . $slug;
+
+        if ( is_dir( $dest ) ) {
+            $this->recursive_rmdir( trailingslashit( $dest ) );
+        }
+
+        if ( @rename( $src, $dest ) ) {
+            return trailingslashit( $dest );
+        }
+
+        return $source;
+    }
+
+    /**
      * GitHub zipball展開時のディレクトリ名をプラグインslugに補正する
      *
      * @param mixed $response 応答
@@ -2150,7 +2213,7 @@ class KTPWP_Update_Checker {
             return $response;
         }
 
-        if ( empty( $result['destination'] ) || empty( $result['source'] ) ) {
+        if ( empty( $result ) || ! is_array( $result ) || empty( $result['destination'] ) ) {
             return $response;
         }
 
@@ -2159,8 +2222,23 @@ class KTPWP_Update_Checker {
             return $response;
         }
 
-        $source = trailingslashit( $result['source'] );
-        if ( ! is_dir( $source ) || ! file_exists( $source . 'ktpwp.php' ) ) {
+        $installed_dir = '';
+        foreach ( array( 'destination', 'remote_destination', 'local_destination', 'source' ) as $key ) {
+            if ( empty( $result[ $key ] ) || ! is_string( $result[ $key ] ) ) {
+                continue;
+            }
+            $dir = trailingslashit( $result[ $key ] );
+            if ( is_dir( $dir ) && file_exists( $dir . 'ktpwp.php' ) ) {
+                $installed_dir = $dir;
+                break;
+            }
+        }
+
+        if ( $installed_dir === '' ) {
+            return $response;
+        }
+
+        if ( untrailingslashit( $installed_dir ) === untrailingslashit( $expected_dir ) ) {
             return $response;
         }
 
@@ -2168,8 +2246,11 @@ class KTPWP_Update_Checker {
             $this->recursive_rmdir( $expected_dir );
         }
 
-        if ( @rename( $source, $expected_dir ) ) {
+        if ( @rename( untrailingslashit( $installed_dir ), untrailingslashit( $expected_dir ) ) ) {
             $result['destination'] = $expected_dir;
+            if ( isset( $result['remote_destination'] ) ) {
+                $result['remote_destination'] = $expected_dir;
+            }
             return $result;
         }
 

@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.94
+Stable tag: 1.2.95
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.2.95 - 2026年05月02日 =
+* GitHub zipball 更新後にプラグインディレクトリ名が `KantanPro-KantanProEx-*` のまま残り、`KantanProEX/ktpwp.php` が見つからず無効化される問題を修正（`upgrader_source_selection` でフォルダ名を正規化し、`upgrader_post_install` のリネームは実インストール先を参照）
 
 = 1.2.94 - 2026年05月02日 =
 * 日本郵便 郵便番号・デジタルアドレスAPIによる郵便番号から住所の自動入力を追加（トークン取得・秘密情報はサーバー側のみで処理）
