@@ -123,6 +123,174 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 			return $sort_dropdown;
 		}
 
+		/**
+		 * 顧客フォームの郵便番号→住所（zipcloud または 日本郵便API）。
+		 * 同一フォームは input.form で解決し、各 postal_code に blur と input（7桁で短い遅延）を直接付与。
+		 *
+		 * @return string
+		 */
+		private function render_client_postal_lookup_script() {
+			$use_jp     = class_exists( 'KTPWP_JapanPost_Address_API' ) && KTPWP_JapanPost_Address_API::is_enabled();
+			$ajax_url   = admin_url( 'admin-ajax.php' );
+			$nonce      = wp_create_nonce( 'ktpwp_ajax_nonce' );
+			$use_jp_js  = $use_jp ? 'true' : 'false';
+			$ajax_json  = wp_json_encode( $ajax_url );
+			$nonce_json = wp_json_encode( $nonce );
+			$json_flags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE;
+			$msg_zipcloud_empty = wp_json_encode(
+				__( 'この郵便番号では zipcloud から住所を取得できませんでした（大口事業所など、データに無いコードがあります）。一般設定で日本郵便の住所APIを有効にするか、手動で入力してください。', 'ktpwp' ),
+				$json_flags
+			);
+			$msg_jp_fail = wp_json_encode(
+				__( '日本郵便の住所APIから該当住所を取得できませんでした。手動で入力してください。', 'ktpwp' ),
+				$json_flags
+			);
+
+			return '<script>
+(function() {
+	// 入力ごとに data-ktp-postal-bound で二重バインドのみ防止する（ページ内にスクリプトが複数あっても全欄に付与できる）
+	var useJapanPost = ' . $use_jp_js . ';
+	var ajaxUrl = ' . $ajax_json . ';
+	var ajaxNonce = ' . $nonce_json . ';
+	var msgZipcloudEmpty = ' . $msg_zipcloud_empty . ';
+	var msgJapanPostFail = ' . $msg_jp_fail . ';
+	var postalGuideToastMs = 16000;
+	function showPostalGuideToast(message) {
+		var n = document.createElement("div");
+		n.setAttribute("role", "status");
+		n.style.cssText = "position:fixed;top:20px;right:20px;background:#856404;color:#fff;padding:12px 18px;border-radius:5px;z-index:10001;max-width:min(440px,92vw);font-size:13px;line-height:1.45;box-shadow:0 2px 10px rgba(0,0,0,.2);";
+		n.textContent = message;
+		document.body.appendChild(n);
+		setTimeout(function() { try { if (n.parentNode) { n.parentNode.removeChild(n); } } catch (e) {} }, postalGuideToastMs);
+	}
+	function warnPostal(postalEl, zip, attrName, message) {
+		if (!postalEl || !zip) { return; }
+		if (postalEl.getAttribute(attrName) === zip) { return; }
+		postalEl.setAttribute(attrName, zip);
+		showPostalGuideToast(message);
+	}
+	function addressTargets(postalEl) {
+		var form = postalEl.form;
+		if (form) {
+			return {
+				pref: form.querySelector(\'input[name="prefecture"]\'),
+				cityIn: form.querySelector(\'input[name="city"]\'),
+				street: form.querySelector(\'input[name="address"]\')
+			};
+		}
+		var box = postalEl.closest ? postalEl.closest(".data_detail_box") : null;
+		if (box) {
+			return {
+				pref: box.querySelector(\'input[name="prefecture"]\'),
+				cityIn: box.querySelector(\'input[name="city"]\'),
+				street: box.querySelector(\'input[name="address"]\')
+			};
+		}
+		return { pref: null, cityIn: null, street: null };
+	}
+	function applyZipcloud(ctx, zip, postalEl) {
+		var pref = ctx.pref;
+		var cityIn = ctx.cityIn;
+		var xhr = new XMLHttpRequest();
+		xhr.open("GET", "https://zipcloud.ibsnet.co.jp/api/search?zipcode=" + encodeURIComponent(zip));
+		xhr.onload = function() {
+			if (xhr.status < 200 || xhr.status >= 300) { return; }
+			try {
+				var response = JSON.parse(xhr.responseText);
+				if (Number(response.status) !== 200 || !response.results || !response.results.length) {
+					warnPostal(postalEl, zip, "data-ktp-zipcloud-warned", msgZipcloudEmpty);
+					return;
+				}
+				var d = response.results[0];
+				var a1 = d.address1 != null ? String(d.address1) : "";
+				var a2 = d.address2 != null ? String(d.address2) : "";
+				var a3 = d.address3 != null ? String(d.address3) : "";
+				if (pref) { pref.value = a1; }
+				if (cityIn) { cityIn.value = a2 + a3; }
+				if (postalEl) {
+					postalEl.removeAttribute("data-ktp-zipcloud-warned");
+					postalEl.removeAttribute("data-ktp-jppost-warned");
+				}
+			} catch (err) { console.error("KTP zipcloud:", err); }
+		};
+		xhr.onerror = function() { console.warn("KTP zipcloud: network error"); };
+		xhr.send();
+	}
+	function applyJapanPost(ctx, zip, postalEl) {
+		var pref = ctx.pref;
+		var cityIn = ctx.cityIn;
+		var street = ctx.street;
+		var fd = new FormData();
+		fd.append("action", "ktp_lookup_postal_address");
+		fd.append("nonce", ajaxNonce);
+		fd.append("zipcode", zip);
+		fetch(ajaxUrl, { method: "POST", body: fd, credentials: "same-origin" })
+			.then(function(r) {
+				return r.text().then(function(txt) {
+					try { return { ok: r.ok, body: JSON.parse(txt) }; }
+					catch (e) { return { ok: false, body: null, raw: txt }; }
+				});
+			})
+			.then(function(payload) {
+				var res = payload.body;
+				if (!res) {
+					warnPostal(postalEl, zip, "data-ktp-jppost-warned", msgJapanPostFail);
+					console.warn("KTP japanpost: invalid JSON", payload.raw);
+					return;
+				}
+				if (res.success && res.data) {
+					if (pref) { pref.value = res.data.prefecture || ""; }
+					if (cityIn) { cityIn.value = res.data.city || ""; }
+					if (street) { street.value = (res.data.address != null ? String(res.data.address) : "") || ""; }
+					if (postalEl) {
+						postalEl.removeAttribute("data-ktp-zipcloud-warned");
+						postalEl.removeAttribute("data-ktp-jppost-warned");
+					}
+				} else {
+					var detail = (res.data && res.data.message) ? String(res.data.message) : msgJapanPostFail;
+					warnPostal(postalEl, zip, "data-ktp-jppost-warned", detail);
+				}
+			})
+			.catch(function(err) { console.error("KTP japanpost:", err); });
+	}
+	function runLookup(postalEl) {
+		if (!postalEl || postalEl.name !== "postal_code") { return; }
+		var zip = String(postalEl.value || "").replace(/[^0-9]/g, "");
+		if (zip.length !== 7) { return; }
+		var ctx = addressTargets(postalEl);
+		if (!ctx.pref && !ctx.cityIn) { return; }
+		if (useJapanPost) { applyJapanPost(ctx, zip, postalEl); } else { applyZipcloud(ctx, zip, postalEl); }
+	}
+	function bindPostalInput(inp) {
+		if (!inp || inp.getAttribute("data-ktp-postal-bound") === "1") { return; }
+		inp.setAttribute("data-ktp-postal-bound", "1");
+		var debounceTimer = null;
+		function onLeave() { runLookup(inp); }
+		inp.addEventListener("blur", onLeave);
+		inp.addEventListener("input", function() {
+			clearTimeout(debounceTimer);
+			inp.removeAttribute("data-ktp-zipcloud-warned");
+			inp.removeAttribute("data-ktp-jppost-warned");
+			var z = String(inp.value || "").replace(/[^0-9]/g, "");
+			if (z.length === 7) {
+				debounceTimer = setTimeout(function() { runLookup(inp); }, 350);
+			}
+		});
+	}
+	function bindAllPostalInputs() {
+		var list = document.querySelectorAll(\'input[name="postal_code"]\');
+		for (var i = 0; i < list.length; i++) { bindPostalInput(list[i]); }
+	}
+	bindAllPostalInputs();
+	if (document.readyState === "loading") {
+		document.addEventListener("DOMContentLoaded", bindAllPostalInputs);
+	}
+	setTimeout(bindAllPostalInputs, 0);
+	window.addEventListener("load", bindAllPostalInputs);
+})();
+</script>';
+		}
+
 		// -----------------------------
 		// テーブル作成
 		// -----------------------------
@@ -1197,7 +1365,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 			$controller_html = '<div class="controller" style="display: flex; justify-content: space-between; align-items: center;">';
 
 			// 左側：ボタン群（注文履歴と顧客一覧ボタンを削除）
-			$controller_html .= '<div style="display: flex; gap: 5px;">';
+			$controller_html .= '<div class="ktp-client-controller-actions" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">';
 
 			// 現在の顧客IDを取得（後で使用するため）
 			$current_client_id = 0;
@@ -1258,6 +1426,9 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 			// 請求書発行ボタンを追加
 			$controller_html .= '<button id="invoiceButton" title="' . esc_attr__( '請求書発行', 'ktpwp' ) . '"><span class="material-symbols-outlined" aria-label="' . esc_attr__( '請求書', 'ktpwp' ) . '">receipt_long</span><span class="btn-label">' . esc_html__( '請求書発行', 'ktpwp' ) . '</span></button>';
 
+			// 宛名印刷（フォーム入力をそのまま印刷。長形3号想定レイアウト）
+			$controller_html .= '<button type="button" id="addressLabelPrintButton" class="ktp-client-address-label-btn" onclick="printClientAddressLabel(); return false;" title="' . esc_attr__( '宛名印刷', 'ktpwp' ) . '"><span class="material-symbols-outlined" aria-label="' . esc_attr__( '宛名', 'ktpwp' ) . '">contact_mail</span><span class="btn-label">' . esc_html__( '宛名印刷', 'ktpwp' ) . '</span></button>';
+
 			// 請求書発行ポップアップ
 			$controller_html .= '<div id="ktp-invoice-preview-popup" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;">';
 			$controller_html .= '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;border-radius:8px;width:90%;max-width:800px;max-height:80vh;display:flex;flex-direction:column;">';
@@ -1267,6 +1438,8 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 			$controller_html .= '<h3 style="margin:0;color:#333;">' . esc_html__( '請求書プレビュー', 'ktpwp' ) . '</h3>';
 			$controller_html .= '<button type="button" id="ktp-invoice-preview-close" style="background: none; color: #333; border: none; cursor: pointer; font-size: 28px; padding: 0; line-height: 1;">×</button>';
 			$controller_html .= '</div>';
+
+			$controller_html .= '<p class="ktp-invoice-envelope-hint" style="margin:0 0 12px 0;padding:10px 12px;font-size:12px;line-height:1.55;color:#444;background:#f6f7f7;border-radius:4px;border-left:3px solid #2271b1;">' . esc_html__( '長形３号窓明封筒を利用するには印刷の余白を上下左右10mmにしてください（参考値）', 'ktpwp' ) . '</p>';
 
 			// コンテンツ部分（スクロール可能）
 			$controller_html .= '<div id="invoiceList" style="flex:1;overflow-y:scroll;padding-right:10px;padding:50px;">';
@@ -1364,6 +1537,8 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 						}
 					}
 				}
+
+				$data_forms .= $this->render_client_postal_lookup_script();
 
 				// ボタン群
 				$data_forms .= "<div class='button'>";
@@ -1475,40 +1650,6 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 
 			// 追加・検索 以外なら更新フォームを表示
 			elseif ( $action !== 'srcmode' && $action !== 'istmode' && $action !== 'search' ) { // searchも除外
-
-				// Simple postal code auto-fill functionality
-				$data_forms .= <<<END
-            <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                var postalCode = document.querySelector('input[name="postal_code"]');
-                var prefecture = document.querySelector('input[name="prefecture"]');
-                var city = document.querySelector('input[name="city"]');
-
-                if (postalCode) {
-                    postalCode.addEventListener('blur', function() {
-                        var zipcode = postalCode.value.replace(/[^0-9]/g, '');
-                        if (zipcode.length === 7) {
-                            var xhr = new XMLHttpRequest();
-                            xhr.open('GET', 'https://zipcloud.ibsnet.co.jp/api/search?zipcode=' + zipcode);
-                            xhr.onload = function() {
-                                try {
-                                    var response = JSON.parse(xhr.responseText);
-                                    if (response.results && response.results.length > 0) {
-                                        var data = response.results[0];
-                                        if (prefecture) prefecture.value = data.address1;
-                                        if (city) city.value = data.address2 + data.address3;
-                                    }
-                                } catch (error) {
-                                    console.error('郵便番号検索エラー:', error);
-                                }
-                            };
-                            xhr.send();
-                        }
-                    });
-                }
-            });
-            </script>
-            END;
 
 				// cookieに保存されたIDを取得（未決定の場合のみ上書き）
 				if ( ! isset( $data_id ) || $data_id === '' || $data_id === null ) {
@@ -1796,6 +1937,8 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 				$data_forms .= '<button type="submit" name="send_post" title="' . esc_attr__( '更新する', 'ktpwp' ) . '" class="update-submit-btn"><span class="material-symbols-outlined">cached</span></button>';
 				$data_forms .= '</div>';
 				$data_forms .= '</form>';
+
+				$data_forms .= $this->render_client_postal_lookup_script();
 
 				// 部署管理用JavaScript
 				$data_forms .= '<script>
@@ -2191,6 +2334,110 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
                 // if (isPreviewOpen) {
                 //     togglePreview();
                 // }
+            }
+
+            function printClientAddressLabel() {
+                function t(msg) { return (typeof ktpwpTranslate === 'function') ? ktpwpTranslate(msg) : msg; }
+                function esc(s) {
+                    if (s == null || s === '') { return ''; }
+                    return String(s)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;');
+                }
+                function field(name) {
+                    var box = document.querySelector('.data_detail_box');
+                    var el = box ? box.querySelector('[name="' + name + '"]') : null;
+                    if (!el) { el = document.querySelector('[name="' + name + '"]'); }
+                    if (!el || el.value === undefined || el.value === null) { return ''; }
+                    return String(el.value).trim();
+                }
+                function formatPostal(pc) {
+                    var d = String(pc).replace(/\D/g, '');
+                    if (d.length === 7) { return '\u3012' + d.slice(0, 3) + '-' + d.slice(3); }
+                    if (d.length > 0) { return '\u3012' + d; }
+                    return '';
+                }
+                var postal = formatPostal(field('postal_code'));
+                var pref = field('prefecture');
+                var city = field('city');
+                var street = field('address');
+                var building = field('building');
+                var company = field('company_name');
+                var person = field('user_name');
+                var line2 = (pref + city).trim();
+                var line3 = (street + building).trim();
+                var honor = (/^ja/i.test(document.documentElement.lang || '') || (window.ktpwpI18n && /^ja/i.test(String(window.ktpwpI18n.locale || '')))) ? ' \u69d8' : '';
+                if (!postal && !line2 && !line3 && !company && !person) {
+                    alert(t('宛先情報がありません。顧客詳細を表示して住所などを入力してください。'));
+                    return;
+                }
+                var inner = '';
+                if (postal) { inner += '<div>' + esc(postal) + '</div>'; }
+                if (line2) { inner += '<div>' + esc(line2) + '</div>'; }
+                if (line3) { inner += '<div>' + esc(line3) + '</div>'; }
+                if (company) { inner += '<div style="font-weight:bold;margin-top:0.35em;">' + esc(company) + '</div>'; }
+                if (person) { inner += '<div style="margin-top:0.25em;">' + esc(person) + esc(honor) + '</div>'; }
+                var title = t('宛名');
+                // 罫線1本目：用紙上115mm（10+105）。@page10mmの印字領域上端から105mm
+                var gridStartMm = 105;
+                var gridStepMm = 10;
+                var gridLineCount = 18;
+                var gridLinesHtml = '<div class="ktp-atena-grid-lines" aria-hidden="true">';
+                var gi;
+                for (gi = 0; gi < gridLineCount; gi++) {
+                    gridLinesHtml += '<div class="ktp-atena-line" style="top:' + (gridStartMm + gi * gridStepMm) + 'mm"></div>';
+                }
+                gridLinesHtml += '</div>';
+                var printHTML = '<!DOCTYPE html><html lang="' + (document.documentElement.lang || 'ja') + '"><head><meta charset="UTF-8">';
+                printHTML += '<title>' + esc(title) + '</title>';
+                printHTML += '<style>';
+                printHTML += '*{margin:0;padding:0;box-sizing:border-box;}';
+                printHTML += 'body{position:relative;margin:0;padding:0;min-height:235mm;font-family:"Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;font-size:12px;line-height:1.4;color:#333;background:#fff;}';
+                printHTML += '.ktp-atena-grid-lines{position:absolute;left:10mm;right:10mm;top:0;bottom:0;pointer-events:none;z-index:0;}';
+                printHTML += '.ktp-atena-line{position:absolute;left:0;right:0;height:0;border-top:1px dotted rgba(0,0,0,0.22);}';
+                printHTML += '@page{size:120mm 235mm;margin:10mm;}';
+                printHTML += '@media print{body{margin:0;padding:0;}.ktp-atena-line{border-top-width:0.25mm;border-top-style:dotted;border-top-color:rgba(0,0,0,0.2);}button,.no-print{display:none!important;}}';
+                printHTML += '.label{position:absolute;z-index:1;top:6mm;left:23mm;text-align:left;font-size:12px;line-height:1.4;color:#333;max-width:88mm;word-wrap:break-word;}';
+                printHTML += '</style></head><body>';
+                printHTML += gridLinesHtml;
+                printHTML += '<div class="label">' + inner + '</div>';
+                printHTML += '</body></html>';
+                var iframe = document.createElement('iframe');
+                iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+                document.body.appendChild(iframe);
+                var cleanupDone = false;
+                function cleanup() {
+                    if (cleanupDone) { return; }
+                    cleanupDone = true;
+                    setTimeout(function() {
+                        try { document.body.removeChild(iframe); } catch (_) {}
+                    }, 300);
+                }
+                var printed = false;
+                function triggerPrint() {
+                    if (printed) { return; }
+                    printed = true;
+                    try {
+                        var frameWin = iframe.contentWindow || iframe;
+                        frameWin.focus();
+                        frameWin.onafterprint = cleanup;
+                        setTimeout(function() {
+                            try { frameWin.print(); } catch (e) { cleanup(); }
+                        }, 50);
+                    } catch (e) { cleanup(); }
+                }
+                try {
+                    var frameDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    frameDoc.open();
+                    frameDoc.write(printHTML);
+                    frameDoc.close();
+                    setTimeout(triggerPrint, 50);
+                } catch (e) {
+                    console.error('[宛名印刷] iframe印刷に失敗:', e);
+                    cleanup();
+                }
             }
 
             // プレビュー機能（廃止）

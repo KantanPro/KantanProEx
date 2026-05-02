@@ -766,6 +766,7 @@ if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
         'KTPWP_Service_UI'      => 'includes/class-ktpwp-service-ui.php',
         'KTPWP_UI_Generator'    => 'includes/class-ktpwp-ui-generator.php',
         'KTPWP_Image_Processor' => 'includes/class-ktpwp-image-processor.php',
+        'KTPWP_JapanPost_Address_API' => 'includes/class-ktpwp-japanpost-address-api.php',
         'KTPWP_Login_Error'     => 'includes/class-ktpwp-login-error.php',
         'KTPWP_Print_Class'     => 'includes/class-ktpwp-print.php',
         'KTPWP_Upgrade'         => 'includes/class-ktpwp-upgrade.php',

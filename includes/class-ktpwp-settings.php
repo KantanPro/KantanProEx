@@ -2253,6 +2253,24 @@ class KTPWP_Settings {
                             }
                         }
 
+                        // 日本郵便 郵便番号・デジタルアドレスAPI（顧客フォームの住所自動入力）
+                        if ( isset( $wp_settings_sections['ktp-general']['japanpost_api_setting_section'] ) ) {
+                            $section = $wp_settings_sections['ktp-general']['japanpost_api_setting_section'];
+                            echo '<h2>' . esc_html( $section['title'] ) . '</h2>';
+                            if ( $section['callback'] ) {
+                                call_user_func( $section['callback'], $section );
+                            }
+                            if ( isset( $wp_settings_fields['ktp-general']['japanpost_api_setting_section'] ) ) {
+                                echo '<table class="form-table">';
+                                foreach ( $wp_settings_fields['ktp-general']['japanpost_api_setting_section'] as $field ) {
+                                    echo '<tr><th scope="row">' . esc_html( $field['title'] ) . '</th><td>';
+                                    call_user_func( $field['callback'], $field['args'] );
+                                    echo '</td></tr>';
+                                }
+                                echo '</table>';
+                            }
+                        }
+
                         // プラグイン削除時のデータ保持設定セクションの出力
                         if ( isset( $wp_settings_sections['ktp-general']['uninstall_setting_section'] ) ) {
                             $section = $wp_settings_sections['ktp-general']['uninstall_setting_section'];
@@ -2390,6 +2408,13 @@ class KTPWP_Settings {
             $this->options_group,
             $this->option_name,
             array( $this, 'sanitize' )
+        );
+
+        // 一般設定ページ（page=ktp-settings）のフォームで保存するため ktp_general_group に登録
+        register_setting(
+            'ktp_general_group',
+            'ktp_japanpost_api_settings',
+            array( $this, 'sanitize_japanpost_api_settings' )
         );
 
         // デザイン設定グループの登録
@@ -2883,6 +2908,45 @@ class KTPWP_Settings {
             'smtp_setting_section'
         );
 
+        add_settings_section(
+            'japanpost_api_setting_section',
+            __( '日本郵便 郵便番号・デジタルアドレスAPI', 'ktpwp' ),
+            array( $this, 'print_japanpost_api_section_info' ),
+            'ktp-general'
+        );
+
+        add_settings_field(
+            'japanpost_api_enabled',
+            __( '日本郵便APIを使う', 'ktpwp' ),
+            array( $this, 'japanpost_api_enabled_callback' ),
+            'ktp-general',
+            'japanpost_api_setting_section'
+        );
+
+        add_settings_field(
+            'japanpost_api_environment',
+            __( '接続先', 'ktpwp' ),
+            array( $this, 'japanpost_api_environment_callback' ),
+            'ktp-general',
+            'japanpost_api_setting_section'
+        );
+
+        add_settings_field(
+            'japanpost_api_client_id',
+            __( 'クライアントID', 'ktpwp' ),
+            array( $this, 'japanpost_api_client_id_callback' ),
+            'ktp-general',
+            'japanpost_api_setting_section'
+        );
+
+        add_settings_field(
+            'japanpost_api_secret_key',
+            __( 'クライアントシークレット', 'ktpwp' ),
+            array( $this, 'japanpost_api_secret_key_callback' ),
+            'ktp-general',
+            'japanpost_api_setting_section'
+        );
+
         // デザイン設定フィールド
         // タブのアクティブ時の色
         add_settings_field(
@@ -3140,6 +3204,107 @@ class KTPWP_Settings {
                style="width:220px;max-width:100%;" 
                placeholder="<?php echo esc_attr__( '会社名や担当者名', 'ktpwp' ); ?>">
         <?php
+    }
+
+    /**
+     * 日本郵便APIセクションの説明
+     */
+    public function print_japanpost_api_section_info() {
+        echo '<p>' . esc_html__( '顧客タブの郵便番号から住所を自動入力する際、日本郵便の公式APIを利用できます。郵便番号・デジタルアドレス for Biz で発行したクライアントID・シークレットを入力してください。未設定または無効のときは従来どおり zipcloud の公開APIを利用します。', 'ktpwp' ) . '</p>';
+        echo '<p>' . esc_html__( '検証（スタブ）は API v2（/api/v2/）です。テスト用ドキュメントのとおり、郵便番号の例: 1020072・1020082・1010032・1010047 などが検索できます。', 'ktpwp' ) . '</p>';
+        echo '<p><a href="https://lp-api.da.pf.japanpost.jp/" target="_blank" rel="noopener noreferrer">' . esc_html__( '郵便番号・デジタルアドレスAPI（日本郵便）', 'ktpwp' ) . '</a></p>';
+    }
+
+    /**
+     * @return void
+     */
+    public function japanpost_api_enabled_callback() {
+        $options = get_option( 'ktp_japanpost_api_settings', array() );
+        $on      = ! empty( $options['enabled'] );
+        ?>
+        <label>
+            <input type="checkbox" name="ktp_japanpost_api_settings[enabled]" value="1" <?php checked( $on ); ?> />
+            <?php echo esc_html__( '有効にする（オフのときは zipcloud で郵便番号から住所を取得）', 'ktpwp' ); ?>
+        </label>
+        <?php
+    }
+
+    /**
+     * @return void
+     */
+    public function japanpost_api_environment_callback() {
+        $options = get_option( 'ktp_japanpost_api_settings', array() );
+        $env     = isset( $options['environment'] ) && $options['environment'] === 'stub' ? 'stub' : 'production';
+        ?>
+        <select name="ktp_japanpost_api_settings[environment]" id="ktp_japanpost_api_environment">
+            <option value="production" <?php selected( $env, 'production' ); ?>><?php echo esc_html__( '本番', 'ktpwp' ); ?></option>
+            <option value="stub" <?php selected( $env, 'stub' ); ?>><?php echo esc_html__( '検証（スタブ）', 'ktpwp' ); ?></option>
+        </select>
+        <p class="description" style="margin-top:8px;">
+            <strong><?php echo esc_html__( '本番', 'ktpwp' ); ?>:</strong> <code>api.da.pf.japanpost.jp</code>（<?php echo esc_html__( 'API v1', 'ktpwp' ); ?>）<br />
+            <strong><?php echo esc_html__( '検証（スタブ）', 'ktpwp' ); ?>:</strong> <code>stub-qz73x.da.pf.japanpost.jp</code>（<?php echo esc_html__( 'API v2（テスト用リファレンス準拠）', 'ktpwp' ); ?>）
+        </p>
+        <?php
+    }
+
+    /**
+     * @return void
+     */
+    public function japanpost_api_client_id_callback() {
+        $options = get_option( 'ktp_japanpost_api_settings', array() );
+        $val     = isset( $options['client_id'] ) ? (string) $options['client_id'] : '';
+        ?>
+        <input type="text" name="ktp_japanpost_api_settings[client_id]" id="ktp_japanpost_api_client_id" value="<?php echo esc_attr( $val ); ?>" class="regular-text" autocomplete="off" />
+        <?php
+    }
+
+    /**
+     * @return void
+     */
+    public function japanpost_api_secret_key_callback() {
+        ?>
+        <input type="password" name="ktp_japanpost_api_settings[secret_key]" id="ktp_japanpost_api_secret_key" value="" class="regular-text" autocomplete="off" placeholder="<?php echo esc_attr__( '変更する場合のみ入力', 'ktpwp' ); ?>" />
+        <p class="description"><?php echo esc_html__( '登録済みのシークレットを維持する場合は空のまま保存してください。', 'ktpwp' ); ?></p>
+        <?php
+    }
+
+    /**
+     * 日本郵便API設定のサニタイズ
+     *
+     * @param array|null $input 入力
+     * @return array
+     */
+    public function sanitize_japanpost_api_settings( $input ) {
+        $prev = get_option( 'ktp_japanpost_api_settings', array() );
+        if ( ! is_array( $prev ) ) {
+            $prev = array();
+        }
+        $out = array_merge(
+            array(
+                'enabled'     => false,
+                'environment' => 'production',
+                'client_id'   => '',
+                'secret_key'  => '',
+            ),
+            $prev
+        );
+        if ( ! is_array( $input ) ) {
+            return $out;
+        }
+        $out['enabled'] = ! empty( $input['enabled'] );
+        if ( isset( $input['environment'] ) && in_array( $input['environment'], array( 'production', 'stub' ), true ) ) {
+            $out['environment'] = $input['environment'];
+        }
+        if ( isset( $input['client_id'] ) ) {
+            $out['client_id'] = sanitize_text_field( wp_unslash( (string) $input['client_id'] ) );
+        }
+        if ( isset( $input['secret_key'] ) ) {
+            $sk = trim( wp_unslash( (string) $input['secret_key'] ) );
+            if ( $sk !== '' ) {
+                $out['secret_key'] = $sk;
+            }
+        }
+        return $out;
     }
 
     public function setup_smtp_settings( $phpmailer ) {

@@ -184,6 +184,10 @@ class KTPWP_Ajax {
 		add_action( 'wp_ajax_nopriv_get_company_info', array( $this, 'ajax_require_login' ) );
 		$this->registered_handlers[] = 'get_company_info';
 
+		add_action( 'wp_ajax_ktp_lookup_postal_address', array( $this, 'ajax_lookup_postal_address' ) );
+		add_action( 'wp_ajax_nopriv_ktp_lookup_postal_address', array( $this, 'ajax_require_login' ) );
+		$this->registered_handlers[] = 'ktp_lookup_postal_address';
+
 		// 協力会社担当者情報取得
 		add_action( 'wp_ajax_get_supplier_contact_info', array( $this, 'ajax_get_supplier_contact_info' ) );
 		add_action( 'wp_ajax_nopriv_get_supplier_contact_info', array( $this, 'ajax_require_login' ) );
@@ -2929,6 +2933,28 @@ class KTPWP_Ajax {
 	}
 
 	/**
+	 * Ajax: 郵便番号から住所（日本郵便API経由）
+	 */
+	public function ajax_lookup_postal_address() {
+		if ( ! check_ajax_referer( 'ktpwp_ajax_nonce', 'nonce', false ) ) {
+			wp_send_json_error( array( 'message' => __( 'セキュリティ検証に失敗しました。', 'ktpwp' ) ) );
+		}
+		if ( ! current_user_can( 'edit_posts' ) && ! current_user_can( 'ktpwp_access' ) ) {
+			wp_send_json_error( array( 'message' => __( '権限がありません。', 'ktpwp' ) ) );
+		}
+		if ( ! class_exists( 'KTPWP_JapanPost_Address_API' ) ) {
+			wp_send_json_error( array( 'message' => __( '住所検索機能が利用できません。', 'ktpwp' ) ) );
+		}
+		$zip = isset( $_POST['zipcode'] ) ? sanitize_text_field( wp_unslash( $_POST['zipcode'] ) ) : '';
+		$xff = KTPWP_JapanPost_Address_API::get_request_client_ip();
+		$res = KTPWP_JapanPost_Address_API::lookup_zip( $zip, $xff );
+		if ( is_wp_error( $res ) ) {
+			wp_send_json_error( array( 'message' => $res->get_error_message() ) );
+		}
+		wp_send_json_success( $res );
+	}
+
+	/**
 	 * Ajax: 協力会社担当者情報取得
 	 */
 	public function ajax_get_supplier_contact_info() {
@@ -4831,9 +4857,27 @@ class KTPWP_Ajax {
 			WHERE client_id = %d 
 			AND progress = 4 
 			AND completion_date IS NOT NULL
+			AND completion_date <> '0000-00-00'
+			AND completion_date <> '0000-00-00 00:00:00'
 			ORDER BY completion_date ASC",
 			$client_id
 		));
+
+		// MySQL のゼロ日付など IS NOT NULL を満たすが無効な完了日は除外
+		if ( ! empty( $orders ) ) {
+			$orders = array_values(
+				array_filter(
+					$orders,
+					static function ( $row ) {
+						$raw = isset( $row->completion_date ) ? trim( (string) $row->completion_date ) : '';
+						if ( $raw === '' || 0 === strpos( $raw, '0000-00-00' ) ) {
+							return false;
+						}
+						return true;
+					}
+				)
+			);
+		}
 
 		// 前払い（前入金済・EC受注・WC受注）は後払い請求対象から除外
 		if ( class_exists( 'KTPWP_Payment_Timing' ) && ! empty( $orders ) ) {
@@ -5011,7 +5055,7 @@ class KTPWP_Ajax {
 		// レスポンスデータを構築
 		$response_data = array(
 			'client_name' => $client_data->company_name,
-			'client_address' => $client_data->address,
+			'client_address' => $this->format_client_address_for_invoice_preview( $client_data ),
 			'client_contact' => $client_data->name ?? '',
 			'monthly_groups' => $monthly_groups,
 			'departments' => $departments,
@@ -5026,6 +5070,40 @@ class KTPWP_Ajax {
 		wp_send_json_success($response_data);
 	}
 	
+	/**
+	 * 請求書プレビュー用に住所を1～2行の文字列へまとめる（郵便・都道府県・市区町村・番地・建物。従来は address のみ返して空になりがちだった）
+	 *
+	 * @param object $client_data ktp_client 行
+	 * @return string
+	 */
+	private function format_client_address_for_invoice_preview( $client_data ) {
+		$postal_raw = isset( $client_data->postal_code ) ? sanitize_text_field( (string) $client_data->postal_code ) : '';
+		$pref       = isset( $client_data->prefecture ) ? trim( (string) $client_data->prefecture ) : '';
+		$city       = isset( $client_data->city ) ? trim( (string) $client_data->city ) : '';
+		$street     = isset( $client_data->address ) ? trim( (string) $client_data->address ) : '';
+		$building   = isset( $client_data->building ) ? trim( (string) $client_data->building ) : '';
+		$body       = $pref . $city . $street . $building;
+		if ( $body !== '' && strpos( $body, '〒' ) === 0 ) {
+			return $body;
+		}
+		$postal_line = '';
+		if ( $postal_raw !== '' ) {
+			$digits = preg_replace( '/\D/', '', $postal_raw );
+			if ( strlen( $digits ) === 7 ) {
+				$postal_line = '〒' . substr( $digits, 0, 3 ) . '-' . substr( $digits, 3 );
+			} else {
+				$postal_line = ( strpos( $postal_raw, '〒' ) === 0 ) ? $postal_raw : ( '〒' . $postal_raw );
+			}
+		}
+		if ( $postal_line !== '' && $body !== '' ) {
+			return $postal_line . "\n" . $body;
+		}
+		if ( $postal_line !== '' ) {
+			return $postal_line;
+		}
+		return $body;
+	}
+
 	/**
 	 * 顧客の支払条件に基づいて支払期日を計算
 	 *

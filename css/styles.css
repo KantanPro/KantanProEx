@@ -4044,13 +4044,13 @@ body.ktpwp-modal-open {
   background: #28a745 !important;
   color: #fff !important;
   border: 1px solid #1e7e34 !important;
-  border-radius: 3px !important;
-  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  padding: 8px 18px !important;
   font-size: 12px !important;
   cursor: pointer !important;
   display: inline-flex !important;
   align-items: center !important;
-  gap: 4px !important;
+  gap: 8px !important;
   transition: all 0.2s ease !important;
 }
 
@@ -4065,7 +4065,42 @@ body.ktpwp-modal-open {
 
 .controller .create-order-btn .material-symbols-outlined,
 .controller #invoiceButton .material-symbols-outlined {
-  font-size: 16px !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+}
+
+/* 顧客・協力会社タブ: 宛名印刷（長形3号想定レイアウト、同一配色） */
+.controller #addressLabelPrintButton,
+.controller #supplierAddressLabelPrintButton,
+.controller .ktp-client-address-label-btn {
+  background: #1565c0 !important;
+  color: #fff !important;
+  border: 1px solid #0d47a1 !important;
+  border-radius: 8px !important;
+  padding: 8px 18px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  transition: all 0.2s ease !important;
+}
+
+.controller #addressLabelPrintButton:hover,
+.controller #supplierAddressLabelPrintButton:hover,
+.controller .ktp-client-address-label-btn:hover {
+  background: #0d47a1 !important;
+  border-color: #082f5c !important;
+  color: #fff !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 2px 8px rgba(13, 71, 161, 0.35) !important;
+}
+
+.controller #addressLabelPrintButton .material-symbols-outlined,
+.controller #supplierAddressLabelPrintButton .material-symbols-outlined,
+.controller .ktp-client-address-label-btn .material-symbols-outlined {
+  font-size: 18px !important;
   line-height: 1 !important;
 }
 
@@ -4659,14 +4694,17 @@ body.ktpwp-modal-open {
 
 @media screen and (max-width: 767px) {
   .controller .create-order-btn,
-  .controller #invoiceButton {
-    width: 40px !important;
-    height: 40px !important;
-    min-width: 40px !important;
-    min-height: 40px !important;
-    max-width: 40px !important;
-    max-height: 40px !important;
-    border-radius: 6px !important;
+  .controller #invoiceButton,
+  .controller #addressLabelPrintButton,
+  .controller #supplierAddressLabelPrintButton,
+  .controller .ktp-client-address-label-btn {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    max-width: 44px !important;
+    max-height: 44px !important;
+    border-radius: 10px !important;
     padding: 0 !important;
     justify-content: center !important;
     align-items: center !important;
@@ -4677,21 +4715,30 @@ body.ktpwp-modal-open {
     line-height: 1 !important;
   }
   .controller .create-order-btn .material-symbols-outlined,
-  .controller #invoiceButton .material-symbols-outlined {
+  .controller #invoiceButton .material-symbols-outlined,
+  .controller #addressLabelPrintButton .material-symbols-outlined,
+  .controller #supplierAddressLabelPrintButton .material-symbols-outlined,
+  .controller .ktp-client-address-label-btn .material-symbols-outlined {
     font-size: 22px !important;
     margin: 0 !important;
     line-height: 1 !important;
     display: block !important;
   }
   .controller .create-order-btn .btn-label,
-  .controller #invoiceButton .btn-label {
+  .controller #invoiceButton .btn-label,
+  .controller #addressLabelPrintButton .btn-label,
+  .controller #supplierAddressLabelPrintButton .btn-label,
+  .controller .ktp-client-address-label-btn .btn-label {
     display: none !important;
   }
 }
 
 @media screen and (max-width: 767px) {
   .controller .create-order-btn .btn-label,
-  .controller #invoiceButton .btn-label {
+  .controller #invoiceButton .btn-label,
+  .controller #addressLabelPrintButton .btn-label,
+  .controller #supplierAddressLabelPrintButton .btn-label,
+  .controller .ktp-client-address-label-btn .btn-label {
     display: none !important;
   }
 }
