@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.2.95
+ * Version: 1.2.96
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -38,7 +38,11 @@ if ( ! function_exists( 'ktpwp_ex_is_main_ex_plugin_slug' ) ) {
             return false;
         }
         $dir = strtolower( dirname( $plugin_basename ) );
-        return strpos( $dir, 'kantanproex' ) !== false;
+        if ( $dir === 'kantanproex' ) {
+            return true;
+        }
+        // GitHub zipball 由来の一時フォルダ（strpos だと kantanpro-kantanproex-* に誤判定しうる無料版等を避ける）
+        return (bool) preg_match( '/^kantanpro-kantanproex-[a-f0-9]{6,}$/i', $dir );
     }
 }
 

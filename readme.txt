@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.95
+Stable tag: 1.2.96
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.2.96 - 2026年05月02日 =
+* `get_plugins()` 走査で `KantanPro-KantanProEx-*` が `KantanProEX` より先に選ばれ、再有効化や検証が一時フォルダを参照して「プラグインファイルが存在しません」になる問題を修正（対象判定から曖昧な `strpos` を廃止し、正規 slug パスを優先解決）
 
 = 1.2.95 - 2026年05月02日 =
 * GitHub zipball 更新後にプラグインディレクトリ名が `KantanPro-KantanProEx-*` のまま残り、`KantanProEX/ktpwp.php` が見つからず無効化される問題を修正（`upgrader_source_selection` でフォルダ名を正規化し、`upgrader_post_install` のリネームは実インストール先を参照）

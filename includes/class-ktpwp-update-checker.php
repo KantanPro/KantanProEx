@@ -244,10 +244,20 @@ class KTPWP_Update_Checker {
             return true;
         }
 
-        // GitHub zipball 展開時の一時ディレクトリ名（例: KantanPro-KantanProEx-xxxx/ktpwp.php）も対象として扱う
         $file = strtolower( basename( $basename ) );
-        $dir  = strtolower( dirname( $basename ) );
-        if ( $file === 'ktpwp.php' && strpos( $dir, 'kantanproex' ) !== false ) {
+        if ( $file !== 'ktpwp.php' ) {
+            return false;
+        }
+
+        $dir = strtolower( dirname( $basename ) );
+
+        // 標準インストール先。strpos で kantanproex を含む判定は kantanpro-kantanproex-* に誤マッチするため使わない。
+        if ( $dir === strtolower( $this->plugin_slug ) ) {
+            return true;
+        }
+
+        // GitHub zipball のルートフォルダ（Owner-Repo-commit）
+        if ( preg_match( '/^kantanpro-kantanproex-[a-f0-9]{6,}$/i', $dir ) ) {
             return true;
         }
 
@@ -288,13 +298,33 @@ class KTPWP_Update_Checker {
         }
 
         $installed_plugins = get_plugins();
+        $basename          = (string) $basename;
+
+        // 呼び出し側が提示したパスがそのまま存在するなら最優先（更新後の再有効化など）
+        if ( $basename !== '' && isset( $installed_plugins[ $basename ] ) ) {
+            return $basename;
+        }
+
+        $canonical = $this->plugin_basename;
+        if ( isset( $installed_plugins[ $canonical ] ) ) {
+            return $canonical;
+        }
+
+        // 正規フォルダ名を zipball の一時名より優先（get_plugins() のキー順に依存しない）
+        $stable_key = $this->plugin_slug . '/ktpwp.php';
+        foreach ( array_keys( $installed_plugins ) as $installed_basename ) {
+            if ( strcasecmp( $installed_basename, $stable_key ) === 0 && $this->is_target_plugin_basename( $installed_basename ) ) {
+                return (string) $installed_basename;
+            }
+        }
+
         foreach ( array_keys( $installed_plugins ) as $installed_basename ) {
             if ( $this->is_target_plugin_basename( $installed_basename ) ) {
                 return (string) $installed_basename;
             }
         }
 
-        return (string) $basename;
+        return $basename;
     }
 
     /**
