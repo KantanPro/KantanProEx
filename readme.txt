@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.0
+Stable tag: 1.3.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -323,18 +323,16 @@ curl -sS -X POST \
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
 
+= 1.3.1 - 2026年05月03日 =
+* KantanPro（FileMaker Pro 版）向け「FileMaker版データ取り込み」を追加（エクスポート Zip を OpenAI BYOK で解析し、顧客・協力会社・商品・受注へ取り込み。結果レポートを管理画面に表示）
+* FileMaker 取り込み：顧客 CSV／OpenAI による列提案、Zip 対応、協力会社・商品・受注（order.tab 等）の取り込み、FM の .tab を COL_n 解析・顧客紐づけ
+* FileMaker 取り込み：mbstring 未導入・不正 UTF-8・POST 型・壊れた transient などでの致命エラーや白画面を防止（フォールバック・セッション検証・Throwable 捕捉・require 経路の強化）
+* FileMaker 取り込み：TRANSIENT_PREFIX 定数の追加、Settings ラッパーと ktpwp.php の明示 require で読み込み経路を安定化
+* FileMaker 取り込み：Zip 内の処理順を user.tab／user.csv 最優先にし、user.csv がタブ区切り主体のときは user.tab と同様に解析
+
 = 1.3.0 - 2026年05月03日 =
 * 顧客一覧でステータスが「対象外／Inactive」のとき、先頭の「[削除済み]」表記をやめ「【対象外】」を行末に表示するよう変更（実態に合わせたラベルとレイアウト調整）
 * 上記ラベルの英語翻訳を「[Excluded]」に更新（i18n・PO・POT・MO）
-* KantanPro（FileMaker Pro 版）からのデータ取り込み（管理画面「FileMaker版データ取り込み」：エクスポート Zip を OpenAI BYOK で解析し顧客・協力会社・商品へ自動取り込み・レポート表示）
-* FileMaker 版データ取り込み：mbstring 未導入環境での致命的エラーを防止（列名推測の小文字化・部分一致をフォールバック）
-* FileMaker 版データ取り込み：不正 UTF-8 や壊れた transient で管理画面が出ない問題を修正（JSON 出力・セッション検証・表示の try/catch）
-* FileMaker 版データ取り込み：管理メニューのコールバックを Settings 経由にし、モジュール未読込時は致命エラーではなく案内を表示。ktpwp.php での明示 require も追加
-* FileMaker 版データ取り込み：Settings ラッパーで Throwable を捕捉し、WP_DEBUG 時は管理者にスタックを表示（MY_PLUGIN_PATH 無しでも dirname で require を試行）
-* FileMaker 版データ取り込み：未定義だった TRANSIENT_PREFIX 定数を追加し取り込み画面の表示エラーを修正
-* FileMaker 版データ取り込み：エクスポート Zip 1 ファイルをアップロードし、OpenAI（BYOK）で Zip 内の表形式ファイルを判別して顧客・協力会社・商品へ自動取り込み。取り込み結果・対象外・失敗を画面上にレポート表示（Zip 最大約50MB、表ファイルは最大50件までAIに送信）
-* FileMaker 版データ取り込み：受注（order.tab 等）を取り込み試行。user.tab 等は COL_n 疑似ヘッダーで解析。受注は link_company_name で顧客マスタを検索し client_id を設定（同一Zip内は顧客→受注の順で実行）。外部ID列があれば重複スキップに利用
-* FileMaker 版データ取り込み：Zip 内の取り込み順を user.tab → user.csv → その他にし、user.csv がタブ主体のときは user.tab と同様にヘッダー無し解析する
 
 = 1.2.99 - 2026年05月02日 =
 * 請求書プレビューを KantanBiz 寄りのレイアウトに刷新（サマリーボックス、表形式の明細、請求金額・案件合計・月別合計に税率別の内税／消費税内訳サフィックス）
