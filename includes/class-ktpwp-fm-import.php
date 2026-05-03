@@ -166,7 +166,8 @@ final class KTPWP_FM_Import {
 			return '<div class="notice notice-error"><p>' . esc_html__( '拡張子は csv / tsv / tab / txt / zip のみ対応しています。', 'ktpwp' ) . '</p></div>';
 		}
 
-		$entity = isset( $_POST['ktp_fm_entity'] ) ? sanitize_key( wp_unslash( $_POST['ktp_fm_entity'] ) ) : self::ENTITY_CLIENT;
+		$entity_raw = isset( $_POST['ktp_fm_entity'] ) ? wp_unslash( $_POST['ktp_fm_entity'] ) : '';
+		$entity     = is_string( $entity_raw ) ? sanitize_key( $entity_raw ) : self::ENTITY_CLIENT;
 		if ( ! in_array( $entity, self::allowed_entities(), true ) ) {
 			$entity = self::ENTITY_CLIENT;
 		}
@@ -294,7 +295,8 @@ final class KTPWP_FM_Import {
 			$samples = array();
 		}
 
-		$entity = isset( $_POST['entity'] ) ? self::normalize_entity( wp_unslash( $_POST['entity'] ) ) : self::ENTITY_CLIENT;
+		$entity_post = isset( $_POST['entity'] ) ? wp_unslash( $_POST['entity'] ) : '';
+		$entity        = is_string( $entity_post ) ? self::normalize_entity( $entity_post ) : self::ENTITY_CLIENT;
 
 		$system = self::build_openai_system_prompt_for_entity( $entity );
 		$user   = wp_json_encode(
@@ -678,14 +680,15 @@ PROMPT;
 	private static function guess_by_rules( array $headers, array $rules ): array {
 		$norm = array();
 		foreach ( $headers as $i => $h ) {
-			$norm[ $i ] = mb_strtolower( trim( (string) $h ) );
+			$norm[ $i ] = self::str_to_lower_unicode( trim( (string) $h ) );
 		}
 
 		$out = array();
 		foreach ( $rules as $field => $keywords ) {
 			foreach ( $norm as $idx => $low ) {
 				foreach ( $keywords as $kw ) {
-					if ( $low !== '' && mb_strpos( $low, mb_strtolower( $kw ) ) !== false ) {
+					$kwl = self::str_to_lower_unicode( $kw );
+					if ( $low !== '' && self::str_contains_unicode( $low, $kwl ) ) {
 						$out[ $field ] = (int) $idx;
 						break 2;
 					}
@@ -1242,8 +1245,44 @@ PROMPT;
 	 * @return string
 	 */
 	private static function normalize_entity( $entity ): string {
+		if ( is_array( $entity ) || is_object( $entity ) ) {
+			return self::ENTITY_CLIENT;
+		}
 		$e = sanitize_key( (string) $entity );
 		return in_array( $e, self::allowed_entities(), true ) ? $e : self::ENTITY_CLIENT;
+	}
+
+	/**
+	 * mbstring 未環境でも落ちないよう小文字化（日本語は mb 推奨）。
+	 *
+	 * @param string $str Input.
+	 * @return string
+	 */
+	private static function str_to_lower_unicode( $str ): string {
+		$str = (string) $str;
+		if ( function_exists( 'mb_strtolower' ) ) {
+			return mb_strtolower( $str, 'UTF-8' );
+		}
+		return strtolower( $str );
+	}
+
+	/**
+	 * mbstring 未環境でも落ちないよう部分文字列判定。
+	 *
+	 * @param string $haystack Haystack.
+	 * @param string $needle   Needle.
+	 * @return bool
+	 */
+	private static function str_contains_unicode( $haystack, $needle ): bool {
+		$haystack = (string) $haystack;
+		$needle   = (string) $needle;
+		if ( $needle === '' ) {
+			return false;
+		}
+		if ( function_exists( 'mb_strpos' ) ) {
+			return mb_strpos( $haystack, $needle, 0, 'UTF-8' ) !== false;
+		}
+		return strpos( $haystack, $needle ) !== false;
 	}
 
 	/**
@@ -1321,7 +1360,11 @@ PROMPT;
 			return '';
 		}
 		$key = hash( 'sha256', wp_salt( 'auth' ) . '|ktp_fm_import', true );
-		$iv  = random_bytes( 16 );
+		try {
+			$iv = random_bytes( 16 );
+		} catch ( \Exception $e ) {
+			return '';
+		}
 		$enc = openssl_encrypt( $plain, 'aes-256-cbc', $key, OPENSSL_RAW_DATA, $iv );
 		if ( $enc === false ) {
 			return '';
