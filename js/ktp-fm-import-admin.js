@@ -25,6 +25,7 @@
 				{
 					action: 'ktp_fm_import_ai_mapping',
 					nonce: ktpFmImport.nonce,
+					entity: payload.entity || 'client',
 					headers: JSON.stringify(payload.headers || []),
 					samples: JSON.stringify(payload.samples || [])
 				}
