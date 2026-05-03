@@ -19,6 +19,7 @@ final class KTPWP_FM_Import {
 	private const ENTITY_CLIENT   = 'client';
 	private const ENTITY_SUPPLIER = 'supplier';
 	private const ENTITY_SERVICE  = 'service';
+	private const ENTITY_ORDER    = 'order';
 
 	/** transient キー先頭（ユーザー ID を連結） */
 	private const TRANSIENT_PREFIX     = 'ktp_fm_import_sess_';
@@ -367,7 +368,8 @@ final class KTPWP_FM_Import {
 		$skip_dup_email   = ! empty( $_POST['ktp_fm_zip_skip_dup_email'] );
 		$skip_dup_service = ! empty( $_POST['ktp_fm_zip_skip_dup_service'] );
 
-		$report = self::execute_ai_zip_plans( $zip_path, $manifest, $decoded, $skip_dup_email, $skip_dup_service );
+		$skip_dup_order = ! empty( $_POST['ktp_fm_zip_skip_dup_order'] );
+		$report         = self::execute_ai_zip_plans( $zip_path, $manifest, $decoded, $skip_dup_email, $skip_dup_service, $skip_dup_order );
 		$report['zip_name']    = isset( $zip_sess['orig_name'] ) ? (string) $zip_sess['orig_name'] : basename( $zip_path );
 		$report['time']        = time();
 		$report['other_files'] = self::list_zip_non_tabular_entries( $zip_path );
@@ -542,6 +544,19 @@ PROMPT;
 				'unit'         => __( '単位', 'ktpwp' ),
 				'memo'         => __( 'メモ', 'ktpwp' ),
 				'category'     => __( 'カテゴリ', 'ktpwp' ),
+			);
+		}
+		if ( $entity === self::ENTITY_ORDER ) {
+			return array(
+				'link_company_name' => __( '顧客マスタと紐づける会社名（必須・ktp_client.company_name と一致）', 'ktpwp' ),
+				'link_email'        => __( '顧客マスタと紐づけるメール（任意・会社名で一意に決められないとき）', 'ktpwp' ),
+				'project_name'      => __( '案件名（project_name）', 'ktpwp' ),
+				'customer_name'     => __( '受注書上の顧客表示名（空なら会社名にフォールバック可）', 'ktpwp' ),
+				'user_name'         => __( '担当者名', 'ktpwp' ),
+				'order_date'        => __( '受注日・起算日（日付文字列）', 'ktpwp' ),
+				'progress_label'    => __( '進捗ラベル（例: 受付中・見積中・受注・完了・請求済・入金済・ボツ）', 'ktpwp' ),
+				'memo'              => __( 'メモ', 'ktpwp' ),
+				'external_order_key' => __( '行の一意キー（FileMaker 内部ID 等・重複スキップ用・任意）', 'ktpwp' ),
 			);
 		}
 
@@ -1331,6 +1346,337 @@ PROMPT;
 	}
 
 	/**
+	 * @param array<int, array<int, string>> $rows    Rows.
+	 * @param string[]                       $headers Headers.
+	 * @param array<string, int>             $map     Map.
+	 * @param bool                             $skip_dup_external Skip duplicate external_order_id.
+	 * @return array{inserted: int, skipped: int, errors: int}
+	 */
+	private static function import_order_rows( array $rows, array $headers, array $map, bool $skip_dup_external ): array {
+		global $wpdb;
+		$table = $wpdb->prefix . 'ktp_order';
+
+		$inserted = 0;
+		$skipped  = 0;
+		$errors   = 0;
+
+		$order_cols = self::ktp_order_table_columns();
+
+		foreach ( $rows as $row ) {
+			$d = self::build_order_import_row_from_map( $row, $map );
+			$link_company = trim( (string) ( $d['link_company_name'] ?? '' ) );
+			$link_email   = trim( (string) ( $d['link_email'] ?? '' ) );
+			if ( $link_company === '' ) {
+				$link_company = trim( (string) ( $d['customer_name'] ?? '' ) );
+			}
+			if ( $link_company === '' ) {
+				$skipped++;
+				continue;
+			}
+
+			$client_id = self::resolve_client_id_for_order_import( $link_company, $link_email );
+			if ( $client_id <= 0 ) {
+				$skipped++;
+				continue;
+			}
+
+			$ext_key = trim( (string) ( $d['external_order_key'] ?? '' ) );
+			if ( $ext_key === '' ) {
+				$ext_key = substr( md5( $link_company . '|' . ( $d['project_name'] ?? '' ) . '|' . ( $d['order_date'] ?? '' ) . '|' . wp_json_encode( $row ) ), 0, 32 );
+			}
+			if ( $skip_dup_external && self::fm_order_external_exists( $ext_key ) ) {
+				$skipped++;
+				continue;
+			}
+
+			$project = trim( (string) ( $d['project_name'] ?? '' ) );
+			if ( $project === '' ) {
+				$project = __( 'FileMaker取込', 'ktpwp' );
+			}
+			$cust_display = trim( (string) ( $d['customer_name'] ?? '' ) );
+			if ( $cust_display === '' ) {
+				$cust_display = $link_company;
+			}
+			$user_name = trim( (string) ( $d['user_name'] ?? '' ) );
+			$memo      = isset( $d['memo'] ) ? sanitize_textarea_field( (string) $d['memo'] ) : '';
+			$ts        = self::fm_parse_date_to_timestamp( (string) ( $d['order_date'] ?? '' ) );
+			$progress  = self::fm_map_progress_label_to_int( (string) ( $d['progress_label'] ?? '' ) );
+
+			$order_number = self::fm_generate_import_order_number();
+			$now          = current_time( 'mysql' );
+			$search       = sanitize_text_field( implode( ', ', array_filter( array( $cust_display, $user_name, $project ) ) ) );
+
+			$insert  = array();
+			$formats = array();
+			$add     = static function ( $col, $val, $fmt ) use ( &$insert, &$formats, $order_cols ) {
+				if ( in_array( $col, $order_cols, true ) ) {
+					$insert[ $col ] = $val;
+					$formats[]    = $fmt;
+				}
+			};
+
+			$add( 'order_number', $order_number, '%s' );
+			$add( 'time', $ts, '%d' );
+			$add( 'client_id', $client_id, '%d' );
+			$add( 'customer_name', sanitize_text_field( $cust_display ), '%s' );
+			$add( 'user_name', sanitize_text_field( $user_name ), '%s' );
+			$add( 'project_name', sanitize_text_field( $project ), '%s' );
+			$add( 'invoice_items', '', '%s' );
+			$add( 'cost_items', '', '%s' );
+			$add( 'memo', $memo, '%s' );
+			$add( 'search_field', $search, '%s' );
+			$add( 'company_name', sanitize_text_field( $link_company ), '%s' );
+			$add( 'progress', $progress, '%d' );
+			$add( 'created_at', $now, '%s' );
+			$add( 'updated_at', $now, '%s' );
+			if ( in_array( 'external_source', $order_cols, true ) && in_array( 'external_order_id', $order_cols, true ) ) {
+				$add( 'external_source', 'fm_pro_export', '%s' );
+				$add( 'external_order_id', substr( $ext_key, 0, 100 ), '%s' );
+			}
+
+			if ( $insert === array() ) {
+				$errors++;
+				continue;
+			}
+
+			$res = $wpdb->insert( $table, $insert, $formats );
+			if ( $res === false ) {
+				$errors++;
+				continue;
+			}
+			$new_id = (int) $wpdb->insert_id;
+			self::fm_finalize_new_order_children( $new_id );
+			$inserted++;
+		}
+
+		return array(
+			'inserted' => $inserted,
+			'skipped'  => $skipped,
+			'errors'   => $errors,
+		);
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private static function ktp_order_table_columns(): array {
+		static $cols = null;
+		if ( $cols !== null ) {
+			return $cols;
+		}
+		global $wpdb;
+		$t = $wpdb->prefix . 'ktp_order';
+		$c = $wpdb->get_col( "SHOW COLUMNS FROM `{$t}`", 0 );
+		$cols = is_array( $c ) ? $c : array();
+
+		return $cols;
+	}
+
+	/**
+	 * @param array<int, string>   $row Row.
+	 * @param array<string, int>   $map Map.
+	 * @return array<string, string>
+	 */
+	private static function build_order_import_row_from_map( array $row, array $map ): array {
+		$out = array();
+		foreach ( $map as $field => $idx ) {
+			$val = isset( $row[ $idx ] ) ? trim( (string) $row[ $idx ] ) : '';
+			if ( $field === 'memo' ) {
+				$out[ $field ] = $val;
+			} else {
+				$out[ $field ] = sanitize_text_field( $val );
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * @param string $company Company name.
+	 * @param string $email   Email.
+	 * @return int client id or 0.
+	 */
+	private static function resolve_client_id_for_order_import( $company, $email ): int {
+		global $wpdb;
+		$company = trim( (string) $company );
+		$email   = trim( (string) $email );
+		$t       = $wpdb->prefix . 'ktp_client';
+
+		if ( $company !== '' ) {
+			$id = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `{$t}` WHERE company_name = %s LIMIT 1", $company ) );
+			if ( $id ) {
+				return (int) $id;
+			}
+			$id = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `{$t}` WHERE TRIM(company_name) = %s LIMIT 1", $company ) );
+			if ( $id ) {
+				return (int) $id;
+			}
+		}
+		if ( $email !== '' && is_email( $email ) ) {
+			$id = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `{$t}` WHERE email = %s LIMIT 1", $email ) );
+			if ( $id ) {
+				return (int) $id;
+			}
+		}
+
+		return 0;
+	}
+
+	/**
+	 * @param string $ext_key External key.
+	 * @return bool
+	 */
+	private static function fm_order_external_exists( $ext_key ): bool {
+		$ext_key = trim( (string) $ext_key );
+		if ( $ext_key === '' ) {
+			return false;
+		}
+		$cols = self::ktp_order_table_columns();
+		if ( ! in_array( 'external_source', $cols, true ) || ! in_array( 'external_order_id', $cols, true ) ) {
+			return false;
+		}
+		global $wpdb;
+		$t = $wpdb->prefix . 'ktp_order';
+		$n = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM `{$t}` WHERE external_source = %s AND external_order_id = %s",
+				'fm_pro_export',
+				substr( $ext_key, 0, 100 )
+			)
+		);
+
+		return $n > 0;
+	}
+
+	/**
+	 * @return string
+	 */
+	private static function fm_generate_import_order_number(): string {
+		global $wpdb;
+		$table = $wpdb->prefix . 'ktp_order';
+		$ts    = (int) current_time( 'timestamp' );
+		$pref  = 'FM-' . gmdate( 'Ymd', $ts ) . '-';
+		$cnt   = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM `{$table}` WHERE order_number LIKE %s",
+				$wpdb->esc_like( $pref ) . '%'
+			)
+		);
+
+		return $pref . str_pad( (string) ( $cnt + 1 ), 4, '0', STR_PAD_LEFT );
+	}
+
+	/**
+	 * @param string $s Date string.
+	 * @return int Unix timestamp.
+	 */
+	private static function fm_parse_date_to_timestamp( $s ): int {
+		$s = trim( (string) $s );
+		if ( $s === '' || $s === '?' ) {
+			return (int) current_time( 'timestamp' );
+		}
+		if ( preg_match( '/^(\d{4})[.\/](\d{1,2})[.\/](\d{1,2})/u', $s, $m ) ) {
+			$try = strtotime( sprintf( '%04d-%02d-%02d', (int) $m[1], (int) $m[2], (int) $m[3] ) );
+			if ( $try !== false ) {
+				return (int) $try;
+			}
+		}
+		$try = strtotime( $s );
+		if ( $try !== false ) {
+			return (int) $try;
+		}
+
+		return (int) current_time( 'timestamp' );
+	}
+
+	/**
+	 * @param string $label Progress label (JP).
+	 * @return int 1..7
+	 */
+	private static function fm_map_progress_label_to_int( $label ): int {
+		$label = trim( (string) $label );
+		if ( $label === '' ) {
+			return 1;
+		}
+		$low = self::str_to_lower_unicode( $label );
+		if ( self::str_contains_unicode( $low, 'ボツ' ) || self::str_contains_unicode( $low, '却下' ) ) {
+			return 7;
+		}
+		if ( self::str_contains_unicode( $low, '入金' ) ) {
+			return 6;
+		}
+		if ( self::str_contains_unicode( $low, '請求' ) ) {
+			return 5;
+		}
+		if ( self::str_contains_unicode( $low, '完了' ) ) {
+			return 4;
+		}
+		if ( self::str_contains_unicode( $low, '受注' ) && ! self::str_contains_unicode( $low, '受付' ) ) {
+			return 3;
+		}
+		if ( self::str_contains_unicode( $low, '見積' ) ) {
+			return 2;
+		}
+		if ( self::str_contains_unicode( $low, '受付' ) ) {
+			return 1;
+		}
+		if ( preg_match( '/^[1-7]$/', $label ) ) {
+			return (int) $label;
+		}
+
+		return 1;
+	}
+
+	/**
+	 * @param int $order_id Order id.
+	 * @return void
+	 */
+	private static function fm_finalize_new_order_children( $order_id ): void {
+		$order_id = (int) $order_id;
+		if ( $order_id <= 0 ) {
+			return;
+		}
+		if ( ! self::fm_load_order_main_class() ) {
+			return;
+		}
+		try {
+			$order_class = new KTPWP_Order_Class();
+			$order_class->Create_Initial_Invoice_Item( $order_id );
+			$order_class->Create_Initial_Cost_Item( $order_id );
+			if ( ! defined( 'KTPWP_DUMMY_DATA_CREATION' ) || ! KTPWP_DUMMY_DATA_CREATION ) {
+				$uid = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
+				$order_class->Create_Initial_Staff_Chat( $order_id, $uid );
+			}
+		} catch ( \Throwable $e ) {
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
+				error_log( 'KTPWP_FM_Import finalize order: ' . $e->getMessage() );
+			}
+		}
+	}
+
+	/**
+	 * @return bool
+	 */
+	private static function fm_load_order_main_class(): bool {
+		if ( class_exists( 'KTPWP_Order_Class', false ) ) {
+			return true;
+		}
+		$candidates = array();
+		if ( defined( 'KTPWP_PLUGIN_DIR' ) && is_string( KTPWP_PLUGIN_DIR ) ) {
+			$candidates[] = trailingslashit( KTPWP_PLUGIN_DIR ) . 'includes/class-ktpwp-order-main.php';
+		}
+		$candidates[] = dirname( __DIR__ ) . '/includes/class-ktpwp-order-main.php';
+		foreach ( $candidates as $path ) {
+			if ( is_readable( $path ) ) {
+				require_once $path;
+				return class_exists( 'KTPWP_Order_Class', false );
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * @param string $raw File contents.
 	 * @return array{headers: string[], rows: array<int, array<int, string>>}|WP_Error
 	 */
@@ -1398,10 +1744,102 @@ PROMPT;
 	}
 
 	/**
+	 * KantanPro（FileMaker）標準エクスポートの *.tab（1行目がヘッダーでない）か。
+	 *
+	 * @param string $leaf basename.
+	 * @return bool
+	 */
+	private static function is_fm_export_tab_leaf( $leaf ): bool {
+		$leaf = strtolower( (string) $leaf );
+
+		return (bool) preg_match( '/^(user|order|goods|therdparty|cost|setting|work|item|image|main|user_mail)\.tab$/', $leaf );
+	}
+
+	/**
+	 * Zip 内ファイルごとに区切りテキストを解析（FM .tab は COL_1 形式の疑似ヘッダー）。
+	 *
+	 * @param string $raw        File body.
+	 * @param string $inner_path Zip 内パス.
+	 * @return array{headers: string[], rows: array<int, array<int, string>>}|WP_Error
+	 */
+	private static function parse_tabular_for_zip_entry( $raw, $inner_path ) {
+		$leaf = strtolower( basename( (string) $inner_path ) );
+		if ( self::is_fm_export_tab_leaf( $leaf ) ) {
+			return self::parse_fm_tab_as_col_headers( $raw );
+		}
+
+		return self::parse_delimited_text( $raw );
+	}
+
+	/**
+	 * FileMaker エクスポート想定: 全行をデータとみなし、列名を COL_1 … COL_n とする。
+	 *
+	 * @param string $raw Raw.
+	 * @return array{headers: string[], rows: array<int, array<int, string>>}|WP_Error
+	 */
+	private static function parse_fm_tab_as_col_headers( $raw ) {
+		$raw = (string) $raw;
+		if ( strncmp( $raw, "\xEF\xBB\xBF", 3 ) === 0 ) {
+			$raw = substr( $raw, 3 );
+		}
+		$raw   = str_replace( array( "\r\n", "\r" ), "\n", $raw );
+		$lines = preg_split( '/\R/u', $raw, -1, PREG_SPLIT_NO_EMPTY );
+		if ( ! is_array( $lines ) || $lines === array() ) {
+			return new WP_Error( 'ktp_fm_empty', __( '有効な行がありません。', 'ktpwp' ) );
+		}
+
+		$first = $lines[0];
+		$delim = self::detect_delimiter( $first );
+		if ( $delim === null ) {
+			return new WP_Error( 'ktp_fm_delim', __( '区切り文字を判定できませんでした。', 'ktpwp' ) );
+		}
+
+		$matrix = array();
+		$max    = 0;
+		foreach ( $lines as $line ) {
+			$cells = str_getcsv( (string) $line, $delim );
+			if ( ! is_array( $cells ) ) {
+				continue;
+			}
+			$n = count( $cells );
+			if ( $n > $max ) {
+				$max = $n;
+			}
+			$matrix[] = $cells;
+		}
+		if ( $max < 1 || $matrix === array() ) {
+			return new WP_Error( 'ktp_fm_empty', __( '有効な行がありません。', 'ktpwp' ) );
+		}
+
+		$headers = array();
+		for ( $c = 0; $c < $max; $c++ ) {
+			$headers[] = 'COL_' . (string) ( $c + 1 );
+		}
+
+		$rows = array();
+		foreach ( $matrix as $cells ) {
+			$norm = array();
+			for ( $c = 0; $c < $max; $c++ ) {
+				$cell       = $cells[ $c ] ?? '';
+				$norm[ $c ] = sanitize_text_field( is_string( $cell ) ? trim( $cell ) : (string) $cell );
+			}
+			if ( count( array_filter( $norm ) ) === 0 ) {
+				continue;
+			}
+			$rows[] = $norm;
+		}
+
+		return array(
+			'headers' => $headers,
+			'rows'    => $rows,
+		);
+	}
+
+	/**
 	 * @return list<string>
 	 */
 	private static function allowed_entities(): array {
-		return array( self::ENTITY_CLIENT, self::ENTITY_SUPPLIER, self::ENTITY_SERVICE );
+		return array( self::ENTITY_CLIENT, self::ENTITY_SUPPLIER, self::ENTITY_SERVICE, self::ENTITY_ORDER );
 	}
 
 	/**
@@ -1415,6 +1853,9 @@ PROMPT;
 		}
 		if ( $entity === self::ENTITY_SERVICE ) {
 			return __( '商品（サービス）', 'ktpwp' );
+		}
+		if ( $entity === self::ENTITY_ORDER ) {
+			return __( '受注', 'ktpwp' );
 		}
 		return __( '顧客', 'ktpwp' );
 	}
@@ -1642,6 +2083,8 @@ PROMPT;
 		echo esc_html__( '顧客・協力会社: メールが既に登録済みの行はスキップ', 'ktpwp' ) . '</label></p>';
 		echo '<p><label><input type="checkbox" name="ktp_fm_zip_skip_dup_service" value="1" checked /> ';
 		echo esc_html__( '商品: 同名のサービスが既に登録済みの行はスキップ', 'ktpwp' ) . '</label></p>';
+		echo '<p><label><input type="checkbox" name="ktp_fm_zip_skip_dup_order" value="1" checked /> ';
+		echo esc_html__( '受注: 同一の外部ID（取り込み用）が既に登録済みの行はスキップ', 'ktpwp' ) . '</label></p>';
 		$confirm = __( 'OpenAI に Zip の概要を送信し、判別結果に基づきデータベースへ書き込みます。よろしいですか？', 'ktpwp' );
 		echo '<p><button type="submit" name="ktp_fm_ai_zip_run" class="button button-primary" onclick="return confirm(\'' . esc_js( $confirm ) . '\');">';
 		echo esc_html__( 'AI で解析して取り込む', 'ktpwp' ) . '</button> ';
@@ -1792,7 +2235,7 @@ PROMPT;
 			if ( strlen( $raw ) > self::MAX_INNER_SNAPSHOT_BYTES ) {
 				$raw = substr( $raw, 0, self::MAX_INNER_SNAPSHOT_BYTES );
 			}
-			$parsed = self::parse_delimited_text( $raw );
+			$parsed = self::parse_tabular_for_zip_entry( $raw, $fn );
 			if ( is_wp_error( $parsed ) ) {
 				$out[] = array(
 					'path'        => $fn,
@@ -1930,6 +2373,7 @@ PROMPT;
 		$client_fields   = self::target_fields_for_entity( self::ENTITY_CLIENT );
 		$supplier_fields = self::target_fields_for_entity( self::ENTITY_SUPPLIER );
 		$service_fields  = self::target_fields_for_entity( self::ENTITY_SERVICE );
+		$order_fields    = self::target_fields_for_entity( self::ENTITY_ORDER );
 
 		$fmt_client = array();
 		foreach ( $client_fields as $k => $lab ) {
@@ -1943,18 +2387,25 @@ PROMPT;
 		foreach ( $service_fields as $k => $lab ) {
 			$fmt_service[] = "{$k} … {$lab}";
 		}
+		$fmt_order = array();
+		foreach ( $order_fields as $k => $lab ) {
+			$fmt_order[] = "{$k} … {$lab}";
+		}
 
 		$block_client   = implode( "\n", $fmt_client );
 		$block_supplier = implode( "\n", $fmt_supplier );
 		$block_service  = implode( "\n", $fmt_service );
+		$block_order    = implode( "\n", $fmt_order );
 
 		return <<<PROMPT
 あなたは KantanPro（FileMaker Pro 版）のエクスポート Zip を解析し、WordPress プラグイン KantanProEX に取り込む担当です。
 入力は JSON。files 配列の各要素は Zip 内の1ファイルで path・headers（列名）・sample_rows（データ例）・parse_error（あれば）が含まれます。
+FileMaker の user.tab / order.tab などでは headers が COL_1, COL_2 のように列位置のみの場合があります。sample_rows と突き合わせて意味を推定し、column_map では必ずその文字列（COL_n）と完全一致させること。
 
 【タスク】
 各ファイルについて次を JSON で返すこと。
-- entity は次のいずれか: client（顧客マスタ）, supplier（協力会社）, service（商品・サービス）, skip（取り込み不要）
+- entity は次のいずれか: client（顧客マスタ）, supplier（協力会社）, service（商品・サービス）, order（受注）, skip（取り込み不要）
+- order のときは link_company_name を、Zip 内の顧客データと一致する会社名の列に必ず対応させること（取り込み後に顧客マスタの id と紐づく）。顧客ファイルは通常 user.tab など。
 - column_map は Kantan 側のフィールドキー → そのファイルの headers に実在する列名（文字列）の対応。不要なキーは省略可。parse_error があるファイルは entity を skip にし reason を日本語で書くこと。
 
 【顧客 client のフィールド】
@@ -1966,8 +2417,11 @@ PROMPT;
 【商品 service のフィールド】
 {$block_service}
 
+【受注 order のフィールド】
+{$block_order}
+
 【出力 JSON の形式（この形のみ）】
-{ "per_file": [ { "path": "Zip内のパスと一致", "entity": "client|supplier|service|skip", "column_map": { "フィールドキー": "元の列名", ... }, "reason": "skip のときなど日本語で簡潔に" } ] }
+{ "per_file": [ { "path": "Zip内のパスと一致", "entity": "client|supplier|service|order|skip", "column_map": { "フィールドキー": "元の列名", ... }, "reason": "skip のときなど日本語で簡潔に" } ] }
 
 入力 files に列挙された path はすべて per_file にちょうど1回ずつ含めること。列名は headers と完全一致させること。
 PROMPT;
@@ -2024,14 +2478,36 @@ PROMPT;
 	}
 
 	/**
+	 * 取り込み順序（受注は顧客マスタの後に実行する）。
+	 *
+	 * @param string $entity Entity slug.
+	 * @return int
+	 */
+	private static function entity_import_priority( $entity ): int {
+		switch ( self::normalize_entity( $entity ) ) {
+			case self::ENTITY_CLIENT:
+				return 0;
+			case self::ENTITY_SUPPLIER:
+				return 1;
+			case self::ENTITY_SERVICE:
+				return 2;
+			case self::ENTITY_ORDER:
+				return 3;
+			default:
+				return 9;
+		}
+	}
+
+	/**
 	 * @param string $zip_path Zip path.
 	 * @param array<int, array<string, mixed>> $manifest Manifest.
 	 * @param array<string, mixed> $decoded AI decoded JSON.
 	 * @param bool $skip_dup_email Skip dup email for client/supplier.
 	 * @param bool $skip_dup_service Skip dup service name.
+	 * @param bool $skip_dup_order Skip dup FM external id for orders.
 	 * @return array<string, mixed> Report structure.
 	 */
-	private static function execute_ai_zip_plans( $zip_path, array $manifest, array $decoded, $skip_dup_email, $skip_dup_service ): array {
+	private static function execute_ai_zip_plans( $zip_path, array $manifest, array $decoded, $skip_dup_email, $skip_dup_service, $skip_dup_order ): array {
 		$report = array(
 			'imported'      => array(),
 			'failed'        => array(),
@@ -2076,6 +2552,7 @@ PROMPT;
 			return $report;
 		}
 
+		$jobs = array();
 		foreach ( $planned as $path => $p ) {
 			if ( ! isset( $manifest_by_path[ $path ] ) ) {
 				continue;
@@ -2122,6 +2599,32 @@ PROMPT;
 				continue;
 			}
 
+			$jobs[] = array(
+				'path'    => $path,
+				'entity'  => $entity,
+				'map'     => $map,
+				'headers' => $headers,
+			);
+		}
+
+		usort(
+			$jobs,
+			function ( $a, $b ) {
+				$pa = self::entity_import_priority( $a['entity'] );
+				$pb = self::entity_import_priority( $b['entity'] );
+				if ( $pa === $pb ) {
+					return strcmp( (string) $a['path'], (string) $b['path'] );
+				}
+				return $pa - $pb;
+			}
+		);
+
+		foreach ( $jobs as $job ) {
+			$path    = $job['path'];
+			$entity  = $job['entity'];
+			$map     = $job['map'];
+			$headers = $job['headers'];
+
 			$raw_full = $zip->getFromName( $path );
 			if ( ! is_string( $raw_full ) || $raw_full === '' ) {
 				$report['failed'][] = array(
@@ -2133,7 +2636,7 @@ PROMPT;
 			if ( strlen( $raw_full ) > self::MAX_INNER_IMPORT_BYTES ) {
 				$raw_full = substr( $raw_full, 0, self::MAX_INNER_IMPORT_BYTES );
 			}
-			$parsed = self::parse_delimited_text( $raw_full );
+			$parsed = self::parse_tabular_for_zip_entry( $raw_full, $path );
 			if ( is_wp_error( $parsed ) ) {
 				$report['failed'][] = array(
 					'path'    => $path,
@@ -2150,6 +2653,8 @@ PROMPT;
 				$res = self::import_client_rows( $rows, $parsed['headers'], $map, $skip_dup_email );
 			} elseif ( $entity === self::ENTITY_SUPPLIER ) {
 				$res = self::import_supplier_rows( $rows, $parsed['headers'], $map, $skip_dup_email );
+			} elseif ( $entity === self::ENTITY_ORDER ) {
+				$res = self::import_order_rows( $rows, $parsed['headers'], $map, $skip_dup_order );
 			} else {
 				$res = self::import_service_rows( $rows, $parsed['headers'], $map, $skip_dup_service );
 			}
