@@ -890,6 +890,7 @@ if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
         'KTPWP_Terms_Of_Service' => 'includes/class-ktpwp-terms-of-service.php',
         'KTPWP_Update_Checker'  => 'includes/class-ktpwp-update-checker.php',
         'KTPWP_SVG_Icons'       => 'includes/class-ktpwp-svg-icons.php',
+        'KTPWP_FM_Import'       => 'includes/class-ktpwp-fm-import.php',
         'KTPWP_Settings'        => 'includes/class-ktpwp-settings.php',
         'KTPWP_Payment_Timing'  => 'includes/class-ktpwp-payment-timing.php',
     );
@@ -926,6 +927,10 @@ require_once __DIR__ . '/includes/ajax-sales-ledger-pdf.php';
 
 // クラスの読み込み実行
 ktpwp_autoload_classes();
+
+if ( class_exists( 'KTPWP_FM_Import' ) ) {
+	KTPWP_FM_Import::bootstrap();
+}
 
 // 多言語化サポートを初期化
 if ( class_exists( 'KTPWP_I18n' ) ) {

@@ -780,6 +780,16 @@ class KTPWP_Settings {
 			array( $this, 'create_data_tools_page' ) // 表示を処理する関数
 		);
 
+		// サブメニュー - FileMaker 版データ取り込み（顧客 CSV/TSV）
+		add_submenu_page(
+			'ktp-settings',
+			__( 'FileMaker版データ取り込み', 'ktpwp' ),
+			__( 'FileMaker版データ取り込み', 'ktpwp' ),
+			'manage_options',
+			'ktp-fm-import',
+			array( 'KTPWP_FM_Import', 'render_admin_page' )
+		);
+
         // サブメニュー - 開発者設定（開発モード時のみ登録）
         if ( $this->is_developer_settings_enabled() ) {
             add_submenu_page(
