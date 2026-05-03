@@ -787,7 +787,7 @@ class KTPWP_Settings {
 			__( 'FileMaker版データ取り込み', 'ktpwp' ),
 			'manage_options',
 			'ktp-fm-import',
-			array( 'KTPWP_FM_Import', 'render_admin_page' )
+			array( $this, 'create_fm_import_page' )
 		);
 
         // サブメニュー - 開発者設定（開発モード時のみ登録）
@@ -804,6 +804,30 @@ class KTPWP_Settings {
 
 
     }
+
+	/**
+	 * FileMaker 版データ取り込み（クラス未読込時の致命エラーを避けるラッパー）
+	 *
+	 * @return void
+	 */
+	public function create_fm_import_page() {
+		if ( ! class_exists( 'KTPWP_FM_Import', false ) && defined( 'MY_PLUGIN_PATH' ) ) {
+			$fm_path = MY_PLUGIN_PATH . 'includes/class-ktpwp-fm-import.php';
+			if ( is_readable( $fm_path ) ) {
+				require_once $fm_path;
+			}
+		}
+		if ( ! class_exists( 'KTPWP_FM_Import', false ) ) {
+			if ( ! current_user_can( 'manage_options' ) ) {
+				wp_die( esc_html__( 'このページにアクセスする権限がありません。', 'ktpwp' ) );
+			}
+			echo '<div class="wrap ktp-admin-wrap"><h1>' . esc_html__( 'FileMaker版データ取り込み', 'ktpwp' ) . '</h1>';
+			echo '<div class="notice notice-error"><p>' . esc_html__( '取り込みモジュール（includes/class-ktpwp-fm-import.php）を読み込めません。プラグインを再アップロードするか、コンテナ／ボリュームに最新ファイルが載っているか確認してください。', 'ktpwp' ) . '</p></div></div>';
+			return;
+		}
+		KTPWP_FM_Import::bootstrap();
+		KTPWP_FM_Import::render_admin_page();
+	}
 
 	/**
 	 * バックアップページ（エクスポート/インポート）

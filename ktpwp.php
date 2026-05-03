@@ -928,6 +928,14 @@ require_once __DIR__ . '/includes/ajax-sales-ledger-pdf.php';
 // クラスの読み込み実行
 ktpwp_autoload_classes();
 
+// FileMaker 取り込み：オートロードがスキップされた場合でも管理画面コールバックで落ちないよう明示読み込み
+if ( defined( 'MY_PLUGIN_PATH' ) ) {
+	$ktpwp_fm_import_file = MY_PLUGIN_PATH . 'includes/class-ktpwp-fm-import.php';
+	if ( is_readable( $ktpwp_fm_import_file ) && ! class_exists( 'KTPWP_FM_Import', false ) ) {
+		require_once $ktpwp_fm_import_file;
+	}
+}
+
 if ( class_exists( 'KTPWP_FM_Import' ) ) {
 	KTPWP_FM_Import::bootstrap();
 }

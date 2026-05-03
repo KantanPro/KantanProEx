@@ -32,6 +32,12 @@ final class KTPWP_FM_Import {
 	 * @return void
 	 */
 	public static function bootstrap(): void {
+		static $done = false;
+		if ( $done ) {
+			return;
+		}
+		$done = true;
+
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_admin' ), 10, 1 );
 		add_action( 'wp_ajax_ktp_fm_import_ai_mapping', array( __CLASS__, 'ajax_ai_mapping' ) );
 	}
