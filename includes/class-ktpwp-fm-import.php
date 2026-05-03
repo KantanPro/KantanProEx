@@ -107,8 +107,22 @@ final class KTPWP_FM_Import {
 
 		self::render_openai_key_form();
 
-		if ( is_array( $session ) && isset( $session['headers'], $session['rows'] ) ) {
-			self::render_mapping_and_import( $session );
+		$session_raw   = $session;
+		$session_clean = self::sanitize_session_for_render( $session_raw );
+		if ( $session_raw !== false && $session_raw !== null && $session_clean === null ) {
+			delete_transient( $transient_key );
+			echo '<div class="notice notice-warning"><p>' . esc_html__( '取り込み途中のデータが壊れているため破棄しました。ファイルを再度アップロードしてください。', 'ktpwp' ) . '</p></div>';
+			self::render_upload_form();
+		} elseif ( $session_clean !== null ) {
+			try {
+				self::render_mapping_and_import( $session_clean );
+			} catch ( \Throwable $e ) {
+				if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
+					error_log( 'KTPWP_FM_Import: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine() );
+				}
+				echo '<div class="notice notice-error"><p>' . esc_html__( '取り込み画面の表示中にエラーが発生しました。「最初からやり直す」でセッションを消すか、ファイルを確認してください。', 'ktpwp' ) . '</p></div>';
+				self::render_upload_form();
+			}
 		} else {
 			self::render_upload_form();
 		}
@@ -221,15 +235,17 @@ final class KTPWP_FM_Import {
 			return '<div class="notice notice-error"><p>' . esc_html__( 'セキュリティ検証に失敗しました。', 'ktpwp' ) . '</p></div>';
 		}
 
-		$key = self::transient_key_for_user();
-		$session = get_transient( $key );
-		if ( ! is_array( $session ) || empty( $session['headers'] ) || ! isset( $session['rows'] ) ) {
-			return '<div class="notice notice-error"><p>' . esc_html__( 'セッションが切れました。ファイルを再度アップロードしてください。', 'ktpwp' ) . '</p></div>';
+		$key           = self::transient_key_for_user();
+		$session_raw   = get_transient( $key );
+		$session_clean = self::sanitize_session_for_render( $session_raw );
+		if ( $session_clean === null ) {
+			delete_transient( $key );
+			return '<div class="notice notice-error"><p>' . esc_html__( 'セッションが切れたか、保存データが不正です。ファイルを再度アップロードしてください。', 'ktpwp' ) . '</p></div>';
 		}
 
-		$headers = $session['headers'];
-		$rows    = $session['rows'];
-		$entity  = isset( $session['entity'] ) ? self::normalize_entity( $session['entity'] ) : self::ENTITY_CLIENT;
+		$headers = $session_clean['headers'];
+		$rows    = $session_clean['rows'];
+		$entity  = $session_clean['entity'];
 		$map_in  = isset( $_POST['ktp_fm_map'] ) && is_array( $_POST['ktp_fm_map'] ) ? wp_unslash( $_POST['ktp_fm_map'] ) : array();
 
 		$map = array();
@@ -499,6 +515,61 @@ PROMPT;
 	}
 
 	/**
+	 * transient に保存された取り込み途中データを検証・正規化する。
+	 *
+	 * @param mixed $session Raw transient value.
+	 * @return array<string, mixed>|null 不正なら null。
+	 */
+	private static function sanitize_session_for_render( $session ) {
+		if ( ! is_array( $session ) ) {
+			return null;
+		}
+		if ( ! isset( $session['headers'], $session['rows'] ) ) {
+			return null;
+		}
+		if ( ! is_array( $session['headers'] ) || ! is_array( $session['rows'] ) ) {
+			return null;
+		}
+
+		$headers = array();
+		foreach ( $session['headers'] as $h ) {
+			if ( is_array( $h ) || is_object( $h ) ) {
+				return null;
+			}
+			$headers[] = sanitize_text_field( (string) $h );
+		}
+		if ( $headers === array() ) {
+			return null;
+		}
+
+		$ncol = count( $headers );
+		$rows = array();
+		foreach ( $session['rows'] as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$norm = array();
+			for ( $c = 0; $c < $ncol; $c++ ) {
+				$cell = $row[ $c ] ?? '';
+				if ( is_array( $cell ) || is_object( $cell ) ) {
+					$norm[ $c ] = '';
+				} else {
+					$norm[ $c ] = sanitize_text_field( (string) $cell );
+				}
+			}
+			$rows[] = $norm;
+		}
+
+		return array(
+			'entity'      => isset( $session['entity'] ) ? self::normalize_entity( $session['entity'] ) : self::ENTITY_CLIENT,
+			'headers'     => $headers,
+			'rows'        => $rows,
+			'filename'    => isset( $session['filename'] ) ? sanitize_text_field( (string) $session['filename'] ) : '',
+			'uploaded_at' => isset( $session['uploaded_at'] ) ? (int) $session['uploaded_at'] : time(),
+		);
+	}
+
+	/**
 	 * @param array<string, mixed> $session Session payload.
 	 * @return void
 	 */
@@ -570,14 +641,29 @@ PROMPT;
 		}
 		echo '</tbody></table></div>';
 
-		$data_for_js = wp_json_encode(
-			array(
-				'entity'  => $entity,
-				'headers' => $headers,
-				'samples' => array_slice( $rows, 0, 3 ),
-			),
-			JSON_UNESCAPED_UNICODE
+		$bootstrap = array(
+			'entity'  => $entity,
+			'headers' => $headers,
+			'samples' => array_slice( $rows, 0, 3 ),
 		);
+		$json_flags = JSON_UNESCAPED_UNICODE;
+		if ( defined( 'JSON_INVALID_UTF8_SUBSTITUTE' ) ) {
+			$json_flags |= JSON_INVALID_UTF8_SUBSTITUTE;
+		}
+		$data_for_js = wp_json_encode( $bootstrap, $json_flags );
+		if ( ! is_string( $data_for_js ) || $data_for_js === '' ) {
+			$data_for_js = wp_json_encode(
+				array(
+					'entity'  => $entity,
+					'headers' => array(),
+					'samples' => array(),
+				),
+				JSON_UNESCAPED_UNICODE
+			);
+		}
+		if ( ! is_string( $data_for_js ) ) {
+			$data_for_js = '{"entity":"client","headers":[],"samples":[]}';
+		}
 		echo '<script type="application/json" id="ktp-fm-import-bootstrap">' . esc_html( $data_for_js ) . '</script>';
 
 		echo '</div>';

@@ -328,6 +328,7 @@ curl -sS -X POST \
 * 上記ラベルの英語翻訳を「[Excluded]」に更新（i18n・PO・POT・MO）
 * KantanPro（FileMaker Pro 版）からのデータ取り込み（管理画面「FileMaker版データ取り込み」：顧客・協力会社・商品、CSV/TSV/Zip、列マッピング・任意で OpenAI BYOK による提案）
 * FileMaker 版データ取り込み：mbstring 未導入環境での致命的エラーを防止（列名推測の小文字化・部分一致をフォールバック）
+* FileMaker 版データ取り込み：不正 UTF-8 や壊れた transient で管理画面が出ない問題を修正（JSON 出力・セッション検証・表示の try/catch）
 
 = 1.2.99 - 2026年05月02日 =
 * 請求書プレビューを KantanBiz 寄りのレイアウトに刷新（サマリーボックス、表形式の明細、請求金額・案件合計・月別合計に税率別の内税／消費税内訳サフィックス）
