@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.2.99
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,10 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.0 - 2026年05月03日 =
+* 顧客一覧でステータスが「対象外／Inactive」のとき、先頭の「[削除済み]」表記をやめ「【対象外】」を行末に表示するよう変更（実態に合わせたラベルとレイアウト調整）
+* 上記ラベルの英語翻訳を「[Excluded]」に更新（i18n・PO・POT・MO）
 
 = 1.2.99 - 2026年05月02日 =
 * 請求書プレビューを KantanBiz 寄りのレイアウトに刷新（サマリーボックス、表形式の明細、請求金額・案件合計・月別合計に税率別の内税／消費税内訳サフィックス）
