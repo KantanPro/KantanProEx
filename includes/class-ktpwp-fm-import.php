@@ -1,6 +1,6 @@
 <?php
 /**
- * KantanPro（FileMaker Pro 版）由来の CSV/TSV（または Zip 内の1ファイル）を KantanProEX に取り込む（手動マッピング＋任意で OpenAI BYOK）。
+ * KantanPro（FileMaker Pro 版）からエクスポートした Zip を OpenAI（BYOK）で解析し、顧客・協力会社・商品を自動取り込みする。結果は画面上にレポート表示。
  *
  * @package KantanProEX
  */
@@ -21,14 +21,21 @@ final class KTPWP_FM_Import {
 	private const ENTITY_SERVICE  = 'service';
 
 	/** transient キー先頭（ユーザー ID を連結） */
-	private const TRANSIENT_PREFIX = 'ktp_fm_import_sess_';
-	private const TRANSIENT_TTL    = 3600;
-	private const MAX_FILE_BYTES  = 2097152; // 2 MiB
-	private const MAX_DATA_ROWS   = 2000;
-	private const NONCE_UPLOAD    = 'ktp_fm_import_upload';
-	private const NONCE_IMPORT    = 'ktp_fm_import_run';
-	private const NONCE_OPENAI    = 'ktp_fm_import_openai';
-	private const NONCE_AJAX_AI   = 'ktp_fm_import_ai';
+	private const TRANSIENT_PREFIX     = 'ktp_fm_import_sess_';
+	private const TRANSIENT_ZIP_PREFIX = 'ktp_fm_import_zip_';
+	private const TRANSIENT_RPT_PREFIX = 'ktp_fm_import_rpt_';
+	private const TRANSIENT_TTL        = 3600;
+	private const MAX_ZIP_BYTES        = 52428800; // 50 MiB（FileMaker エクスポート想定）
+	private const MAX_INNER_IMPORT_BYTES = 8388608; // Zip 内1ファイルあたり最大 8 MiB を取り込み対象
+	private const MAX_INNER_SNAPSHOT_BYTES = 786432; // AI プレビュー用に先頭から最大 768 KiB
+	private const MAX_FILES_IN_ZIP_AI  = 50;
+	private const MAX_AI_USER_JSON_CHARS = 90000;
+	private const MAX_DATA_ROWS        = 2000;
+	private const NONCE_UPLOAD         = 'ktp_fm_import_upload';
+	private const NONCE_IMPORT         = 'ktp_fm_import_run';
+	private const NONCE_OPENAI         = 'ktp_fm_import_openai';
+	private const NONCE_AJAX_AI        = 'ktp_fm_import_ai';
+	private const NONCE_AI_ZIP         = 'ktp_fm_ai_zip_import';
 
 	/**
 	 * @return void
@@ -85,12 +92,22 @@ final class KTPWP_FM_Import {
 		}
 
 		if ( ! empty( $_GET['ktp_fm_reset'] ) && isset( $_GET['ktp_fm_reset_nonce'] ) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['ktp_fm_reset_nonce'] ) ), 'ktp_fm_reset' ) ) {
+			self::cleanup_zip_stored_file();
 			delete_transient( self::transient_key_for_user() );
+			delete_transient( self::transient_zip_session_key() );
+			delete_transient( self::transient_report_key() );
+			wp_safe_redirect( admin_url( 'admin.php?page=ktp-fm-import' ) );
+			exit;
+		}
+
+		if ( ! empty( $_GET['ktp_fm_dismiss_report'] ) && isset( $_GET['ktp_fm_dismiss_nonce'] ) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['ktp_fm_dismiss_nonce'] ) ), 'ktp_fm_dismiss_report' ) ) {
+			delete_transient( self::transient_report_key() );
 			wp_safe_redirect( admin_url( 'admin.php?page=ktp-fm-import' ) );
 			exit;
 		}
 
 		self::maybe_handle_save_openai_key();
+		$ai_zip_notice = self::maybe_handle_ai_zip_import();
 		$upload_notice = self::maybe_handle_upload();
 		$import_notice = self::maybe_handle_import();
 
@@ -101,11 +118,14 @@ final class KTPWP_FM_Import {
 		echo '<h1>' . esc_html__( 'FileMaker版データ取り込み', 'ktpwp' ) . '</h1>';
 
 		echo '<div class="notice notice-info"><p>';
-		echo esc_html__( 'KantanPro（FileMaker Pro 版）から UTF-8 で書き出した CSV / TSV、またはそのファイルをまとめた Zip（先頭の csv/tsv/tab/txt を1つ使用）をアップロードし、列の対応を確認してから取り込みます。', 'ktpwp' );
+		echo esc_html__( 'FileMaker Pro 版から書き出した Zip ファイルを1つアップロードしてください。Zip 内の構成は問いません。OpenAI API キー（BYOK）を設定したうえで「AI で解析して取り込む」を実行すると、Zip 内の表形式ファイルを判別し、顧客・協力会社・商品マスタへ可能な範囲で取り込みます。', 'ktpwp' );
 		echo ' ';
-		echo esc_html__( '任意の「AI で列を提案」は、ご自身の OpenAI API キーで実行され、利用料金はお客様の OpenAI アカウントに発生します。', 'ktpwp' );
+		echo esc_html__( 'OpenAI の従量課金はご利用のアカウントに発生します。', 'ktpwp' );
 		echo '</p></div>';
 
+		if ( is_string( $ai_zip_notice ) && $ai_zip_notice !== '' ) {
+			echo wp_kses_post( $ai_zip_notice );
+		}
 		if ( is_string( $upload_notice ) && $upload_notice !== '' ) {
 			echo wp_kses_post( $upload_notice );
 		}
@@ -114,25 +134,31 @@ final class KTPWP_FM_Import {
 		}
 
 		self::render_openai_key_form();
+		self::render_last_import_report();
 
-		$session_raw   = $session;
-		$session_clean = self::sanitize_session_for_render( $session_raw );
-		if ( $session_raw !== false && $session_raw !== null && $session_clean === null ) {
-			delete_transient( $transient_key );
-			echo '<div class="notice notice-warning"><p>' . esc_html__( '取り込み途中のデータが壊れているため破棄しました。ファイルを再度アップロードしてください。', 'ktpwp' ) . '</p></div>';
-			self::render_upload_form();
-		} elseif ( $session_clean !== null ) {
-			try {
-				self::render_mapping_and_import( $session_clean );
-			} catch ( \Throwable $e ) {
-				if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
-					error_log( 'KTPWP_FM_Import: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine() );
+		$zip_sess = self::sanitize_zip_session( get_transient( self::transient_zip_session_key() ) );
+		if ( $zip_sess !== null ) {
+			self::render_zip_pending_ui( $zip_sess );
+		} else {
+			$session_raw   = $session;
+			$session_clean = self::sanitize_session_for_render( $session_raw );
+			if ( $session_raw !== false && $session_raw !== null && $session_clean === null ) {
+				delete_transient( $transient_key );
+				echo '<div class="notice notice-warning"><p>' . esc_html__( '取り込み途中のデータが壊れているため破棄しました。ファイルを再度アップロードしてください。', 'ktpwp' ) . '</p></div>';
+				self::render_upload_form();
+			} elseif ( $session_clean !== null ) {
+				try {
+					self::render_mapping_and_import( $session_clean );
+				} catch ( \Throwable $e ) {
+					if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
+						error_log( 'KTPWP_FM_Import: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine() );
+					}
+					echo '<div class="notice notice-error"><p>' . esc_html__( '取り込み画面の表示中にエラーが発生しました。「最初からやり直す」でセッションを消すか、ファイルを確認してください。', 'ktpwp' ) . '</p></div>';
+					self::render_upload_form();
 				}
-				echo '<div class="notice notice-error"><p>' . esc_html__( '取り込み画面の表示中にエラーが発生しました。「最初からやり直す」でセッションを消すか、ファイルを確認してください。', 'ktpwp' ) . '</p></div>';
+			} else {
 				self::render_upload_form();
 			}
-		} else {
-			self::render_upload_form();
 		}
 
 		echo '</div>';
@@ -177,59 +203,55 @@ final class KTPWP_FM_Import {
 		if ( ! empty( $file['error'] ) ) {
 			return '<div class="notice notice-error"><p>' . esc_html__( 'ファイルのアップロードに失敗しました。', 'ktpwp' ) . '</p></div>';
 		}
-		if ( (int) $file['size'] > self::MAX_FILE_BYTES ) {
-			return '<div class="notice notice-error"><p>' . esc_html__( 'ファイルが大きすぎます（2MB 以下にしてください）。', 'ktpwp' ) . '</p></div>';
+		if ( (int) $file['size'] > self::MAX_ZIP_BYTES ) {
+			return '<div class="notice notice-error"><p>' . esc_html(
+				sprintf(
+					/* translators: %s: max size like 50 MB */
+					__( 'Zip が大きすぎます（%s 以下にしてください）。', 'ktpwp' ),
+					size_format( self::MAX_ZIP_BYTES )
+				)
+			) . '</p></div>';
 		}
 
-		$name     = isset( $file['name'] ) ? sanitize_file_name( $file['name'] ) : '';
-		$ext      = strtolower( pathinfo( $name, PATHINFO_EXTENSION ) );
-		$allowed  = array( 'csv', 'tsv', 'tab', 'txt', 'zip' );
-		if ( ! in_array( $ext, $allowed, true ) ) {
-			return '<div class="notice notice-error"><p>' . esc_html__( '拡張子は csv / tsv / tab / txt / zip のみ対応しています。', 'ktpwp' ) . '</p></div>';
+		$name = isset( $file['name'] ) ? sanitize_file_name( $file['name'] ) : '';
+		$ext  = strtolower( pathinfo( $name, PATHINFO_EXTENSION ) );
+		if ( $ext !== 'zip' ) {
+			return '<div class="notice notice-error"><p>' . esc_html__( 'アップロードできるのは FileMaker 版から書き出した Zip ファイルのみです。', 'ktpwp' ) . '</p></div>';
 		}
 
-		$entity_raw = isset( $_POST['ktp_fm_entity'] ) ? wp_unslash( $_POST['ktp_fm_entity'] ) : '';
-		$entity     = is_string( $entity_raw ) ? sanitize_key( $entity_raw ) : self::ENTITY_CLIENT;
-		if ( ! in_array( $entity, self::allowed_entities(), true ) ) {
-			$entity = self::ENTITY_CLIENT;
+		if ( ! class_exists( 'ZipArchive', false ) ) {
+			return '<div class="notice notice-error"><p>' . esc_html__( 'このサーバーでは Zip を扱えません（ZipArchive がありません）。', 'ktpwp' ) . '</p></div>';
 		}
 
-		$inner_label = $name;
-		$raw         = self::read_upload_delimited_raw( $file['tmp_name'], $ext, $inner_label ); // Zip 時は $inner_label が「zip名 / 内側ファイル」に更新される。
-		if ( is_wp_error( $raw ) ) {
-			return '<div class="notice notice-error"><p>' . esc_html( $raw->get_error_message() ) . '</p></div>';
+		$probe = new ZipArchive();
+		if ( $probe->open( $file['tmp_name'] ) !== true ) {
+			return '<div class="notice notice-error"><p>' . esc_html__( 'Zip ファイルを開けませんでした。', 'ktpwp' ) . '</p></div>';
 		}
-		if ( ! is_string( $raw ) || $raw === '' ) {
-			return '<div class="notice notice-error"><p>' . esc_html__( 'ファイルを読み取れませんでした。', 'ktpwp' ) . '</p></div>';
+		$probe->close();
+
+		self::cleanup_zip_stored_file();
+		delete_transient( self::transient_zip_session_key() );
+
+		$dest = self::allocate_zip_storage_path();
+		if ( is_wp_error( $dest ) ) {
+			return '<div class="notice notice-error"><p>' . esc_html( $dest->get_error_message() ) . '</p></div>';
 		}
 
-		$parsed = self::parse_delimited_text( $raw );
-		if ( is_wp_error( $parsed ) ) {
-			return '<div class="notice notice-error"><p>' . esc_html( $parsed->get_error_message() ) . '</p></div>';
+		if ( ! @move_uploaded_file( $file['tmp_name'], $dest ) ) {
+			return '<div class="notice notice-error"><p>' . esc_html__( 'サーバーへ Zip を保存できませんでした。', 'ktpwp' ) . '</p></div>';
 		}
 
-		/** @var array{headers: string[], rows: array<int, array<int, string>>} $parsed */
-		$rows = $parsed['rows'];
-		if ( count( $rows ) > self::MAX_DATA_ROWS ) {
-			$rows = array_slice( $rows, 0, self::MAX_DATA_ROWS );
-		}
-
-		$payload = array(
-			'entity'      => $entity,
-			'headers'     => $parsed['headers'],
-			'rows'        => $rows,
-			'filename'    => $inner_label,
-			'uploaded_at' => time(),
+		set_transient(
+			self::transient_zip_session_key(),
+			array(
+				'path'        => $dest,
+				'orig_name'   => $name,
+				'uploaded_at' => time(),
+			),
+			self::TRANSIENT_TTL
 		);
-		set_transient( self::transient_key_for_user(), $payload, self::TRANSIENT_TTL );
 
-		return '<div class="notice notice-success"><p>' . esc_html(
-			sprintf(
-				/* translators: %d: row count */
-				__( '解析しました（最大 %d 行まで取り込み対象）。列の対応を確認してください。', 'ktpwp' ),
-				count( $rows )
-			)
-		) . '</p></div>';
+		return '<div class="notice notice-success"><p>' . esc_html__( 'Zip を受け付けました。下の「AI で解析して取り込む」から続行してください（OpenAI API キーが必要です）。', 'ktpwp' ) . '</p></div>';
 	}
 
 	/**
@@ -293,6 +315,68 @@ final class KTPWP_FM_Import {
 		);
 
 		return '<div class="notice ' . esc_attr( $cls ) . ' is-dismissible"><p>' . esc_html( $msg ) . '</p></div>';
+	}
+
+	/**
+	 * Zip を OpenAI で解析し、取り込み実行とレポート保存。
+	 *
+	 * @return string 画面上に出す HTML（空なら何もしない）
+	 */
+	private static function maybe_handle_ai_zip_import(): string {
+		if ( ! isset( $_POST['ktp_fm_ai_zip_run'], $_POST['_wpnonce'] ) ) {
+			return '';
+		}
+		if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ) ), self::NONCE_AI_ZIP ) ) {
+			return '<div class="notice notice-error"><p>' . esc_html__( 'セキュリティ検証に失敗しました。', 'ktpwp' ) . '</p></div>';
+		}
+
+		$api_key = self::decrypt_api_key( (string) get_option( self::OPTION_OPENAI_KEY_ENC, '' ) );
+		if ( $api_key === '' ) {
+			return '<div class="notice notice-error"><p>' . esc_html__( '先に OpenAI API キーを保存してください。', 'ktpwp' ) . '</p></div>';
+		}
+
+		$zip_sess = self::sanitize_zip_session( get_transient( self::transient_zip_session_key() ) );
+		if ( $zip_sess === null ) {
+			return '<div class="notice notice-error"><p>' . esc_html__( '取り込み待ちの Zip がありません。もう一度 Zip をアップロードしてください。', 'ktpwp' ) . '</p></div>';
+		}
+
+		$zip_path = $zip_sess['path'];
+		if ( ! self::is_valid_stored_zip_path( $zip_path ) ) {
+			delete_transient( self::transient_zip_session_key() );
+			return '<div class="notice notice-error"><p>' . esc_html__( '保存された Zip のパスが無効です。最初からやり直してください。', 'ktpwp' ) . '</p></div>';
+		}
+
+		if ( function_exists( 'set_time_limit' ) ) {
+			@set_time_limit( 300 );
+		}
+
+		$manifest = self::build_zip_manifest_for_ai( $zip_path );
+		if ( is_wp_error( $manifest ) ) {
+			return '<div class="notice notice-error"><p>' . esc_html( $manifest->get_error_message() ) . '</p></div>';
+		}
+		if ( $manifest === array() ) {
+			return '<div class="notice notice-error"><p>' . esc_html__( 'Zip 内に取り込み候補となる表形式ファイル（csv / tsv / tab / txt）が見つかりませんでした。', 'ktpwp' ) . '</p></div>';
+		}
+
+		$user_json = self::truncate_manifest_json_for_openai( $manifest );
+		$decoded   = self::openai_zip_plan_request( $api_key, $user_json );
+		if ( is_wp_error( $decoded ) ) {
+			return '<div class="notice notice-error"><p>' . esc_html( $decoded->get_error_message() ) . '</p></div>';
+		}
+
+		$skip_dup_email   = ! empty( $_POST['ktp_fm_zip_skip_dup_email'] );
+		$skip_dup_service = ! empty( $_POST['ktp_fm_zip_skip_dup_service'] );
+
+		$report = self::execute_ai_zip_plans( $zip_path, $manifest, $decoded, $skip_dup_email, $skip_dup_service );
+		$report['zip_name']    = isset( $zip_sess['orig_name'] ) ? (string) $zip_sess['orig_name'] : basename( $zip_path );
+		$report['time']        = time();
+		$report['other_files'] = self::list_zip_non_tabular_entries( $zip_path );
+
+		@unlink( $zip_path );
+		delete_transient( self::transient_zip_session_key() );
+		set_transient( self::transient_report_key(), $report, self::TRANSIENT_TTL );
+
+		return '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'AI 解析と取り込み処理が完了しました。下のレポートを確認してください。', 'ktpwp' ) . '</p></div>';
 	}
 
 	/**
@@ -491,8 +575,8 @@ PROMPT;
 	private static function render_openai_key_form(): void {
 		$has_key = get_option( self::OPTION_OPENAI_KEY_ENC, '' ) !== '';
 		echo '<div class="card" style="max-width:720px;margin:16px 0;padding:16px;">';
-		echo '<h2>' . esc_html__( 'OpenAI API キー（任意・BYOK）', 'ktpwp' ) . '</h2>';
-		echo '<p class="description">' . esc_html__( '「AI で列を提案」を使うときのみ必要です。キーはサイト内で暗号化して保存し、OpenAI の従量課金はご利用のアカウントに発生します。', 'ktpwp' ) . '</p>';
+		echo '<h2>' . esc_html__( 'OpenAI API キー（BYOK・必須）', 'ktpwp' ) . '</h2>';
+		echo '<p class="description">' . esc_html__( 'Zip の自動解析・取り込みに使用します。キーはサイト内で暗号化して保存し、OpenAI の従量課金はご利用のアカウントに発生します。', 'ktpwp' ) . '</p>';
 		echo '<form method="post" action="">';
 		wp_nonce_field( self::NONCE_OPENAI );
 		echo '<p><input type="password" name="ktp_fm_openai_key" class="regular-text" autocomplete="off" placeholder="' . esc_attr( $has_key ? __( '（保存済み・上書きする場合のみ入力）', 'ktpwp' ) : '' ) . '" /></p>';
@@ -508,17 +592,18 @@ PROMPT;
 	 */
 	private static function render_upload_form(): void {
 		echo '<div class="card" style="max-width:720px;margin:16px 0;padding:16px;">';
-		echo '<h2>' . esc_html__( '1. ファイルをアップロード', 'ktpwp' ) . '</h2>';
+		echo '<h2>' . esc_html__( 'Zip をアップロード', 'ktpwp' ) . '</h2>';
 		echo '<form method="post" enctype="multipart/form-data" action="">';
 		wp_nonce_field( self::NONCE_UPLOAD );
-		echo '<p><label for="ktp-fm-entity">' . esc_html__( '取り込み先のデータ種別', 'ktpwp' ) . '</label><br />';
-		echo '<select name="ktp_fm_entity" id="ktp-fm-entity" style="min-width:280px;margin-top:6px;">';
-		echo '<option value="' . esc_attr( self::ENTITY_CLIENT ) . '">' . esc_html__( '顧客', 'ktpwp' ) . '</option>';
-		echo '<option value="' . esc_attr( self::ENTITY_SUPPLIER ) . '">' . esc_html__( '協力会社', 'ktpwp' ) . '</option>';
-		echo '<option value="' . esc_attr( self::ENTITY_SERVICE ) . '">' . esc_html__( '商品（サービス）', 'ktpwp' ) . '</option>';
-		echo '</select></p>';
-		echo '<p><input type="file" name="ktp_fm_file" accept=".csv,.tsv,.tab,.txt,.zip,application/zip,text/csv" required /></p>';
-		echo '<p><button type="submit" name="ktp_fm_upload" class="button button-primary">' . esc_html__( '解析する', 'ktpwp' ) . '</button></p>';
+		echo '<p><input type="file" name="ktp_fm_file" accept=".zip,application/zip" required /></p>';
+		echo '<p class="description">' . esc_html(
+			sprintf(
+				/* translators: %s: max upload size */
+				__( 'FileMaker Pro 版から書き出した Zip のみ（最大 %s）。', 'ktpwp' ),
+				size_format( self::MAX_ZIP_BYTES )
+			)
+		) . '</p>';
+		echo '<p><button type="submit" name="ktp_fm_upload" class="button button-primary">' . esc_html__( 'Zip をアップロード', 'ktpwp' ) . '</button></p>';
 		echo '</form></div>';
 	}
 
@@ -1443,6 +1528,671 @@ PROMPT;
 	 */
 	private static function transient_key_for_user(): string {
 		return self::TRANSIENT_PREFIX . (string) get_current_user_id();
+	}
+
+	/**
+	 * @return string
+	 */
+	private static function transient_zip_session_key(): string {
+		return self::TRANSIENT_ZIP_PREFIX . (string) get_current_user_id();
+	}
+
+	/**
+	 * @return string
+	 */
+	private static function transient_report_key(): string {
+		return self::TRANSIENT_RPT_PREFIX . (string) get_current_user_id();
+	}
+
+	/**
+	 * アップロード済み Zip の一時ファイルを削除（transient 参照があれば）。
+	 *
+	 * @return void
+	 */
+	private static function cleanup_zip_stored_file(): void {
+		$raw = get_transient( self::transient_zip_session_key() );
+		$s   = self::sanitize_zip_session( $raw );
+		if ( $s !== null && ! empty( $s['path'] ) && self::is_valid_stored_zip_path( $s['path'] ) ) {
+			@unlink( $s['path'] );
+		}
+	}
+
+	/**
+	 * @return string|WP_Error 絶対パス
+	 */
+	private static function allocate_zip_storage_path() {
+		$dir = self::zip_storage_dir();
+		if ( is_wp_error( $dir ) ) {
+			return $dir;
+		}
+		$name = 'import-' . (int) get_current_user_id() . '-' . wp_generate_password( 12, false, false ) . '.zip';
+		$full = trailingslashit( $dir ) . $name;
+		return $full;
+	}
+
+	/**
+	 * @return string|WP_Error
+	 */
+	private static function zip_storage_dir() {
+		$upload = wp_upload_dir();
+		if ( ! empty( $upload['error'] ) ) {
+			return new WP_Error( 'ktp_fm_upload_dir', __( 'アップロードディレクトリが利用できません。', 'ktpwp' ) );
+		}
+		$dir = trailingslashit( $upload['basedir'] ) . 'ktp-fm-import-tmp';
+		if ( ! wp_mkdir_p( $dir ) ) {
+			return new WP_Error( 'ktp_fm_mkdir', __( '一時ディレクトリを作成できませんでした。', 'ktpwp' ) );
+		}
+		$ht = trailingslashit( $dir ) . '.htaccess';
+		if ( ! file_exists( $ht ) ) {
+			@file_put_contents( $ht, "deny from all\n" );
+		}
+		return $dir;
+	}
+
+	/**
+	 * @param string $path Absolute path.
+	 * @return bool
+	 */
+	private static function is_valid_stored_zip_path( $path ): bool {
+		$path = wp_normalize_path( (string) $path );
+		if ( $path === '' || ! is_file( $path ) || ! is_readable( $path ) ) {
+			return false;
+		}
+		$upload = wp_upload_dir();
+		if ( ! empty( $upload['basedir'] ) ) {
+			$base = wp_normalize_path( trailingslashit( $upload['basedir'] ) . 'ktp-fm-import-tmp/' );
+			if ( strpos( $path, $base ) === 0 ) {
+				$bn = basename( $path );
+				return (bool) preg_match( '/^import-' . (int) get_current_user_id() . '-[a-zA-Z0-9]+\.zip$/', $bn );
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * @param mixed $session Raw transient.
+	 * @return array{path: string, orig_name: string, uploaded_at: int}|null
+	 */
+	private static function sanitize_zip_session( $session ) {
+		if ( ! is_array( $session ) || empty( $session['path'] ) ) {
+			return null;
+		}
+		$path = wp_normalize_path( (string) $session['path'] );
+		if ( ! self::is_valid_stored_zip_path( $path ) ) {
+			return null;
+		}
+		return array(
+			'path'        => $path,
+			'orig_name'   => isset( $session['orig_name'] ) ? sanitize_file_name( (string) $session['orig_name'] ) : '',
+			'uploaded_at' => isset( $session['uploaded_at'] ) ? (int) $session['uploaded_at'] : 0,
+		);
+	}
+
+	/**
+	 * @param array{path: string, orig_name: string, uploaded_at: int} $zip_sess Zip session.
+	 * @return void
+	 */
+	private static function render_zip_pending_ui( array $zip_sess ): void {
+		echo '<div class="card" style="max-width:920px;margin:16px 0;padding:16px;">';
+		echo '<h2>' . esc_html__( 'Zip を受け付け済み', 'ktpwp' ) . '</h2>';
+		echo '<p><strong>' . esc_html__( 'ファイル:', 'ktpwp' ) . '</strong> ' . esc_html( $zip_sess['orig_name'] ) . '</p>';
+		echo '<form method="post" action="">';
+		wp_nonce_field( self::NONCE_AI_ZIP );
+		echo '<p><label><input type="checkbox" name="ktp_fm_zip_skip_dup_email" value="1" checked /> ';
+		echo esc_html__( '顧客・協力会社: メールが既に登録済みの行はスキップ', 'ktpwp' ) . '</label></p>';
+		echo '<p><label><input type="checkbox" name="ktp_fm_zip_skip_dup_service" value="1" checked /> ';
+		echo esc_html__( '商品: 同名のサービスが既に登録済みの行はスキップ', 'ktpwp' ) . '</label></p>';
+		$confirm = __( 'OpenAI に Zip の概要を送信し、判別結果に基づきデータベースへ書き込みます。よろしいですか？', 'ktpwp' );
+		echo '<p><button type="submit" name="ktp_fm_ai_zip_run" class="button button-primary" onclick="return confirm(\'' . esc_js( $confirm ) . '\');">';
+		echo esc_html__( 'AI で解析して取り込む', 'ktpwp' ) . '</button> ';
+		echo '<a class="button" href="' . esc_url( wp_nonce_url( admin_url( 'admin.php?page=ktp-fm-import&ktp_fm_reset=1' ), 'ktp_fm_reset', 'ktp_fm_reset_nonce' ) ) . '">' . esc_html__( '最初からやり直す', 'ktpwp' ) . '</a></p>';
+		echo '</form></div>';
+	}
+
+	/**
+	 * @return void
+	 */
+	private static function render_last_import_report(): void {
+		$raw = get_transient( self::transient_report_key() );
+		if ( ! is_array( $raw ) ) {
+			return;
+		}
+		$dismiss = wp_nonce_url( admin_url( 'admin.php?page=ktp-fm-import&ktp_fm_dismiss_report=1' ), 'ktp_fm_dismiss_report', 'ktp_fm_dismiss_nonce' );
+
+		echo '<div class="card" style="max-width:960px;margin:16px 0;padding:16px;border-left:4px solid #2271b1;">';
+		echo '<h2>' . esc_html__( '直近の取り込みレポート', 'ktpwp' ) . '</h2>';
+		if ( ! empty( $raw['zip_name'] ) ) {
+			echo '<p><strong>' . esc_html__( 'Zip:', 'ktpwp' ) . '</strong> ' . esc_html( (string) $raw['zip_name'] ) . '</p>';
+		}
+
+		if ( ! empty( $raw['imported'] ) && is_array( $raw['imported'] ) ) {
+			echo '<h3>' . esc_html__( '取り込んだファイル', 'ktpwp' ) . '</h3>';
+			echo '<table class="widefat striped"><thead><tr>';
+			echo '<th>' . esc_html__( 'Zip 内パス', 'ktpwp' ) . '</th>';
+			echo '<th>' . esc_html__( '種別', 'ktpwp' ) . '</th>';
+			echo '<th>' . esc_html__( '追加', 'ktpwp' ) . '</th><th>' . esc_html__( 'スキップ', 'ktpwp' ) . '</th><th>' . esc_html__( 'エラー', 'ktpwp' ) . '</th>';
+			echo '</tr></thead><tbody>';
+			foreach ( $raw['imported'] as $row ) {
+				if ( ! is_array( $row ) ) {
+					continue;
+				}
+				echo '<tr>';
+				echo '<td><code>' . esc_html( isset( $row['path'] ) ? (string) $row['path'] : '' ) . '</code></td>';
+				echo '<td>' . esc_html( isset( $row['entity_label'] ) ? (string) $row['entity_label'] : '' ) . '</td>';
+				echo '<td>' . (int) ( $row['inserted'] ?? 0 ) . '</td>';
+				echo '<td>' . (int) ( $row['skipped'] ?? 0 ) . '</td>';
+				echo '<td>' . (int) ( $row['errors'] ?? 0 ) . '</td>';
+				echo '</tr>';
+			}
+			echo '</tbody></table>';
+		} else {
+			echo '<p class="description">' . esc_html__( '表ファイルとして DB に書き込んだものはありません（すべてスキップ・失敗・または対象外だった可能性があります）。', 'ktpwp' ) . '</p>';
+		}
+
+		if ( ! empty( $raw['skipped_by_ai'] ) && is_array( $raw['skipped_by_ai'] ) ) {
+			echo '<h3>' . esc_html__( 'AI が取り込み対象外と判断したファイル', 'ktpwp' ) . '</h3>';
+			echo '<ul style="list-style:disc;margin-left:1.5em;">';
+			foreach ( $raw['skipped_by_ai'] as $row ) {
+				if ( ! is_array( $row ) ) {
+					continue;
+				}
+				echo '<li><code>' . esc_html( isset( $row['path'] ) ? (string) $row['path'] : '' ) . '</code> — ' . esc_html( isset( $row['reason'] ) ? (string) $row['reason'] : '' ) . '</li>';
+			}
+			echo '</ul>';
+		}
+
+		if ( ! empty( $raw['failed'] ) && is_array( $raw['failed'] ) ) {
+			echo '<h3>' . esc_html__( '取り込めなかったファイル', 'ktpwp' ) . '</h3>';
+			echo '<ul style="list-style:disc;margin-left:1.5em;">';
+			foreach ( $raw['failed'] as $row ) {
+				if ( ! is_array( $row ) ) {
+					continue;
+				}
+				echo '<li><code>' . esc_html( isset( $row['path'] ) ? (string) $row['path'] : '' ) . '</code> — ' . esc_html( isset( $row['message'] ) ? (string) $row['message'] : '' ) . '</li>';
+			}
+			echo '</ul>';
+		}
+
+		if ( ! empty( $raw['not_assigned'] ) && is_array( $raw['not_assigned'] ) ) {
+			echo '<h3>' . esc_html__( 'AI の応答に含まれなかった Zip 内ファイル', 'ktpwp' ) . '</h3>';
+			echo '<ul style="list-style:disc;margin-left:1.5em;">';
+			foreach ( $raw['not_assigned'] as $row ) {
+				if ( ! is_array( $row ) ) {
+					continue;
+				}
+				echo '<li><code>' . esc_html( isset( $row['path'] ) ? (string) $row['path'] : '' ) . '</code> — ' . esc_html( isset( $row['message'] ) ? (string) $row['message'] : '' ) . '</li>';
+			}
+			echo '</ul>';
+		}
+
+		if ( ! empty( $raw['other_files'] ) && is_array( $raw['other_files'] ) ) {
+			echo '<h3>' . esc_html__( '表形式（csv/tsv/tab/txt）以外の Zip 内ファイル（自動取り込みの対象外）', 'ktpwp' ) . '</h3>';
+			echo '<p class="description">' . esc_html__( '画像・PDF・xlsx などはこの機能では取り込みません。', 'ktpwp' ) . '</p>';
+			echo '<ul style="list-style:disc;margin-left:1.5em;max-height:220px;overflow:auto;">';
+			foreach ( $raw['other_files'] as $op ) {
+				if ( ! is_string( $op ) || $op === '' ) {
+					continue;
+				}
+				echo '<li><code>' . esc_html( $op ) . '</code></li>';
+			}
+			echo '</ul>';
+		}
+
+		echo '<p><a class="button" href="' . esc_url( $dismiss ) . '">' . esc_html__( 'レポートを閉じる', 'ktpwp' ) . '</a></p>';
+		echo '</div>';
+	}
+
+	/**
+	 * @param string $zip_path Absolute path to zip.
+	 * @return array<int, array<string, mixed>>|WP_Error
+	 */
+	private static function build_zip_manifest_for_ai( $zip_path ) {
+		if ( ! class_exists( 'ZipArchive', false ) ) {
+			return new WP_Error( 'ktp_fm_zip', __( 'ZipArchive がありません。', 'ktpwp' ) );
+		}
+		$zip = new ZipArchive();
+		if ( $zip->open( $zip_path ) !== true ) {
+			return new WP_Error( 'ktp_fm_zip_open', __( 'Zip を開けませんでした。', 'ktpwp' ) );
+		}
+
+		$candidates = array();
+		for ( $i = 0; $i < $zip->numFiles; $i++ ) {
+			$st = $zip->statIndex( $i );
+			if ( ! is_array( $st ) || empty( $st['name'] ) ) {
+				continue;
+			}
+			$fn = (string) $st['name'];
+			if ( preg_match( '#(^|/)\.\.#', $fn ) ) {
+				continue;
+			}
+			if ( substr( $fn, -1 ) === '/' || strpos( $fn, '__MACOSX/' ) === 0 ) {
+				continue;
+			}
+			$leaf = basename( $fn );
+			$ie   = strtolower( pathinfo( $leaf, PATHINFO_EXTENSION ) );
+			if ( in_array( $ie, array( 'csv', 'tsv', 'tab', 'txt' ), true ) ) {
+				$candidates[] = $fn;
+			}
+		}
+		sort( $candidates, SORT_STRING );
+		$candidates = array_slice( $candidates, 0, self::MAX_FILES_IN_ZIP_AI );
+
+		$out = array();
+		foreach ( $candidates as $fn ) {
+			$raw = $zip->getFromName( $fn );
+			if ( ! is_string( $raw ) || $raw === '' ) {
+				$out[] = array(
+					'path'        => $fn,
+					'headers'     => array(),
+					'sample_rows' => array(),
+					'parse_error' => __( '空または読み取れませんでした。', 'ktpwp' ),
+				);
+				continue;
+			}
+			if ( strlen( $raw ) > self::MAX_INNER_SNAPSHOT_BYTES ) {
+				$raw = substr( $raw, 0, self::MAX_INNER_SNAPSHOT_BYTES );
+			}
+			$parsed = self::parse_delimited_text( $raw );
+			if ( is_wp_error( $parsed ) ) {
+				$out[] = array(
+					'path'        => $fn,
+					'headers'     => array(),
+					'sample_rows' => array(),
+					'parse_error' => $parsed->get_error_message(),
+				);
+				continue;
+			}
+			$rows = $parsed['rows'];
+			if ( count( $rows ) > self::MAX_DATA_ROWS ) {
+				$rows = array_slice( $rows, 0, self::MAX_DATA_ROWS );
+			}
+			$out[] = array(
+				'path'        => $fn,
+				'headers'     => $parsed['headers'],
+				'sample_rows' => array_slice( $rows, 0, 3 ),
+				'parse_error' => null,
+				'row_count'   => count( $rows ),
+			);
+		}
+		$zip->close();
+		return $out;
+	}
+
+	/**
+	 * Zip 内で csv/tsv/tab/txt 以外のファイルパスを列挙（レポート用・最大150件）。
+	 *
+	 * @param string $zip_path Absolute path.
+	 * @return list<string>
+	 */
+	private static function list_zip_non_tabular_entries( $zip_path ): array {
+		if ( ! class_exists( 'ZipArchive', false ) ) {
+			return array();
+		}
+		$zip = new ZipArchive();
+		if ( $zip->open( $zip_path ) !== true ) {
+			return array();
+		}
+		$tab_ext = array( 'csv', 'tsv', 'tab', 'txt' );
+		$out     = array();
+		for ( $i = 0; $i < $zip->numFiles; $i++ ) {
+			$st = $zip->statIndex( $i );
+			if ( ! is_array( $st ) || empty( $st['name'] ) ) {
+				continue;
+			}
+			$fn = (string) $st['name'];
+			if ( preg_match( '#(^|/)\.\.#', $fn ) ) {
+				continue;
+			}
+			if ( substr( $fn, -1 ) === '/' || strpos( $fn, '__MACOSX/' ) === 0 ) {
+				continue;
+			}
+			$leaf = basename( $fn );
+			$ie   = strtolower( pathinfo( $leaf, PATHINFO_EXTENSION ) );
+			if ( in_array( $ie, $tab_ext, true ) ) {
+				continue;
+			}
+			$out[] = $fn;
+			if ( count( $out ) >= 150 ) {
+				break;
+			}
+		}
+		$zip->close();
+		sort( $out, SORT_STRING );
+		return $out;
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $manifest Manifest.
+	 * @return string JSON string
+	 */
+	private static function truncate_manifest_json_for_openai( array $manifest ): string {
+		$payload = array( 'files' => array() );
+		foreach ( $manifest as $m ) {
+			if ( ! is_array( $m ) || empty( $m['path'] ) ) {
+				continue;
+			}
+			$headers = isset( $m['headers'] ) && is_array( $m['headers'] ) ? $m['headers'] : array();
+			$samples = isset( $m['sample_rows'] ) && is_array( $m['sample_rows'] ) ? $m['sample_rows'] : array();
+			$entry   = array(
+				'path'        => (string) $m['path'],
+				'headers'     => array_slice( array_map( 'strval', $headers ), 0, 200 ),
+				'sample_rows' => array_slice( $samples, 0, 3 ),
+				'parse_error' => isset( $m['parse_error'] ) && $m['parse_error'] !== null ? (string) $m['parse_error'] : null,
+				'row_count'   => isset( $m['row_count'] ) ? (int) $m['row_count'] : null,
+			);
+			$payload['files'][] = $entry;
+		}
+		$flags = JSON_UNESCAPED_UNICODE;
+		if ( defined( 'JSON_INVALID_UTF8_SUBSTITUTE' ) ) {
+			$flags |= JSON_INVALID_UTF8_SUBSTITUTE;
+		}
+		$json = wp_json_encode( $payload, $flags );
+		if ( ! is_string( $json ) ) {
+			$json = '{}';
+		}
+		while ( strlen( $json ) > self::MAX_AI_USER_JSON_CHARS && count( $payload['files'] ) > 1 ) {
+			array_pop( $payload['files'] );
+			$json = wp_json_encode( $payload, $flags );
+			if ( ! is_string( $json ) ) {
+				break;
+			}
+		}
+		if ( is_string( $json ) && strlen( $json ) > self::MAX_AI_USER_JSON_CHARS ) {
+			$json = substr( $json, 0, self::MAX_AI_USER_JSON_CHARS );
+		}
+		return is_string( $json ) ? $json : '{}';
+	}
+
+	/**
+	 * @param string $api_key API key.
+	 * @param string $user_json User JSON string.
+	 * @return array<string, mixed>|WP_Error
+	 */
+	private static function openai_zip_plan_request( $api_key, $user_json ) {
+		$system = self::build_zip_ai_system_prompt();
+		$body   = self::openai_chat_completion_request_body( $system, $user_json );
+		$res    = self::openai_remote_post( $api_key, $body );
+		if ( is_wp_error( $res ) ) {
+			return $res;
+		}
+		$content = $res['content'];
+		$decoded = json_decode( $content, true );
+		if ( ! is_array( $decoded ) || ! isset( $decoded['per_file'] ) || ! is_array( $decoded['per_file'] ) ) {
+			return new WP_Error( 'ktp_fm_ai_bad', __( 'AI の応答形式が不正です（per_file がありません）。', 'ktpwp' ) );
+		}
+		return $decoded;
+	}
+
+	/**
+	 * @return string
+	 */
+	private static function build_zip_ai_system_prompt(): string {
+		$client_fields   = self::target_fields_for_entity( self::ENTITY_CLIENT );
+		$supplier_fields = self::target_fields_for_entity( self::ENTITY_SUPPLIER );
+		$service_fields  = self::target_fields_for_entity( self::ENTITY_SERVICE );
+
+		$fmt_client = array();
+		foreach ( $client_fields as $k => $lab ) {
+			$fmt_client[] = "{$k} … {$lab}";
+		}
+		$fmt_supplier = array();
+		foreach ( $supplier_fields as $k => $lab ) {
+			$fmt_supplier[] = "{$k} … {$lab}";
+		}
+		$fmt_service = array();
+		foreach ( $service_fields as $k => $lab ) {
+			$fmt_service[] = "{$k} … {$lab}";
+		}
+
+		$block_client   = implode( "\n", $fmt_client );
+		$block_supplier = implode( "\n", $fmt_supplier );
+		$block_service  = implode( "\n", $fmt_service );
+
+		return <<<PROMPT
+あなたは KantanPro（FileMaker Pro 版）のエクスポート Zip を解析し、WordPress プラグイン KantanProEX に取り込む担当です。
+入力は JSON。files 配列の各要素は Zip 内の1ファイルで path・headers（列名）・sample_rows（データ例）・parse_error（あれば）が含まれます。
+
+【タスク】
+各ファイルについて次を JSON で返すこと。
+- entity は次のいずれか: client（顧客マスタ）, supplier（協力会社）, service（商品・サービス）, skip（取り込み不要）
+- column_map は Kantan 側のフィールドキー → そのファイルの headers に実在する列名（文字列）の対応。不要なキーは省略可。parse_error があるファイルは entity を skip にし reason を日本語で書くこと。
+
+【顧客 client のフィールド】
+{$block_client}
+
+【協力会社 supplier のフィールド】
+{$block_supplier}
+
+【商品 service のフィールド】
+{$block_service}
+
+【出力 JSON の形式（この形のみ）】
+{ "per_file": [ { "path": "Zip内のパスと一致", "entity": "client|supplier|service|skip", "column_map": { "フィールドキー": "元の列名", ... }, "reason": "skip のときなど日本語で簡潔に" } ] }
+
+入力 files に列挙された path はすべて per_file にちょうど1回ずつ含めること。列名は headers と完全一致させること。
+PROMPT;
+	}
+
+	/**
+	 * @param string $system System prompt.
+	 * @param string $user_content User message (plain or JSON string).
+	 * @return array<string, mixed>
+	 */
+	private static function openai_chat_completion_request_body( $system, $user_content ): array {
+		return array(
+			'model'           => 'gpt-4o-mini',
+			'temperature'     => 0.1,
+			'response_format' => array( 'type' => 'json_object' ),
+			'messages'        => array(
+				array( 'role' => 'system', 'content' => $system ),
+				array( 'role' => 'user', 'content' => $user_content ),
+			),
+		);
+	}
+
+	/**
+	 * @param string $api_key API key.
+	 * @param array<string, mixed> $body Request body.
+	 * @return array{content: string}|WP_Error
+	 */
+	private static function openai_remote_post( $api_key, array $body ) {
+		$response = wp_remote_post(
+			'https://api.openai.com/v1/chat/completions',
+			array(
+				'timeout' => 120,
+				'headers' => array(
+					'Authorization' => 'Bearer ' . $api_key,
+					'Content-Type'  => 'application/json',
+				),
+				'body'    => wp_json_encode( $body ),
+			)
+		);
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		$raw  = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+		if ( $code < 200 || $code >= 300 ) {
+			$msg = is_array( $raw ) && isset( $raw['error']['message'] ) ? (string) $raw['error']['message'] : __( 'OpenAI API エラー', 'ktpwp' );
+			return new WP_Error( 'ktp_fm_openai_http', $msg );
+		}
+		$content = is_array( $raw ) && isset( $raw['choices'][0]['message']['content'] ) ? (string) $raw['choices'][0]['message']['content'] : '';
+		if ( $content === '' ) {
+			return new WP_Error( 'ktp_fm_openai_empty', __( 'OpenAI から空の応答でした。', 'ktpwp' ) );
+		}
+		return array( 'content' => $content );
+	}
+
+	/**
+	 * @param string $zip_path Zip path.
+	 * @param array<int, array<string, mixed>> $manifest Manifest.
+	 * @param array<string, mixed> $decoded AI decoded JSON.
+	 * @param bool $skip_dup_email Skip dup email for client/supplier.
+	 * @param bool $skip_dup_service Skip dup service name.
+	 * @return array<string, mixed> Report structure.
+	 */
+	private static function execute_ai_zip_plans( $zip_path, array $manifest, array $decoded, $skip_dup_email, $skip_dup_service ): array {
+		$report = array(
+			'imported'      => array(),
+			'failed'        => array(),
+			'skipped_by_ai' => array(),
+			'not_assigned'  => array(),
+		);
+
+		$manifest_by_path = array();
+		foreach ( $manifest as $m ) {
+			if ( is_array( $m ) && ! empty( $m['path'] ) ) {
+				$manifest_by_path[ (string) $m['path'] ] = $m;
+			}
+		}
+
+		$planned = array();
+		if ( isset( $decoded['per_file'] ) && is_array( $decoded['per_file'] ) ) {
+			foreach ( $decoded['per_file'] as $p ) {
+				if ( ! is_array( $p ) || empty( $p['path'] ) ) {
+					continue;
+				}
+				$planned[ (string) $p['path'] ] = $p;
+			}
+		}
+
+		foreach ( array_keys( $manifest_by_path ) as $path ) {
+			if ( ! isset( $planned[ $path ] ) ) {
+				$report['not_assigned'][] = array(
+					'path'    => $path,
+					'message' => __( 'AI の per_file に含まれませんでした（入力が長すぎて省略された可能性があります）。', 'ktpwp' ),
+				);
+			}
+		}
+
+		if ( ! class_exists( 'ZipArchive', false ) ) {
+			$report['failed'][] = array( 'path' => '-', 'message' => __( 'ZipArchive がありません。', 'ktpwp' ) );
+			return $report;
+		}
+
+		$zip = new ZipArchive();
+		if ( $zip->open( $zip_path ) !== true ) {
+			$report['failed'][] = array( 'path' => '-', 'message' => __( 'Zip を開けませんでした。', 'ktpwp' ) );
+			return $report;
+		}
+
+		foreach ( $planned as $path => $p ) {
+			if ( ! isset( $manifest_by_path[ $path ] ) ) {
+				continue;
+			}
+			$mentry = $manifest_by_path[ $path ];
+			$entity = isset( $p['entity'] ) ? sanitize_key( (string) $p['entity'] ) : 'skip';
+			if ( $entity === 'skip' ) {
+				$report['skipped_by_ai'][] = array(
+					'path'   => $path,
+					'reason' => isset( $p['reason'] ) ? sanitize_text_field( (string) $p['reason'] ) : '',
+				);
+				continue;
+			}
+			if ( ! in_array( $entity, self::allowed_entities(), true ) ) {
+				$report['failed'][] = array(
+					'path'    => $path,
+					'message' => __( 'AI が返した entity が不正です。', 'ktpwp' ),
+				);
+				continue;
+			}
+			if ( ! empty( $mentry['parse_error'] ) ) {
+				$report['failed'][] = array(
+					'path'    => $path,
+					'message' => (string) $mentry['parse_error'],
+				);
+				continue;
+			}
+			$headers = isset( $mentry['headers'] ) && is_array( $mentry['headers'] ) ? $mentry['headers'] : array();
+			if ( $headers === array() ) {
+				$report['failed'][] = array(
+					'path'    => $path,
+					'message' => __( '列ヘッダーがありません。', 'ktpwp' ),
+				);
+				continue;
+			}
+
+			$map_in = isset( $p['column_map'] ) && is_array( $p['column_map'] ) ? $p['column_map'] : array();
+			$map    = self::column_map_names_to_indexes( $entity, $headers, $map_in );
+			if ( $map === array() ) {
+				$report['failed'][] = array(
+					'path'    => $path,
+					'message' => __( '有効な列マッピングがありません（AI の column_map と列名が一致しませんでした）。', 'ktpwp' ),
+				);
+				continue;
+			}
+
+			$raw_full = $zip->getFromName( $path );
+			if ( ! is_string( $raw_full ) || $raw_full === '' ) {
+				$report['failed'][] = array(
+					'path'    => $path,
+					'message' => __( 'Zip からファイルを読み取れませんでした。', 'ktpwp' ),
+				);
+				continue;
+			}
+			if ( strlen( $raw_full ) > self::MAX_INNER_IMPORT_BYTES ) {
+				$raw_full = substr( $raw_full, 0, self::MAX_INNER_IMPORT_BYTES );
+			}
+			$parsed = self::parse_delimited_text( $raw_full );
+			if ( is_wp_error( $parsed ) ) {
+				$report['failed'][] = array(
+					'path'    => $path,
+					'message' => $parsed->get_error_message(),
+				);
+				continue;
+			}
+			$rows = $parsed['rows'];
+			if ( count( $rows ) > self::MAX_DATA_ROWS ) {
+				$rows = array_slice( $rows, 0, self::MAX_DATA_ROWS );
+			}
+
+			if ( $entity === self::ENTITY_CLIENT ) {
+				$res = self::import_client_rows( $rows, $parsed['headers'], $map, $skip_dup_email );
+			} elseif ( $entity === self::ENTITY_SUPPLIER ) {
+				$res = self::import_supplier_rows( $rows, $parsed['headers'], $map, $skip_dup_email );
+			} else {
+				$res = self::import_service_rows( $rows, $parsed['headers'], $map, $skip_dup_service );
+			}
+
+			$report['imported'][] = array(
+				'path'         => $path,
+				'entity'       => $entity,
+				'entity_label' => self::entity_label( $entity ),
+				'inserted'     => (int) $res['inserted'],
+				'skipped'      => (int) $res['skipped'],
+				'errors'       => (int) $res['errors'],
+			);
+		}
+
+		$zip->close();
+		return $report;
+	}
+
+	/**
+	 * AI の column_map（列名）を列インデックスへ。
+	 *
+	 * @param string               $entity  Entity.
+	 * @param array<int, string>   $headers Headers.
+	 * @param array<string, mixed> $map_in  Field => header name.
+	 * @return array<string, int>
+	 */
+	private static function column_map_names_to_indexes( $entity, array $headers, array $map_in ): array {
+		$out = array();
+		foreach ( $map_in as $kantan_field => $header_name ) {
+			$kantan_field = sanitize_key( (string) $kantan_field );
+			if ( ! isset( self::target_fields_for_entity( $entity )[ $kantan_field ] ) ) {
+				continue;
+			}
+			if ( $header_name === null || $header_name === '' ) {
+				continue;
+			}
+			$header_name = sanitize_text_field( (string) $header_name );
+			$idx         = array_search( $header_name, $headers, true );
+			if ( $idx !== false ) {
+				$out[ $kantan_field ] = (int) $idx;
+			}
+		}
+		return $out;
 	}
 
 	/**
