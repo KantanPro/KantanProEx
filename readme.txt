@@ -331,6 +331,7 @@ curl -sS -X POST \
 * FileMaker 版データ取り込み：不正 UTF-8 や壊れた transient で管理画面が出ない問題を修正（JSON 出力・セッション検証・表示の try/catch）
 * FileMaker 版データ取り込み：管理メニューのコールバックを Settings 経由にし、モジュール未読込時は致命エラーではなく案内を表示。ktpwp.php での明示 require も追加
 * FileMaker 版データ取り込み：Settings ラッパーで Throwable を捕捉し、WP_DEBUG 時は管理者にスタックを表示（MY_PLUGIN_PATH 無しでも dirname で require を試行）
+* FileMaker 版データ取り込み：未定義だった TRANSIENT_PREFIX 定数を追加し取り込み画面の表示エラーを修正
 
 = 1.2.99 - 2026年05月02日 =
 * 請求書プレビューを KantanBiz 寄りのレイアウトに刷新（サマリーボックス、表形式の明細、請求金額・案件合計・月別合計に税率別の内税／消費税内訳サフィックス）

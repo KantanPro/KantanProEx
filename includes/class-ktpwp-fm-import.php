@@ -20,7 +20,9 @@ final class KTPWP_FM_Import {
 	private const ENTITY_SUPPLIER = 'supplier';
 	private const ENTITY_SERVICE  = 'service';
 
-	private const TRANSIENT_TTL   = 3600;
+	/** transient キー先頭（ユーザー ID を連結） */
+	private const TRANSIENT_PREFIX = 'ktp_fm_import_sess_';
+	private const TRANSIENT_TTL    = 3600;
 	private const MAX_FILE_BYTES  = 2097152; // 2 MiB
 	private const MAX_DATA_ROWS   = 2000;
 	private const NONCE_UPLOAD    = 'ktp_fm_import_upload';
