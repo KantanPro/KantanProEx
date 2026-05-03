@@ -811,22 +811,41 @@ class KTPWP_Settings {
 	 * @return void
 	 */
 	public function create_fm_import_page() {
-		if ( ! class_exists( 'KTPWP_FM_Import', false ) && defined( 'MY_PLUGIN_PATH' ) ) {
-			$fm_path = MY_PLUGIN_PATH . 'includes/class-ktpwp-fm-import.php';
-			if ( is_readable( $fm_path ) ) {
-				require_once $fm_path;
+		try {
+			if ( ! class_exists( 'KTPWP_FM_Import', false ) ) {
+				$fm_path = ( defined( 'MY_PLUGIN_PATH' ) && is_string( MY_PLUGIN_PATH ) && MY_PLUGIN_PATH !== '' )
+					? trailingslashit( MY_PLUGIN_PATH ) . 'includes/class-ktpwp-fm-import.php'
+					: dirname( __DIR__ ) . '/includes/class-ktpwp-fm-import.php';
+				if ( is_readable( $fm_path ) ) {
+					require_once $fm_path;
+				}
 			}
-		}
-		if ( ! class_exists( 'KTPWP_FM_Import', false ) ) {
+			if ( ! class_exists( 'KTPWP_FM_Import', false ) ) {
+				if ( ! current_user_can( 'manage_options' ) ) {
+					wp_die( esc_html__( 'このページにアクセスする権限がありません。', 'ktpwp' ) );
+				}
+				echo '<div class="wrap ktp-admin-wrap"><h1>' . esc_html__( 'FileMaker版データ取り込み', 'ktpwp' ) . '</h1>';
+				echo '<div class="notice notice-error"><p>' . esc_html__( '取り込みモジュール（includes/class-ktpwp-fm-import.php）を読み込めません。プラグインを再アップロードするか、コンテナ／ボリュームに最新ファイルが載っているか確認してください。', 'ktpwp' ) . '</p></div></div>';
+				return;
+			}
+			KTPWP_FM_Import::bootstrap();
+			KTPWP_FM_Import::render_admin_page();
+		} catch ( \Throwable $e ) {
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
+				error_log( 'KTPWP create_fm_import_page: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine() );
+			}
 			if ( ! current_user_can( 'manage_options' ) ) {
 				wp_die( esc_html__( 'このページにアクセスする権限がありません。', 'ktpwp' ) );
 			}
 			echo '<div class="wrap ktp-admin-wrap"><h1>' . esc_html__( 'FileMaker版データ取り込み', 'ktpwp' ) . '</h1>';
-			echo '<div class="notice notice-error"><p>' . esc_html__( '取り込みモジュール（includes/class-ktpwp-fm-import.php）を読み込めません。プラグインを再アップロードするか、コンテナ／ボリュームに最新ファイルが載っているか確認してください。', 'ktpwp' ) . '</p></div></div>';
-			return;
+			echo '<div class="notice notice-error"><p>' . esc_html__( 'この画面の表示中にエラーが発生しました。', 'ktpwp' ) . '</p>';
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG && current_user_can( 'manage_options' ) ) {
+				echo '<pre style="white-space:pre-wrap;max-height:320px;overflow:auto;background:#fff;padding:12px;border:1px solid #ccc;">';
+				echo esc_html( $e->getMessage() . "\n" . $e->getFile() . ':' . $e->getLine() . "\n\n" . $e->getTraceAsString() );
+				echo '</pre>';
+			}
+			echo '</div></div>';
 		}
-		KTPWP_FM_Import::bootstrap();
-		KTPWP_FM_Import::render_admin_page();
 	}
 
 	/**
