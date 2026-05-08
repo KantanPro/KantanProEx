@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.1
+Stable tag: 1.3.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,11 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.2 - 2026年05月08日 =
+* スタッフ管理にトグルを追加し、ユーザーアバター表示を改善。閲覧専用プロフィールモーダルを実装（ショートコード・設定・SVG アイコン・アセット読み込み・管理／フロント CSS を調整）
+* ダミーデータ作成に言語設定を追加し、日本語ロケール向け説明文・文言を修正
+* `class-ktpwp-client-db.php`／`class-ktpwp-supplier-data.php`／`ktpwp.php` ほか計11ファイル・589行増・326行減（v1.3.1…HEAD）
 
 = 1.3.1 - 2026年05月03日 =
 * KantanPro（FileMaker Pro 版）向け「FileMaker版データ取り込み」を追加（エクスポート Zip を OpenAI BYOK で解析し、顧客・協力会社・商品・受注へ取り込み。結果レポートを管理画面に表示）
