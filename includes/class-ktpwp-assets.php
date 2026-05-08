@@ -602,15 +602,9 @@ class KTPWP_Assets {
      * 他画面へ移動した際にサブメニューアイコンが消える。
      */
     private function enqueue_admin_menu_icons() {
-        $src       = $this->get_asset_url( 'css/ktp-admin-menu.css' );
-        $file_path = plugin_dir_path( dirname( __FILE__ ) ) . 'css/ktp-admin-menu.css';
-        $version   = KTPWP_PLUGIN_VERSION;
-
-        if ( file_exists( $file_path ) ) {
-            $version .= '.' . filemtime( $file_path );
-        }
-
-        wp_enqueue_style( 'ktp-admin-menu-icons', $src, array(), $version, 'all' );
+        // KantanProEX 設定サブメニューは「文字のみ」表示に統一するため、
+        // 管理メニュー専用アイコンCSSは読み込まない。
+        return;
     }
 
     /**

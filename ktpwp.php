@@ -4668,18 +4668,6 @@ function KTPWP_Index() {
                 // セッションの有効性も確認
                 $user_sessions = WP_Session_Tokens::get_instance( $current_user->ID );
                 if ( $user_sessions && ! empty( $user_sessions->get_all() ) ) {
-                    // 寄付ボタンを最初に追加（常時表示）
-                    $donation_settings = get_option( 'ktp_donation_settings', array() );
-                    $donation_url = ! empty( $donation_settings['donation_url'] ) ? esc_url( $donation_settings['donation_url'] ) : 'https://www.kantanpro.com/donation';
-                    // 管理者情報を取得
-                    $admin_email = get_option( 'admin_email' );
-                    $admin_name = get_option( 'blogname' );
-                    // POSTパラメータを追加
-                    $donation_url_with_params = add_query_arg( array(
-                        'admin_email' => urlencode( $admin_email ),
-                        'admin_name' => urlencode( $admin_name )
-                    ), $donation_url );
-                    $navigation_links .= ' <a href="' . $donation_url_with_params . '" target="_blank" rel="noopener noreferrer" title="' . esc_attr__( '寄付する', 'ktpwp' ) . '" style="display: inline-flex; align-items: center; gap: 4px; color: #0073aa; text-decoration: none;"><span class="material-symbols-outlined" style="font-size: 20px; vertical-align: middle;">favorite</span><span>' . esc_html__( '寄付する', 'ktpwp' ) . '</span></a>';
                     // ログアウトボタン
                     $navigation_links .= ' <a href="' . $logout_link . '" title="ログアウト" style="display: inline-flex; align-items: center; gap: 4px; color: #0073aa; text-decoration: none;"><span class="material-symbols-outlined" style="font-size: 20px; vertical-align: middle;">logout</span></a>';
                     // 更新リンクは編集者権限がある場合のみ
@@ -4698,6 +4686,8 @@ function KTPWP_Index() {
                     }
                     // ヘルプリンク（外部リンク）
                     $navigation_links .= ' <a href="https://www.kantanpro.com/docs" target="_blank" title="' . esc_attr__( 'ヘルプ', 'ktpwp' ) . '" style="display: inline-flex; align-items: center; gap: 4px; color: #0073aa; text-decoration: none;">' . KTPWP_SVG_Icons::get_icon('help', array('style' => 'font-size: 20px; vertical-align: middle;')) . '<span>' . esc_html__( 'ヘルプ', 'ktpwp' ) . '</span></a>';
+                    // 設定リンク（右端）
+                    $navigation_links .= ' <a href="' . esc_url( admin_url( 'admin.php?page=ktp-settings' ) ) . '" title="' . esc_attr__( '設定', 'ktpwp' ) . '" style="display: inline-flex; align-items: center; gap: 4px; color: #0073aa; text-decoration: none;">' . KTPWP_SVG_Icons::get_icon('settings', array('style' => 'font-size: 20px; vertical-align: middle;')) . '<span>' . esc_html__( '設定', 'ktpwp' ) . '</span></a>';
                 }
             }
 

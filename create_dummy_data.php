@@ -83,6 +83,11 @@ define('KTPWP_DUMMY_DATA_CREATION', true);
 
 global $wpdb;
 
+// サイト言語に応じたダミーデータ言語を決定
+$site_locale = function_exists('determine_locale') ? determine_locale() : get_locale();
+$is_japanese_locale = (strpos((string) $site_locale, 'ja') === 0);
+$dummy_data_language = $is_japanese_locale ? 'ja' : 'en';
+
 // データベース接続チェック
 if (!$wpdb->check_connection()) {
     error_log('KTPWP: データベース接続エラー');
@@ -109,85 +114,130 @@ foreach ($required_tables as $table) {
     }
 }
 
-// カテゴリー定義
+// カテゴリー定義（カテゴリキーは内部処理の都合で英語固定）
 $categories = array(
     'Tech' => array(
         'tax_rate' => 10.00,
-        'description' => 'IT and technology services'
+        'description' => $is_japanese_locale ? 'IT・テクノロジー関連サービス' : 'IT and technology services'
     ),
     'Real Estate' => array(
         'tax_rate' => null, // Tax exempt
-        'description' => 'Real estate and construction services'
+        'description' => $is_japanese_locale ? '不動産・建設関連サービス' : 'Real estate and construction services'
     ),
     'General' => array(
         'tax_rate' => 10.00,
-        'description' => 'General business services'
+        'description' => $is_japanese_locale ? '一般ビジネスサービス' : 'General business services'
     ),
     'Logistics' => array(
         'tax_rate' => 10.00,
-        'description' => 'Logistics and transportation services'
+        'description' => $is_japanese_locale ? '物流・運送関連サービス' : 'Logistics and transportation services'
     ),
     'Food' => array(
         'tax_rate' => 8.00,
-        'description' => 'Food and restaurant services'
+        'description' => $is_japanese_locale ? '食品・飲食関連サービス' : 'Food and restaurant services'
     ),
     'Healthcare' => array(
         'tax_rate' => 10.00,
-        'description' => 'Medical and healthcare services'
+        'description' => $is_japanese_locale ? '医療・ヘルスケア関連サービス' : 'Medical and healthcare services'
     ),
     'Education' => array(
         'tax_rate' => 10.00,
-        'description' => 'Education and training services'
+        'description' => $is_japanese_locale ? '教育・研修関連サービス' : 'Education and training services'
     ),
     'Finance' => array(
         'tax_rate' => 10.00,
-        'description' => 'Finance and insurance services'
+        'description' => $is_japanese_locale ? '金融・保険関連サービス' : 'Finance and insurance services'
     )
 );
 
 // カテゴリー別データ定義
-$category_data = array(
-    'Tech' => array(
-        'companies' => array('Tech Solutions Inc.', 'Digital Creators LLC', 'System Development Partners', 'Web Design Studio Inc.'),
-        'services' => array('Website Development', 'System Development', 'Mobile App Development', 'Cloud Infrastructure Setup', 'Database Design', 'API Development'),
-        'skills' => array('Programming', 'System Design', 'Database Administration', 'Cloud Infrastructure', 'Security Consulting', 'AI and Machine Learning')
-    ),
-    'Real Estate' => array(
-        'companies' => array('Real Estate Consulting Inc.', 'Construction Works LLC', 'Architectural Design Partners', 'Property Management Inc.'),
-        'services' => array('Real Estate Brokerage', 'Property Management', 'Architectural Design', 'Construction Work', 'Real Estate Investment Consulting', 'Property Appraisal'),
-        'skills' => array('Architectural Design', 'Real Estate Appraisal', 'Construction Management', 'CAD Design', 'Real Estate Legal Support', 'Project Management')
-    ),
-    'General' => array(
-        'companies' => array('Sample Trading Inc.', 'Business Consulting LLC', 'Design Workshop Partners', 'Marketing Pro Inc.'),
-        'services' => array('Business Consulting', 'Marketing Strategy', 'Design Production', 'Translation Services', 'Event Planning', 'Research and Analysis'),
-        'skills' => array('Business Consulting', 'Marketing', 'Design', 'Translation', 'Event Planning', 'Data Analysis')
-    ),
-    'Logistics' => array(
-        'companies' => array('Logistics Inc.', 'Transport Services LLC', 'Warehouse Management Partners', 'Delivery Center Inc.'),
-        'services' => array('Logistics Management', 'Delivery Services', 'Warehouse Management', 'Import and Export Procedures', 'Supply Chain Management', 'Delivery Route Optimization'),
-        'skills' => array('Logistics Management', 'Delivery Planning', 'Warehouse Operations', 'Customs Procedures', 'Route Optimization', 'Inventory Management')
-    ),
-    'Food' => array(
-        'companies' => array('Food Services Inc.', 'Catering LLC', 'Food Delivery Partners', 'Restaurant Operations Inc.'),
-        'services' => array('Food', 'Catering Services', 'Food Delivery', 'Restaurant Operations', 'Food Processing', 'Nutrition Management', 'Food Safety Management'),
-        'skills' => array('Food', 'Food Quality Control', 'Nutrition Management', 'Food Safety', 'Ingredient Procurement', 'Menu Development', 'Sanitation Management')
-    ),
-    'Healthcare' => array(
-        'companies' => array('Medical Services Inc.', 'Healthcare LLC', 'Medical Consulting Partners', 'Pharmacy Operations Inc.'),
-        'services' => array('Medical Consulting', 'Health Checkups', 'Pharmacy Operations', 'Medical Equipment Management', 'Nursing Services', 'Medical Administration'),
-        'skills' => array('Medical Consulting', 'Nursing', 'Pharmacist Services', 'Medical Administration', 'Health Management', 'Medical Equipment Operation')
-    ),
-    'Education' => array(
-        'companies' => array('Education Services Inc.', 'Training Center LLC', 'Online Education Partners', 'School Operations Inc.'),
-        'services' => array('Training Services', 'Online Education', 'School Operations', 'Teaching Material Development', 'Certification Support', 'Education Consulting'),
-        'skills' => array('Instructor Services', 'Teaching Material Development', 'Education Consulting', 'Online Education', 'Certification Training', 'Curriculum Design')
-    ),
-    'Finance' => array(
-        'companies' => array('Financial Services Inc.', 'Insurance Agency LLC', 'Investment Consulting Partners', 'Accounting Office Inc.'),
-        'services' => array('Investment Consulting', 'Insurance Consulting', 'Accounting Services', 'Tax Consulting', 'Asset Management', 'Risk Management'),
-        'skills' => array('Investment Consulting', 'Insurance Planning', 'Accounting', 'Tax Services', 'Asset Management', 'Risk Management')
-    )
-);
+if ($is_japanese_locale) {
+    $category_data = array(
+        'Tech' => array(
+            'companies' => array('テックソリューションズ株式会社', 'デジタルクリエイターズ合同会社', 'システム開発パートナーズ株式会社', 'ウェブデザインスタジオ株式会社'),
+            'services' => array('Webサイト制作', 'システム開発', 'モバイルアプリ開発', 'クラウド環境構築', 'データベース設計', 'API開発'),
+            'skills' => array('プログラミング', 'システム設計', 'DB運用', 'クラウド構築', 'セキュリティ支援', 'AI・機械学習')
+        ),
+        'Real Estate' => array(
+            'companies' => array('不動産コンサルティング株式会社', '建設ワークス合同会社', '建築設計パートナーズ株式会社', 'プロパティマネジメント株式会社'),
+            'services' => array('不動産仲介', '物件管理', '建築設計', '建設工事', '不動産投資コンサル', '物件査定'),
+            'skills' => array('建築設計', '不動産査定', '施工管理', 'CAD設計', '不動産法務支援', 'プロジェクト管理')
+        ),
+        'General' => array(
+            'companies' => array('サンプル商事株式会社', 'ビジネスコンサル合同会社', 'デザイン工房パートナーズ株式会社', 'マーケティングプロ株式会社'),
+            'services' => array('経営コンサル', 'マーケティング戦略', 'デザイン制作', '翻訳サービス', 'イベント企画', '調査分析'),
+            'skills' => array('経営コンサル', 'マーケティング', 'デザイン', '翻訳', 'イベント企画', 'データ分析')
+        ),
+        'Logistics' => array(
+            'companies' => array('ロジスティクス株式会社', 'トランスポートサービス合同会社', '倉庫管理パートナーズ株式会社', 'デリバリーセンター株式会社'),
+            'services' => array('物流管理', '配送サービス', '倉庫運営', '輸出入手続き', 'サプライチェーン管理', '配送ルート最適化'),
+            'skills' => array('物流管理', '配送計画', '倉庫オペレーション', '通関手続き', 'ルート最適化', '在庫管理')
+        ),
+        'Food' => array(
+            'companies' => array('フードサービス株式会社', 'ケータリング合同会社', 'フードデリバリーパートナーズ株式会社', 'レストランオペレーション株式会社'),
+            'services' => array('食品', 'ケータリング', 'フードデリバリー', '店舗運営', '食品加工', '栄養管理', '食品衛生管理'),
+            'skills' => array('食品', '品質管理', '栄養管理', '食品衛生', '食材調達', 'メニュー開発', '衛生管理')
+        ),
+        'Healthcare' => array(
+            'companies' => array('メディカルサービス株式会社', 'ヘルスケア合同会社', '医療コンサルパートナーズ株式会社', '薬局オペレーション株式会社'),
+            'services' => array('医療コンサル', '健康診断', '薬局運営', '医療機器管理', '看護サービス', '医療事務'),
+            'skills' => array('医療コンサル', '看護', '薬剤師業務', '医療事務', '健康管理', '医療機器運用')
+        ),
+        'Education' => array(
+            'companies' => array('教育サービス株式会社', '研修センター合同会社', 'オンライン教育パートナーズ株式会社', 'スクールオペレーション株式会社'),
+            'services' => array('研修サービス', 'オンライン教育', 'スクール運営', '教材開発', '資格取得支援', '教育コンサル'),
+            'skills' => array('講師業務', '教材開発', '教育コンサル', 'オンライン教育', '資格研修', 'カリキュラム設計')
+        ),
+        'Finance' => array(
+            'companies' => array('ファイナンシャルサービス株式会社', '保険エージェンシー合同会社', '投資コンサルパートナーズ株式会社', '会計オフィス株式会社'),
+            'services' => array('投資コンサル', '保険相談', '会計サービス', '税務コンサル', '資産運用', 'リスク管理'),
+            'skills' => array('投資コンサル', '保険設計', '会計', '税務', '資産運用', 'リスク管理')
+        )
+    );
+} else {
+    $category_data = array(
+        'Tech' => array(
+            'companies' => array('Tech Solutions Inc.', 'Digital Creators LLC', 'System Development Partners', 'Web Design Studio Inc.'),
+            'services' => array('Website Development', 'System Development', 'Mobile App Development', 'Cloud Infrastructure Setup', 'Database Design', 'API Development'),
+            'skills' => array('Programming', 'System Design', 'Database Administration', 'Cloud Infrastructure', 'Security Consulting', 'AI and Machine Learning')
+        ),
+        'Real Estate' => array(
+            'companies' => array('Real Estate Consulting Inc.', 'Construction Works LLC', 'Architectural Design Partners', 'Property Management Inc.'),
+            'services' => array('Real Estate Brokerage', 'Property Management', 'Architectural Design', 'Construction Work', 'Real Estate Investment Consulting', 'Property Appraisal'),
+            'skills' => array('Architectural Design', 'Real Estate Appraisal', 'Construction Management', 'CAD Design', 'Real Estate Legal Support', 'Project Management')
+        ),
+        'General' => array(
+            'companies' => array('Sample Trading Inc.', 'Business Consulting LLC', 'Design Workshop Partners', 'Marketing Pro Inc.'),
+            'services' => array('Business Consulting', 'Marketing Strategy', 'Design Production', 'Translation Services', 'Event Planning', 'Research and Analysis'),
+            'skills' => array('Business Consulting', 'Marketing', 'Design', 'Translation', 'Event Planning', 'Data Analysis')
+        ),
+        'Logistics' => array(
+            'companies' => array('Logistics Inc.', 'Transport Services LLC', 'Warehouse Management Partners', 'Delivery Center Inc.'),
+            'services' => array('Logistics Management', 'Delivery Services', 'Warehouse Management', 'Import and Export Procedures', 'Supply Chain Management', 'Delivery Route Optimization'),
+            'skills' => array('Logistics Management', 'Delivery Planning', 'Warehouse Operations', 'Customs Procedures', 'Route Optimization', 'Inventory Management')
+        ),
+        'Food' => array(
+            'companies' => array('Food Services Inc.', 'Catering LLC', 'Food Delivery Partners', 'Restaurant Operations Inc.'),
+            'services' => array('Food', 'Catering Services', 'Food Delivery', 'Restaurant Operations', 'Food Processing', 'Nutrition Management', 'Food Safety Management'),
+            'skills' => array('Food', 'Food Quality Control', 'Nutrition Management', 'Food Safety', 'Ingredient Procurement', 'Menu Development', 'Sanitation Management')
+        ),
+        'Healthcare' => array(
+            'companies' => array('Medical Services Inc.', 'Healthcare LLC', 'Medical Consulting Partners', 'Pharmacy Operations Inc.'),
+            'services' => array('Medical Consulting', 'Health Checkups', 'Pharmacy Operations', 'Medical Equipment Management', 'Nursing Services', 'Medical Administration'),
+            'skills' => array('Medical Consulting', 'Nursing', 'Pharmacist Services', 'Medical Administration', 'Health Management', 'Medical Equipment Operation')
+        ),
+        'Education' => array(
+            'companies' => array('Education Services Inc.', 'Training Center LLC', 'Online Education Partners', 'School Operations Inc.'),
+            'services' => array('Training Services', 'Online Education', 'School Operations', 'Teaching Material Development', 'Certification Support', 'Education Consulting'),
+            'skills' => array('Instructor Services', 'Teaching Material Development', 'Education Consulting', 'Online Education', 'Certification Training', 'Curriculum Design')
+        ),
+        'Finance' => array(
+            'companies' => array('Financial Services Inc.', 'Insurance Agency LLC', 'Investment Consulting Partners', 'Accounting Office Inc.'),
+            'services' => array('Investment Consulting', 'Insurance Consulting', 'Accounting Services', 'Tax Consulting', 'Asset Management', 'Risk Management'),
+            'skills' => array('Investment Consulting', 'Insurance Planning', 'Accounting', 'Tax Services', 'Asset Management', 'Risk Management')
+        )
+    );
+}
 
 // 安全なデータベース操作関数
 function safe_db_insert($table, $data, $format = null) {
@@ -236,8 +286,15 @@ function safe_echo($message) {
     }
 }
 
+// サイト言語に応じたダミーデータ文言を返す
+function get_dummy_data_note_text() {
+    $locale = function_exists('determine_locale') ? determine_locale() : get_locale();
+    return (strpos((string) $locale, 'ja') === 0) ? 'ダミーデータ' : 'Dummy Data';
+}
+
 safe_echo("強化版ダミーデータ作成を開始します...");
 safe_echo("バージョン: 2.4.0 (品名ベース税率設定版)");
+safe_echo("ダミーデータ言語: " . ($dummy_data_language === 'ja' ? '日本語' : 'English') . " (locale: {$site_locale})");
 safe_echo("==========================================");
 
 // 警告メッセージの表示
@@ -261,7 +318,9 @@ $client_categories = array('Tech', 'Real Estate', 'General', 'Logistics', 'Food'
 foreach ($client_categories as $category) {
     $companies = $category_data[$category]['companies'];
     $company_name = $companies[array_rand($companies)];
-    $names = array('John Smith', 'Emily Johnson', 'Michael Brown', 'Sarah Davis', 'David Wilson', 'Jessica Taylor');
+    $names = $is_japanese_locale
+        ? array('山田 太郎', '佐藤 花子', '鈴木 一郎', '高橋 美咲', '田中 健太', '伊藤 由紀')
+        : array('John Smith', 'Emily Johnson', 'Michael Brown', 'Sarah Davis', 'David Wilson', 'Jessica Taylor');
     $name = $names[array_rand($names)];
     
     $clients[] = array(
@@ -303,7 +362,9 @@ $supplier_categories = array('Tech', 'Real Estate', 'General', 'Logistics', 'Foo
 foreach ($supplier_categories as $category) {
     $companies = $category_data[$category]['companies'];
     $company_name = $companies[array_rand($companies)];
-    $names = array('Robert Anderson', 'Laura Martinez', 'William Thompson', 'Karen White', 'James Harris', 'Linda Clark');
+    $names = $is_japanese_locale
+        ? array('中村 誠', '小林 優子', '加藤 直樹', '吉田 愛', '山本 大輔', '松本 理沙')
+        : array('Robert Anderson', 'Laura Martinez', 'William Thompson', 'Karen White', 'James Harris', 'Linda Clark');
     $name = $names[array_rand($names)];
     
     $suppliers[] = array(
@@ -358,14 +419,16 @@ foreach ($service_categories as $category) {
         $service_name = $service_names[$index];
         
         // 品名に基づいて税率を決定
-        if ($service_name === 'Food') {
+        if ($service_name === 'Food' || $service_name === '食品') {
             $tax_rate = 8.00; // サービス名「食品」のみ税率8%
         } else {
             $tax_rate = 10.00; // その他は一般税率10%
         }
         
         $price = rand(50000, 800000);
-        $units = array('project', 'month', 'hour', 'item', 'session');
+        $units = $is_japanese_locale
+            ? array('式', '月', '時間', '件', '回')
+            : array('project', 'month', 'hour', 'item', 'session');
         $unit = $units[array_rand($units)];
         
         $services[] = array(
@@ -441,7 +504,7 @@ foreach ($supplier_ids as $supplier_id) {
     
     // 職能名「食品」があるかチェック
     foreach ($skill_names as $skill_name) {
-        if ($skill_name === 'Food') {
+        if ($skill_name === 'Food' || $skill_name === '食品') {
             $has_food_skill = true;
             break;
         }
@@ -456,8 +519,9 @@ foreach ($supplier_ids as $supplier_id) {
         );
         
         // 職能名「食品」を必ず1つ含めるように修正
-        $skill_names_for_tax_8 = array('Food'); // 税率8%用の職能名リスト
-        $skill_names_for_tax_10 = array_diff($skill_names, array('Food')); // 税率10%用の職能名リスト（食品以外）
+        $reduced_tax_skill_name = $is_japanese_locale ? '食品' : 'Food';
+        $skill_names_for_tax_8 = array($reduced_tax_skill_name); // 税率8%用の職能名リスト
+        $skill_names_for_tax_10 = array_diff($skill_names, array($reduced_tax_skill_name)); // 税率10%用の職能名リスト（食品以外）
         
         safe_echo("税率8%用職能名: " . implode(', ', $skill_names_for_tax_8));
         safe_echo("税率10%用職能名: " . implode(', ', $skill_names_for_tax_10));
@@ -523,7 +587,9 @@ foreach ($supplier_ids as $supplier_id) {
 
 // 5. 受注書データの作成（ランダムな進捗分布）
 $order_statuses = array(1, 2, 3, 4, 5, 6); // 受付中、見積中、受注、進行中、完成、請求済
-$order_names = array('Website Renewal', 'E-commerce Site Development', 'Business System Development', 'Marketing Strategy Planning', 'Logo Design Production', 'Data Analysis Service', 'Mobile App Development', 'SEO Consulting Service', 'Social Media Management', 'Video Production');
+$order_names = $is_japanese_locale
+    ? array('Webサイトリニューアル', 'ECサイト構築', '業務システム開発', 'マーケティング戦略立案', 'ロゴデザイン制作', 'データ分析支援', 'モバイルアプリ開発', 'SEOコンサルティング', 'SNS運用支援', '動画制作')
+    : array('Website Renewal', 'E-commerce Site Development', 'Business System Development', 'Marketing Strategy Planning', 'Logo Design Production', 'Data Analysis Service', 'Mobile App Development', 'SEO Consulting Service', 'Social Media Management', 'Video Production');
 
 $order_ids = array();
 foreach ($client_ids as $client_id) {
@@ -593,14 +659,23 @@ foreach ($client_ids as $client_id) {
         }
         
         // ステータスラベルの定義
-        $status_labels = array(
-            1 => 'Received',
-            2 => 'Estimating',
-            3 => 'Ordered',
-            4 => 'In Progress',
-            5 => 'Completed',
-            6 => 'Invoiced'
-        );
+        $status_labels = $is_japanese_locale
+            ? array(
+                1 => '受付中',
+                2 => '見積中',
+                3 => '受注',
+                4 => '進行中',
+                5 => '完成',
+                6 => '請求済'
+            )
+            : array(
+                1 => 'Received',
+                2 => 'Estimating',
+                3 => 'Ordered',
+                4 => 'In Progress',
+                5 => 'Completed',
+                6 => 'Invoiced'
+            );
         
         // 作成日時を設定
         $created_time = $order_date . ' ' . sprintf('%02d:%02d:%02d', rand(9, 18), rand(0, 59), rand(0, 59));
@@ -678,7 +753,7 @@ foreach ($client_ids as $client_id) {
             $user_name,
             $search_field,
             $status,
-            'Dummy Data',
+            get_dummy_data_note_text(),
             $completion_date
         );
         
@@ -798,7 +873,7 @@ function add_invoice_items_to_order($order_id, $service_ids) {
                         'quantity' => $quantity,
                         'amount' => $total_price,
                         'tax_rate' => $service->tax_rate,
-                        'remarks' => 'Dummy Data',
+                        'remarks' => get_dummy_data_note_text(),
                         'sort_order' => 1,
                         'created_at' => current_time('mysql'),
                         'updated_at' => current_time('mysql')
@@ -876,8 +951,8 @@ function add_cost_items_to_order($order_id, $supplier_ids) {
                 'unit' => $skill->unit,
                 'amount' => $total_cost,
                 'tax_rate' => $default_tax_rate,
-                'remarks' => 'Dummy Data',
-                'purchase' => 'Dummy Data',
+                'remarks' => get_dummy_data_note_text(),
+                'purchase' => get_dummy_data_note_text(),
                 'ordered' => 0,
                 'sort_order' => 1,
                 'created_at' => current_time('mysql'),

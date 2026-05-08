@@ -560,27 +560,6 @@ class KTPWP_Shortcodes {
             'community' => 'https://www.kantanpro.com/community/'
         );
 
-        // 寄付ボタンを最初に追加（常時表示）
-        $donation_settings = get_option('ktp_donation_settings', array());
-        $donation_url = !empty($donation_settings['donation_url']) ? esc_url($donation_settings['donation_url']) : 'https://www.kantanpro.com/donation';
-        
-        // 管理者情報を取得
-        $admin_email = get_option('admin_email');
-        $admin_name = get_option('blogname');
-        
-        // POSTパラメータを追加
-        $donation_url_with_params = add_query_arg(array(
-            'admin_email' => urlencode($admin_email),
-            'admin_name' => urlencode($admin_name)
-        ), $donation_url);
-        
-        $links[] = sprintf(
-            '<a href="%s" target="_blank" rel="noopener noreferrer" title="%s" style="display: inline-flex; align-items: center; gap: 4px; color: #0073aa; text-decoration: none;"><span class="material-symbols-outlined" style="font-size: 20px; vertical-align: middle;">favorite</span><span>%s</span></a>',
-            $donation_url_with_params,
-            esc_attr__('寄付する', 'ktpwp'),
-            esc_html__('寄付する', 'ktpwp')
-        );
-
         // 公式サイト（KantanPro）
         $links[] = sprintf(
             '<a href="%s" target="_blank" rel="noopener noreferrer">%s</a>',
@@ -623,6 +602,14 @@ class KTPWP_Shortcodes {
         }
         // ヘルプ（外部リンク）
         $links[] = '<a href="https://www.kantanpro.com/docs" target="_blank" title="' . esc_attr__( 'ヘルプ', 'ktpwp' ) . '" style="display: inline-flex; align-items: center; gap: 4px; color: #0073aa; text-decoration: none;">' . KTPWP_SVG_Icons::get_icon('help', array('style' => 'font-size: 20px; vertical-align: middle;')) . '<span>' . esc_html__( 'ヘルプ', 'ktpwp' ) . '</span></a>';
+        // 設定（右端）
+        $links[] = sprintf(
+            '<a href="%s" title="%s" style="display: inline-flex; align-items: center; gap: 4px; color: #0073aa; text-decoration: none;">%s<span>%s</span></a>',
+            esc_url( admin_url( 'admin.php?page=ktp-settings' ) ),
+            esc_attr__( '設定', 'ktpwp' ),
+            KTPWP_SVG_Icons::get_icon('settings', array('style' => 'font-size: 20px; vertical-align: middle;')),
+            esc_html__( '設定', 'ktpwp' )
+        );
 
         return ' ' . implode(' ', $links);
     }
