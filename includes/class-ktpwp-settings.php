@@ -531,7 +531,9 @@ class KTPWP_Settings {
         }
 
         // ロゴマークのデフォルト値を設定
-        $default_logo = plugins_url( 'images/default/icon.png', KANTANPRO_PLUGIN_FILE );
+        $default_logo = function_exists( 'ktpwp_plugin_asset_url' )
+            ? ktpwp_plugin_asset_url( 'images/default/icon.png' )
+            : plugins_url( 'images/default/icon.png', KANTANPRO_PLUGIN_FILE );
         if ( false === get_option( 'ktp_logo_image' ) ) {
             add_option( 'ktp_logo_image', $default_logo );
         }
@@ -3695,10 +3697,13 @@ class KTPWP_Settings {
      * @return void
      */
     public function ensure_logo_default_value() {
+        $default_logo = function_exists( 'ktpwp_plugin_asset_url' )
+            ? ktpwp_plugin_asset_url( 'images/default/icon.png' )
+            : plugins_url( 'images/default/icon.png', KANTANPRO_PLUGIN_FILE );
         $current_logo = get_option( 'ktp_logo_image' );
-        if ( empty( $current_logo ) ) {
-            $default_logo = plugins_url( 'images/default/icon.png', KANTANPRO_PLUGIN_FILE );
-            update_option( 'ktp_logo_image', $default_logo );
+
+        if ( ! is_string( $current_logo ) || '' === trim( $current_logo ) || $current_logo !== $default_logo ) {
+            update_option( 'ktp_logo_image', $default_logo, false );
         }
     }
 
@@ -3759,7 +3764,9 @@ class KTPWP_Settings {
      * @return string
      */
     private function get_fixed_logo_image() {
-        return plugins_url( 'images/default/icon.png', KANTANPRO_PLUGIN_FILE );
+        return function_exists( 'ktpwp_plugin_asset_url' )
+            ? ktpwp_plugin_asset_url( 'images/default/icon.png' )
+            : plugins_url( 'images/default/icon.png', KANTANPRO_PLUGIN_FILE );
     }
 
     /**

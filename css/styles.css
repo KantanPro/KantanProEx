@@ -1647,6 +1647,20 @@ form > .create-order-btn {
   min-height: fit-content;
 }
 
+/* ショートコードヘッダーのプラグインアイコン（汎用 .title / テーマの img ルールとの衝突を抑止） */
+.ktp_header .ktp-header-plugin-icon {
+  display: inline-block;
+  width: auto;
+  max-width: none;
+  height: 40px;
+  flex-shrink: 0;
+  object-fit: contain;
+  vertical-align: middle;
+  margin-right: 8px;
+  position: relative;
+  top: -5px;
+}
+
 /* PC・タブレット表示用：ヘッダー右側セクション */
 .ktp_header .header-right-section {
   display: flex;
@@ -1822,6 +1836,22 @@ form > .create-order-btn {
   .ktp_header .title {
     margin-left: 0;
     margin-top: 8px;
+  }
+
+  /* テーマ・汎用 .title 内の img ルールと衝突してもアイコンを確実に表示 */
+  .ktp_header .ktp-header-plugin-icon {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: auto !important;
+    max-width: none !important;
+    height: 40px !important;
+    flex-shrink: 0;
+    object-fit: contain;
+    vertical-align: middle;
+    margin-right: 8px;
+    position: relative;
+    top: -5px;
   }
   
   /* モバイル時は右側の要素も縦並び */

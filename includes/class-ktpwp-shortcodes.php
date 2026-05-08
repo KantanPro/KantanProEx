@@ -390,7 +390,7 @@ class KTPWP_Shortcodes {
         // ヘッダーHTML構築（PC・タブレット表示用）
         $header_html = '<div class="ktp_header">';
         $header_html .= '<div class="parent">';
-        $header_html .= '<div class="title">' . $icon_img . $plugin_name . '</div>';
+        $header_html .= '<div class="title ktp-header-title">' . $icon_img . $plugin_name . '</div>';
         $header_html .= '<div class="version">v' . $plugin_version . '</div>';
         $header_html .= '</div>';
         $header_html .= '<div class="header-right-section">';
@@ -408,8 +408,12 @@ class KTPWP_Shortcodes {
      * @return string アイコンIMGタグ
      */
     private function get_plugin_icon() {
-        $icon_url = plugins_url('images/default/icon.png', KANTANPRO_PLUGIN_FILE);
-        return '<img src="' . esc_url($icon_url) . '" style="height:40px;vertical-align:middle;margin-right:8px;position:relative;top:-5px;">';
+        $icon_url = function_exists( 'ktpwp_plugin_asset_url' )
+            ? ktpwp_plugin_asset_url( 'images/default/icon.png' )
+            : plugins_url( 'images/default/icon.png', KANTANPRO_PLUGIN_FILE );
+        $alt      = esc_attr(KANTANPRO_PLUGIN_NAME);
+
+        return '<img src="' . esc_url($icon_url) . '" alt="' . $alt . '" class="ktp-header-plugin-icon" width="40" height="40" decoding="async" loading="eager">';
     }
 
     /**

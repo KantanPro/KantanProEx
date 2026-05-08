@@ -599,6 +599,89 @@ if ( ! defined( 'KANTANPRO_PLUGIN_URL' ) ) {
     define( 'KANTANPRO_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 }
 
+if ( ! defined( 'KANTANPRO_PLUGIN_CANONICAL_DIR' ) ) {
+    define( 'KANTANPRO_PLUGIN_CANONICAL_DIR', 'KantanProEX' );
+}
+
+if ( ! function_exists( 'ktpwp_plugin_asset_url' ) ) {
+    /**
+     * プラグイン配下ファイルの公開 URL。
+     * 実フォルダが無料版の KantanPro や zipball 名のままでも、公式ディレクトリ名 KantanProEX を URL に使う。
+     *
+     * wp-config で KANTANPRO_PLUGIN_ROOT_RELATIVE_ASSETS が true のときはドメインなしのパス（/wp-content/plugins/KantanProEX/...）を返す。
+     *
+     * @param string $relative_path plugins_url 第1引数相当（例: images/default/icon.png）。
+     * @return string
+     */
+    function ktpwp_plugin_asset_url( $relative_path ) {
+        if ( ! defined( 'KANTANPRO_PLUGIN_FILE' ) ) {
+            return '';
+        }
+        $canonical     = KANTANPRO_PLUGIN_CANONICAL_DIR;
+        $relative_path = is_string( $relative_path ) ? ltrim( $relative_path, '/' ) : '';
+
+        if ( defined( 'KANTANPRO_PLUGIN_ROOT_RELATIVE_ASSETS' ) && KANTANPRO_PLUGIN_ROOT_RELATIVE_ASSETS ) {
+            $content_path = wp_parse_url( content_url( '/' ), PHP_URL_PATH );
+            if ( ! is_string( $content_path ) || '' === $content_path ) {
+                $content_path = '/wp-content';
+            }
+            $path = $content_path . '/plugins/' . $canonical . '/' . $relative_path;
+            /**
+             * Filters root-relative or absolute plugin asset URL.
+             *
+             * @param string $url           URL or path.
+             * @param string $relative_path Relative path inside plugin.
+             */
+            return apply_filters( 'ktpwp_plugin_asset_url', $path, $relative_path );
+        }
+
+        // plugins_url(__FILE__) は実フォルダ名（例: 無料版 KantanPro）に依存し icon.png が別フォルダのとき 404 になる。
+        // 常に公式ディレクトリ KantanProEX 配下を content_url で指す（実体も KantanProEX に配置すること）。
+        $url = content_url( 'plugins/' . $canonical . '/' . $relative_path );
+
+        // 取りこぼし対策（KantanProEX を誤って KantanProEXEX にしない）
+        $url = preg_replace( '#/plugins/KantanPro(?!EX)(/)#i', '/plugins/' . $canonical . '$1', $url );
+
+        return apply_filters( 'ktpwp_plugin_asset_url', $url, $relative_path );
+    }
+}
+
+if ( ! function_exists( 'ktpwp_normalize_plugin_asset_urls' ) ) {
+    /**
+     * HTML 内に残った無料版フォルダのアセット URL を EX の公式フォルダへ補正する。
+     *
+     * @param string $html HTML.
+     * @return string
+     */
+    function ktpwp_normalize_plugin_asset_urls( $html ) {
+        if ( ! is_string( $html ) || '' === $html || ! defined( 'KANTANPRO_PLUGIN_CANONICAL_DIR' ) ) {
+            return $html;
+        }
+
+        return preg_replace(
+            '#/plugins/KantanPro(?!EX)(/)#i',
+            '/plugins/' . KANTANPRO_PLUGIN_CANONICAL_DIR . '$1',
+            $html
+        );
+    }
+}
+
+if ( ! function_exists( 'ktpwp_start_asset_url_normalizer_buffer' ) ) {
+    /**
+     * フロントの最終 HTML でも src/data-src の旧パスを補正する。
+     *
+     * @return void
+     */
+    function ktpwp_start_asset_url_normalizer_buffer() {
+        if ( is_admin() || wp_doing_ajax() || wp_is_json_request() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
+            return;
+        }
+
+        ob_start( 'ktpwp_normalize_plugin_asset_urls' );
+    }
+}
+add_action( 'template_redirect', 'ktpwp_start_asset_url_normalizer_buffer', 0 );
+
 // KTPWP Prefixed constants for internal consistency
 if ( ! defined( 'KTPWP_PLUGIN_FILE' ) ) {
     define( 'KTPWP_PLUGIN_FILE', __FILE__ );
@@ -4658,9 +4741,6 @@ function KTPWP_Index() {
                 }
             }
 
-            // 画像タグをPHP変数で作成（ベースラインを10px上げる）
-            $icon_img = '<img src="' . esc_url( plugins_url( 'images/default/icon.png', __FILE__ ) ) . '" style="height:40px;vertical-align:middle;margin-right:8px;position:relative;top:-5px;">';
-
             // バージョン番号を定数から取得
             $plugin_version = defined( 'MY_PLUGIN_VERSION' ) ? esc_html( MY_PLUGIN_VERSION ) : '';
 
@@ -4704,9 +4784,8 @@ function KTPWP_Index() {
                 ? KANTANPRO_PLUGIN_DESCRIPTION
                 : 'スモールビジネスのための販売支援ツール';
 
-            // ロゴマークを取得（デフォルトは既存のicon.png）
-            $default_logo = plugins_url( 'images/default/icon.png', __FILE__ );
-            $logo_url = get_option( 'ktp_logo_image', $default_logo );
+            // ロゴは一般設定で固定の icon.png。オプション ktp_logo_image は zip 展開フォルダ移行や旧URLのまま残ると 404 になるため、表示は常に現行プラグインルート基準の URL とする。
+            $logo_url = ktpwp_plugin_asset_url( 'images/default/icon.png' );
 
             // 更新通知設定を確認
             $update_settings = get_option( 'ktp_update_notification_settings', array() );
@@ -4729,7 +4808,7 @@ function KTPWP_Index() {
             $front_message = '<div class="ktp_header">'
                 . '<div class="parent">'
                 . '<div class="logo-and-system-info">'
-                . '<img src="' . esc_url( $logo_url ) . '" alt="' . esc_attr( $system_name ) . '" class="header-logo" style="height:40px;vertical-align:middle;margin-right:12px;position:relative;top:-2px;">'
+                . '<img src="' . esc_url( $logo_url ) . '" data-src="' . esc_url( $logo_url ) . '" alt="' . esc_attr( $system_name ) . '" class="header-logo ktp-header-plugin-icon" width="40" height="40" decoding="async" loading="eager" fetchpriority="high" data-no-lazy="1" style="height:40px;vertical-align:middle;margin-right:12px;position:relative;top:-2px;">'
                 . '<div class="system-info">'
                 . '<div class="system-name">' . esc_html( $system_name ) . '</div>'
                 . '<div class="system-description">' . esc_html( $system_description ) . '</div>'
@@ -4742,6 +4821,20 @@ function KTPWP_Index() {
                 . '</div>'
                 . '</div>'
                 . $readonly_profile_suffix_ktp;
+
+            $front_message .= '<script>(function(){'
+                . 'var logoUrl=' . wp_json_encode( esc_url_raw( $logo_url ) ) . ';'
+                . 'function fixKtpHeaderLogo(){'
+                . 'var img=document.querySelector(".ktp_header .header-logo");'
+                . 'if(!img){return;}'
+                . 'img.setAttribute("src",logoUrl);'
+                . 'img.setAttribute("data-src",logoUrl);'
+                . 'img.setAttribute("loading","eager");'
+                . 'img.setAttribute("data-no-lazy","1");'
+                . '}'
+                . 'fixKtpHeaderLogo();'
+                . 'if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",fixKtpHeaderLogo);}else{setTimeout(fixKtpHeaderLogo,0);}'
+                . '})();</script>';
             
             // 更新通知用のスクリプトとスタイルを追加（常に読み込み）
             $front_message .= '<link rel="stylesheet" href="' . esc_url( plugins_url( 'css/ktpwp-update-balloon.css', __FILE__ ) ) . '?v=' . KANTANPRO_PLUGIN_VERSION . '">';
@@ -4862,6 +4955,16 @@ function KTPWP_Index() {
             $before_header_banner = '';
 
             $return_value = $before_header_banner . $front_message . $tab_view;
+
+            // 出力 HTML 内の /plugins/KantanPro/ を KantanProEX に統一（src/data-src 等に旧パスが残る取りこぼし対策）
+            if ( defined( 'KANTANPRO_PLUGIN_CANONICAL_DIR' ) ) {
+                $return_value = preg_replace(
+                    '#/plugins/KantanPro(?!EX)(/)#i',
+                    '/plugins/' . KANTANPRO_PLUGIN_CANONICAL_DIR . '$1',
+                    $return_value
+                );
+            }
+
             return $return_value;
 
         } else {

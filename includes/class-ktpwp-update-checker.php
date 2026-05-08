@@ -743,12 +743,19 @@ class KTPWP_Update_Checker {
             ? $update_data['changelog']
             : __( '詳細な変更履歴は公式サイトまたはリポジトリをご確認ください。', 'ktpwp' );
 
+        $banner_url = function_exists( 'ktpwp_plugin_asset_url' )
+            ? ktpwp_plugin_asset_url( 'images/default/header_bg_image.png' )
+            : KANTANPRO_PLUGIN_URL . 'images/default/header_bg_image.png';
+        $icon_url = function_exists( 'ktpwp_plugin_asset_url' )
+            ? ktpwp_plugin_asset_url( 'images/default/icon.png' )
+            : KANTANPRO_PLUGIN_URL . 'images/default/icon.png';
+
         $info->banners = array(
-            'high' => KANTANPRO_PLUGIN_URL . 'images/default/header_bg_image.png',
-            'low'  => KANTANPRO_PLUGIN_URL . 'images/default/header_bg_image.png',
+            'high' => $banner_url,
+            'low'  => $banner_url,
         );
         $info->icons = array(
-            'default' => KANTANPRO_PLUGIN_URL . 'images/default/icon.png',
+            'default' => $icon_url,
         );
 
         return $info;
@@ -2022,20 +2029,30 @@ class KTPWP_Update_Checker {
                 $plugin_info->requires = '5.0'; // 必要なWordPressバージョン
                 $plugin_info->requires_php = '7.4'; // 必要なPHPバージョン
                 $plugin_info->last_updated = isset( $update_data['published_at'] ) ? $update_data['published_at'] : '';
+                $banner_url = function_exists( 'ktpwp_plugin_asset_url' )
+                    ? ktpwp_plugin_asset_url( 'images/default/header_bg_image.png' )
+                    : KANTANPRO_PLUGIN_URL . 'images/default/header_bg_image.png';
+                $icon_url = function_exists( 'ktpwp_plugin_asset_url' )
+                    ? ktpwp_plugin_asset_url( 'images/default/icon.png' )
+                    : KANTANPRO_PLUGIN_URL . 'images/default/icon.png';
+                $dummy_url = function_exists( 'ktpwp_plugin_asset_url' )
+                    ? ktpwp_plugin_asset_url( 'images/default/dummy_graph.png' )
+                    : KANTANPRO_PLUGIN_URL . 'images/default/dummy_graph.png';
+
                 $plugin_info->icons = array(
-                    'default' => KANTANPRO_PLUGIN_URL . 'images/default/icon.png',
+                    'default' => $icon_url,
                 );
                 
                 // バナー画像を設定
                 $plugin_info->banners = array(
-                    'high' => KANTANPRO_PLUGIN_URL . 'images/default/header_bg_image.png',
-                    'low' => KANTANPRO_PLUGIN_URL . 'images/default/header_bg_image.png',
+                    'high' => $banner_url,
+                    'low' => $banner_url,
                 );
                 
                 // スクリーンショットを設定
                 $plugin_info->screenshots = array(
                     array(
-                        'src' => KANTANPRO_PLUGIN_URL . 'images/default/dummy_graph.png',
+                        'src' => $dummy_url,
                         'caption' => 'KantanPro ダッシュボード'
                     )
                 );
