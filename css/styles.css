@@ -1640,7 +1640,7 @@ form > .create-order-btn {
   align-items: flex-start;
   flex-wrap: wrap;
   position: relative;
-  z-index: 10;
+  z-index: 100000;
   width: 100%;
   box-sizing: border-box;
   gap: 15px;
@@ -1648,6 +1648,25 @@ form > .create-order-btn {
 }
 
 /* ショートコードヘッダーのプラグインアイコン（汎用 .title / テーマの img ルールとの衝突を抑止） */
+.ktp_header .ktp-header-plugin-reload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.ktp_header .ktp-header-plugin-reload:focus {
+  outline: 2px solid rgba(0, 115, 170, 0.3);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .ktp_header .ktp-header-plugin-icon {
   display: inline-block;
   width: auto;
@@ -1703,6 +1722,80 @@ form > .create-order-btn {
 .ktp_header .navigation-links a:focus {
   outline: 2px solid rgba(0, 115, 170, 0.3);
   outline-offset: 2px;
+}
+
+.ktp_header .ktp-header-settings-menu {
+  display: inline-flex;
+  position: relative;
+  align-items: center;
+  z-index: 100002;
+}
+
+.ktp_header .ktp-header-settings-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #0073aa;
+  text-decoration: none;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1.4;
+  transition: all 0.2s ease;
+}
+
+.ktp_header .ktp-header-settings-toggle:hover,
+.ktp_header .ktp-header-settings-menu.is-open .ktp-header-settings-toggle {
+  background-color: rgba(0, 115, 170, 0.1);
+  color: #005a87;
+}
+
+.ktp_header .ktp-header-settings-toggle:focus {
+  outline: 2px solid rgba(0, 115, 170, 0.3);
+  outline-offset: 2px;
+}
+
+.ktp_header .ktp-header-settings-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 150px;
+  padding: 6px 0;
+  background: #fff;
+  border: 1px solid #dcdcde;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+  z-index: 2147483647;
+}
+
+.ktp_header .ktp-header-settings-menu.is-open .ktp-header-settings-dropdown {
+  display: block;
+}
+
+.ktp_header .ktp-header-settings-dropdown a {
+  display: block;
+  width: auto;
+  min-width: 0;
+  padding: 8px 12px;
+  color: #1d2327;
+  background: #fff;
+  border: 0;
+  border-radius: 0;
+  text-decoration: none;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.ktp_header .ktp-header-settings-dropdown a:hover,
+.ktp_header .ktp-header-settings-dropdown a:focus {
+  background: #f0f6fc;
+  color: #005a87;
+  outline: none;
 }
 
 /* 寄付ボタンの特別なスタイル */
@@ -4830,6 +4923,163 @@ body.ktpwp-modal-open {
   .ktp_header .user-avatars-section,
   .logged-in-staff-avatars {
     gap: 0 !important;
+  }
+}
+
+/* モバイルヘッダー: 説明文を隠し、ログイン中スタッフのアバターを右上に表示 */
+@media (max-width: 768px) {
+  .ktp_header {
+    min-height: 86px !important;
+    overflow: visible !important;
+  }
+
+  .ktp_header .system-description {
+    display: none !important;
+  }
+
+  .ktp_header .parent {
+    padding-right: 132px !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+    z-index: 1 !important;
+  }
+
+  .ktp_header .header-right-section {
+    width: 0 !important;
+    height: 0 !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    margin: 0 !important;
+    position: static !important;
+    overflow: visible !important;
+  }
+
+  .ktp_header .logo-and-system-info {
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .ktp_header .system-info {
+    min-width: 0 !important;
+  }
+
+  .ktp_header .system-name {
+    margin-bottom: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .ktp_header .navigation-links {
+    display: flex !important;
+    position: absolute !important;
+    top: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    max-width: 128px !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 100002 !important;
+  }
+
+  .ktp_header .navigation-links a {
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 26px !important;
+    padding: 2px !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    background-color: rgba(255, 255, 255, 0.75) !important;
+  }
+
+  .ktp_header .navigation-links a > span:not(.ktp-svg-icon) {
+    display: none !important;
+  }
+
+  .ktp_header .ktp-header-settings-menu {
+    flex: 0 0 auto !important;
+  }
+
+  .ktp_header .ktp-header-settings-toggle {
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 26px !important;
+    padding: 2px !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    background-color: rgba(255, 255, 255, 0.75) !important;
+  }
+
+  .ktp_header .ktp-header-settings-toggle > span:not(.ktp-svg-icon) {
+    display: none !important;
+  }
+
+  .ktp_header .ktp-header-settings-dropdown {
+    top: calc(100% + 8px) !important;
+    right: 0 !important;
+    min-width: 148px !important;
+    z-index: 2147483647 !important;
+  }
+
+  .ktp_header .ktp-header-settings-dropdown a {
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    min-width: 0 !important;
+    padding: 9px 12px !important;
+    background: #fff !important;
+    color: #1d2327 !important;
+    white-space: nowrap !important;
+    text-align: left !important;
+  }
+
+  .ktp_header .user-avatars-section {
+    display: flex !important;
+    position: absolute !important;
+    top: 44px !important;
+    right: 10px !important;
+    width: auto !important;
+    max-width: 112px !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 10000 !important;
+    pointer-events: auto !important;
+  }
+
+  .ktp_header .user-avatars-section .logged-in-staff-avatars {
+    display: inline-flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  .ktp_header .user-avatars-section .ktp-avatar-trigger,
+  .ktp_header .user-avatars-section .avatar,
+  .ktp_header .user-avatars-section .user_icon {
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    flex: 0 0 auto !important;
+    position: relative !important;
+    z-index: 10001 !important;
+  }
+
+  .ktp_header .user-avatars-section .avatar,
+  .ktp_header .user-avatars-section .user_icon {
+    width: 32px !important;
+    height: 32px !important;
+    max-width: none !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
   }
 }
 

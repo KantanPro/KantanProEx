@@ -4773,8 +4773,18 @@ function KTPWP_Index() {
                     }
                     // ヘルプリンク（外部リンク）
                     $navigation_links .= ' <a href="https://www.kantanpro.com/docs" target="_blank" title="' . esc_attr__( 'ヘルプ', 'ktpwp' ) . '" style="display: inline-flex; align-items: center; gap: 4px; color: #0073aa; text-decoration: none;">' . KTPWP_SVG_Icons::get_icon('help', array('style' => 'font-size: 20px; vertical-align: middle;')) . '<span>' . esc_html__( 'ヘルプ', 'ktpwp' ) . '</span></a>';
-                    // 設定リンク（右端）
-                    $navigation_links .= ' <a href="' . esc_url( admin_url( 'admin.php?page=ktp-settings' ) ) . '" title="' . esc_attr__( '設定', 'ktpwp' ) . '" style="display: inline-flex; align-items: center; gap: 4px; color: #0073aa; text-decoration: none;">' . KTPWP_SVG_Icons::get_icon('settings', array('style' => 'font-size: 20px; vertical-align: middle;')) . '<span>' . esc_html__( '設定', 'ktpwp' ) . '</span></a>';
+                    // 設定メニュー（クリックで一般設定・スタッフ管理・バックアップを表示）
+                    $navigation_links .= ' <span class="ktp-header-settings-menu">'
+                        . '<button type="button" class="ktp-header-settings-toggle" aria-expanded="false" aria-haspopup="true" data-settings-url="' . esc_url( admin_url( 'admin.php?page=ktp-settings' ) ) . '" title="' . esc_attr__( '設定', 'ktpwp' ) . '">'
+                        . KTPWP_SVG_Icons::get_icon('settings', array('style' => 'font-size: 20px; vertical-align: middle;'))
+                        . '<span>' . esc_html__( '設定', 'ktpwp' ) . '</span>'
+                        . '</button>'
+                        . '<span class="ktp-header-settings-dropdown" role="menu">'
+                        . '<a href="' . esc_url( admin_url( 'admin.php?page=ktp-settings' ) ) . '" role="menuitem">' . esc_html__( '一般設定', 'ktpwp' ) . '</a>'
+                        . '<a href="' . esc_url( admin_url( 'admin.php?page=ktp-staff' ) ) . '" role="menuitem">' . esc_html__( 'スタッフ管理', 'ktpwp' ) . '</a>'
+                        . '<a href="' . esc_url( admin_url( 'admin.php?page=ktp-data-tools' ) ) . '" role="menuitem">' . esc_html__( 'バックアップ', 'ktpwp' ) . '</a>'
+                        . '</span>'
+                        . '</span>';
                 }
             }
 
@@ -4808,7 +4818,9 @@ function KTPWP_Index() {
             $front_message = '<div class="ktp_header">'
                 . '<div class="parent">'
                 . '<div class="logo-and-system-info">'
+                . '<button type="button" class="ktp-header-plugin-reload" title="' . esc_attr__( 'リロード', 'ktpwp' ) . '" aria-label="' . esc_attr__( 'リロード', 'ktpwp' ) . '" onclick="window.location.reload();">'
                 . '<img src="' . esc_url( $logo_url ) . '" data-src="' . esc_url( $logo_url ) . '" alt="' . esc_attr( $system_name ) . '" class="header-logo ktp-header-plugin-icon" width="40" height="40" decoding="async" loading="eager" fetchpriority="high" data-no-lazy="1" style="height:40px;vertical-align:middle;margin-right:12px;position:relative;top:-2px;">'
+                . '</button>'
                 . '<div class="system-info">'
                 . '<div class="system-name">' . esc_html( $system_name ) . '</div>'
                 . '<div class="system-description">' . esc_html( $system_description ) . '</div>'
@@ -4834,6 +4846,21 @@ function KTPWP_Index() {
                 . '}'
                 . 'fixKtpHeaderLogo();'
                 . 'if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",fixKtpHeaderLogo);}else{setTimeout(fixKtpHeaderLogo,0);}'
+                . '})();</script>';
+
+            $front_message .= '<script>(function(){'
+                . 'if(window.__ktpHeaderSettingsMenuInit){return;}window.__ktpHeaderSettingsMenuInit=true;'
+                . 'function positionMenu(menu){var btn=menu&&menu.querySelector(".ktp-header-settings-toggle");var dropdown=menu&&menu.querySelector(".ktp-header-settings-dropdown");if(!btn||!dropdown){return;}var rect=btn.getBoundingClientRect();dropdown.style.position="fixed";dropdown.style.zIndex="2147483647";dropdown.style.top=(rect.bottom+6)+"px";var left=Math.max(8,Math.min(rect.right-dropdown.offsetWidth,window.innerWidth-dropdown.offsetWidth-8));dropdown.style.left=left+"px";dropdown.style.right="auto";}'
+                . 'function closeMenus(except){document.querySelectorAll(".ktp-header-settings-menu.is-open").forEach(function(menu){if(menu!==except){menu.classList.remove("is-open");var btn=menu.querySelector(".ktp-header-settings-toggle");var dropdown=menu.querySelector(".ktp-header-settings-dropdown");if(btn){btn.setAttribute("aria-expanded","false");}if(dropdown){dropdown.removeAttribute("style");}}});}'
+                . 'function repositionOpenMenus(){document.querySelectorAll(".ktp-header-settings-menu.is-open").forEach(positionMenu);}'
+                . 'document.addEventListener("click",function(e){'
+                . 'var toggle=e.target.closest(".ktp-header-settings-toggle");'
+                . 'if(toggle){e.preventDefault();if(window.matchMedia&&window.matchMedia("(max-width: 768px)").matches){window.location.href=toggle.getAttribute("data-settings-url")||"' . esc_js( admin_url( 'admin.php?page=ktp-settings' ) ) . '";return;}var menu=toggle.closest(".ktp-header-settings-menu");var isOpen=menu&&menu.classList.contains("is-open");closeMenus(menu);if(menu){menu.classList.toggle("is-open",!isOpen);toggle.setAttribute("aria-expanded",isOpen?"false":"true");if(!isOpen){requestAnimationFrame(function(){positionMenu(menu);});}}return;}'
+                . 'if(!e.target.closest(".ktp-header-settings-menu")){closeMenus(null);}'
+                . '});'
+                . 'window.addEventListener("resize",repositionOpenMenus);'
+                . 'window.addEventListener("scroll",repositionOpenMenus,true);'
+                . 'document.addEventListener("keydown",function(e){if(e.key==="Escape"){closeMenus(null);}});'
                 . '})();</script>';
             
             // 更新通知用のスクリプトとスタイルを追加（常に読み込み）

@@ -573,3 +573,57 @@ li.ktp_work_list_item label {
     font-size: 11px;
   }
 }
+
+/* モバイル幅を押し広げないよう、仕事リスト本体の各要素を折り返す */
+@media screen and (max-width: 768px) {
+  li.ktp_work_list_item {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  .ktp_work_list_item .ktp_work_list_item_text,
+  .ktp_work_list_item a {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    box-sizing: border-box !important;
+  }
+
+  .ktp_work_list_item .delivery-dates-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 100% !important;
+    flex-wrap: wrap !important;
+    white-space: normal !important;
+    box-sizing: border-box !important;
+  }
+
+  .ktp_work_list_item .delivery-input-wrapper,
+  .ktp_work_list_item .completion-input-wrapper,
+  .ktp_work_list_item form {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 100% !important;
+    flex-wrap: wrap !important;
+    white-space: normal !important;
+    box-sizing: border-box !important;
+  }
+
+  .ktp_work_list_item .delivery-date-input,
+  .ktp_work_list_item .completion-date-input,
+  .ktp_work_list_item .progress-select {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+}

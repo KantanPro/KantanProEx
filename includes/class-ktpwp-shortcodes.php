@@ -413,7 +413,9 @@ class KTPWP_Shortcodes {
             : plugins_url( 'images/default/icon.png', KANTANPRO_PLUGIN_FILE );
         $alt      = esc_attr(KANTANPRO_PLUGIN_NAME);
 
-        return '<img src="' . esc_url($icon_url) . '" alt="' . $alt . '" class="ktp-header-plugin-icon" width="40" height="40" decoding="async" loading="eager">';
+        return '<button type="button" class="ktp-header-plugin-reload" title="' . esc_attr__( 'リロード', 'ktpwp' ) . '" aria-label="' . esc_attr__( 'リロード', 'ktpwp' ) . '" onclick="window.location.reload();">'
+            . '<img src="' . esc_url($icon_url) . '" alt="' . $alt . '" class="ktp-header-plugin-icon" width="40" height="40" decoding="async" loading="eager">'
+            . '</button>';
     }
 
     /**
@@ -580,7 +582,7 @@ class KTPWP_Shortcodes {
             }
         }
 
-        // 現在のユーザーはセッションメタ検出に依存せず必ず含める
+        // 現在のユーザーはセッションメタやスタッフ権限検出に依存せず、ヘッダーアバターとして必ず含める
         $current_user_id = get_current_user_id();
         if ($current_user_id > 0) {
             $exists_current = false;
@@ -592,7 +594,7 @@ class KTPWP_Shortcodes {
             }
             if (!$exists_current) {
                 $current_user = get_userdata($current_user_id);
-                if ($current_user && $this->is_staff_user($current_user)) {
+                if ($current_user) {
                     $logged_in_staff[] = $current_user;
                 }
             }
