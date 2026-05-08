@@ -358,6 +358,62 @@ class KTPWP_Update_Checker {
     }
 
     /**
+     * WordPress標準更新後に有効化レコードだけが外れた場合でも、次回リクエストで読み込まれるよう復旧する。
+     *
+     * @param string $basename       プラグインベースネーム
+     * @param bool   $network_active ネットワーク有効化フラグ
+     * @return void
+     */
+    private function restore_active_plugin_record( $basename, $network_active = false ) {
+        $resolved_basename = $this->resolve_installed_basename( $basename );
+        if ( ! $this->is_target_plugin_basename( $resolved_basename ) ) {
+            return;
+        }
+
+        if ( $network_active && function_exists( 'is_multisite' ) && is_multisite() ) {
+            $sitewide = get_site_option( 'active_sitewide_plugins', array() );
+            if ( ! is_array( $sitewide ) ) {
+                $sitewide = array();
+            }
+
+            foreach ( array_keys( $sitewide ) as $key ) {
+                if ( $key !== $resolved_basename && $this->is_target_plugin_basename( $key ) ) {
+                    unset( $sitewide[ $key ] );
+                }
+            }
+
+            $sitewide[ $resolved_basename ] = isset( $sitewide[ $resolved_basename ] ) ? (int) $sitewide[ $resolved_basename ] : time();
+            update_site_option( 'active_sitewide_plugins', $sitewide );
+            if ( function_exists( 'wp_clean_plugins_cache' ) ) {
+                wp_clean_plugins_cache();
+            }
+            return;
+        }
+
+        $active_plugins = get_option( 'active_plugins', array() );
+        if ( ! is_array( $active_plugins ) ) {
+            $active_plugins = array();
+        }
+
+        $next = array();
+        foreach ( $active_plugins as $plugin ) {
+            if ( $plugin !== $resolved_basename && $this->is_target_plugin_basename( $plugin ) ) {
+                continue;
+            }
+            $next[] = $plugin;
+        }
+
+        if ( ! in_array( $resolved_basename, $next, true ) ) {
+            $next[] = $resolved_basename;
+        }
+
+        update_option( 'active_plugins', array_values( array_unique( $next ) ), false );
+        if ( function_exists( 'wp_clean_plugins_cache' ) ) {
+            wp_clean_plugins_cache();
+        }
+    }
+
+    /**
      * 保留中の再有効化を再試行する
      *
      * @return void
@@ -2177,10 +2233,6 @@ class KTPWP_Update_Checker {
             30 * MINUTE_IN_SECONDS
         );
 
-        if ( $was_active ) {
-            deactivate_plugins( $target_basename, true, $was_network_active );
-        }
-
         return $response;
     }
 
@@ -2365,6 +2417,10 @@ class KTPWP_Update_Checker {
 
         $should_reactivate = $pre_update_state && ! empty( $pre_update_state['was_active'] );
         $network_active    = $should_reactivate && ! empty( $pre_update_state['network_active'] );
+
+        if ( $should_reactivate ) {
+            $this->restore_active_plugin_record( $activation_basename, $network_active );
+        }
 
         if ( $should_reactivate && ! is_plugin_active( $activation_basename ) ) {
             if ( ! $this->activate_target_plugin( $activation_basename, $network_active ) ) {
