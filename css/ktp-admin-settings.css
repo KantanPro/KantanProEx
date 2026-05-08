@@ -399,3 +399,55 @@
 .cost-item-amount {
     text-align: left !important;
 }
+
+/* スタッフ管理: ON/OFF スライドボタン */
+.ktpwp-staff-toggle-form .ktpwp-switch {
+    position: relative;
+    display: inline-block;
+    width: 46px;
+    height: 22px;
+    flex: none;
+}
+
+.ktpwp-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.ktpwp-switch-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #cfd8dc;
+    transition: .18s;
+    border-radius: 999px;
+}
+
+.ktpwp-switch-slider::before {
+    content: "";
+    position: absolute;
+    height: 18px;
+    width: 18px;
+    left: 2px;
+    top: 2px;
+    background-color: #ffffff;
+    transition: .18s;
+    border-radius: 50%;
+}
+
+.ktpwp-staff-toggle-form .ktpwp-switch input:checked + .ktpwp-switch-slider {
+    background-color: #0073aa;
+}
+
+.ktpwp-staff-toggle-form .ktpwp-switch input:checked + .ktpwp-switch-slider::before {
+    transform: translateX(24px);
+}
+
+.ktpwp-switch input:focus-visible + .ktpwp-switch-slider {
+    outline: 2px solid rgba(0, 115, 170, 0.35);
+    outline-offset: 2px;
+}

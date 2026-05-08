@@ -4643,12 +4643,19 @@ function KTPWP_Index() {
             $act_key = esc_html( check_activation_key() );
 
             // ログイン中のユーザー情報を取得（ログインしている場合のみ）
-            $logged_in_users_html = '';
+            $logged_in_users_html       = '';
+            $readonly_profile_suffix_ktp = '';
 
-            // ショートコードクラスのインスタンスからスタッフアバター表示を取得
             if ( is_user_logged_in() ) {
                 $shortcodes_instance = KTPWP_Shortcodes::get_instance();
-                $logged_in_users_html = $shortcodes_instance->get_staff_avatars_display();
+                $logged_in_raw        = $shortcodes_instance->get_staff_avatars_display();
+                $modal_pos            = strpos( $logged_in_raw, '<div id="ktp-readonly-profile-modal"' );
+                if ( false !== $modal_pos ) {
+                    $logged_in_users_html       = substr( $logged_in_raw, 0, $modal_pos );
+                    $readonly_profile_suffix_ktp = substr( $logged_in_raw, $modal_pos );
+                } else {
+                    $logged_in_users_html = $logged_in_raw;
+                }
             }
 
             // 画像タグをPHP変数で作成（ベースラインを10px上げる）
@@ -4733,7 +4740,8 @@ function KTPWP_Index() {
                 . '<div class="navigation-links">' . $navigation_links . '</div>'
                 . '<div class="user-avatars-section">' . $logged_in_users_html . '</div>'
                 . '</div>'
-                . '</div>';
+                . '</div>'
+                . $readonly_profile_suffix_ktp;
             
             // 更新通知用のスクリプトとスタイルを追加（常に読み込み）
             $front_message .= '<link rel="stylesheet" href="' . esc_url( plugins_url( 'css/ktpwp-update-balloon.css', __FILE__ ) ) . '?v=' . KANTANPRO_PLUGIN_VERSION . '">';

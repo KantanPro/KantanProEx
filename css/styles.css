@@ -741,6 +741,117 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
+.ktp-avatar-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    cursor: default;
+    line-height: 0;
+    text-decoration: none;
+}
+
+a.ktp-avatar-trigger {
+    cursor: pointer;
+}
+
+.ktp-avatar-trigger--other {
+    cursor: pointer;
+}
+
+/* フロントの flex 内配置やテーマの overflow から外すため JS で body 直下へ移動する */
+.ktp-readonly-profile-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    pointer-events: none;
+    isolation: isolate;
+}
+
+.ktp-readonly-profile-modal:not([hidden]) {
+    display: block !important;
+    pointer-events: auto;
+}
+
+/* バックドロップより必ず手前にパネル（z-index の !important とインラインの食い違いで背景が手前に来ないようにする） */
+.ktp-readonly-profile-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.35);
+    z-index: 0;
+    pointer-events: auto;
+}
+
+.ktp-readonly-profile-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(420px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+    box-sizing: border-box;
+    background: #fff !important;
+    border: 1px solid #d9e2ec;
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+    padding: 14px 14px 12px;
+    z-index: 1;
+    pointer-events: auto;
+    visibility: visible !important;
+    opacity: 1 !important;
+    display: block !important;
+}
+
+.ktp-readonly-profile-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    border: 0;
+    background: transparent;
+    color: #64748b;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.ktp-readonly-profile-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 10px;
+}
+
+.ktp-readonly-profile-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 4px;
+}
+
+.ktp-readonly-profile-email {
+    font-size: 12px;
+    color: #4b5563;
+    margin-bottom: 6px;
+    word-break: break-all;
+}
+
+.ktp-readonly-profile-role {
+    display: inline-block;
+    font-size: 11px;
+    color: #0369a1;
+    background: #e0f2fe;
+    border-radius: 999px;
+    padding: 2px 8px;
+    margin-bottom: 8px;
+}
+
+.ktp-readonly-profile-note {
+    font-size: 11px;
+    color: #64748b;
+}
+
 /* レスポンシブ対応 */
 @media (max-width: 768px) {
     .user_icon {

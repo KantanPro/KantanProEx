@@ -149,7 +149,7 @@ class KTPWP_Assets {
             return false;
         }
 
-        $shortcodes = array( 'kantanAllTab', 'ktpwp_all_tab', 'ktpwp_login_error' );
+        $shortcodes = array( 'kantanAllTab', 'ktpwp_all_tab', 'kantanpro_ex', 'ktpwp_login_error' );
         foreach ( $shortcodes as $sc ) {
             if ( has_shortcode( $content, $sc ) ) {
                 return true;

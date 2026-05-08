@@ -1962,27 +1962,47 @@ class KTPWP_Settings {
                         <tbody>
                         <?php foreach ( $users as $user ) : ?>
                             <tr>
-                                <td><?php echo esc_html( $user->display_name ); ?></td>
+                                <td>
+                                    <?php
+                                    $profile_link = get_edit_user_link( $user->ID );
+                                    if ( empty( $profile_link ) ) {
+                                        $profile_link = admin_url( 'user-edit.php?user_id=' . (int) $user->ID );
+                                    }
+                                    ?>
+                                    <a href="<?php echo esc_url( $profile_link ); ?>" title="<?php echo esc_attr__( 'プロフィールを開く', 'ktpwp' ); ?>">
+                                        <?php echo esc_html( $user->display_name ); ?>
+                                    </a>
+                                </td>
                                 <td><?php echo esc_html( $user->user_email ); ?></td>
                                 <td>
-                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
                                         <?php if ( $user->has_cap( 'ktpwp_access' ) ) : ?>
                                             <span style="color:green;font-weight:bold;"><?php echo esc_html__( '利用中', 'ktpwp' ); ?></span>
                                         <?php else : ?>
                                             <span style="color:red;"><?php echo esc_html__( '未使用', 'ktpwp' ); ?></span>
                                         <?php endif; ?>
-                                        <form method="post" style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
+
+                                        <form method="post" class="ktpwp-staff-toggle-form" style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
                                             <?php wp_nonce_field( 'ktp_staff_role_action', 'ktp_staff_role_nonce' ); ?>
                                             <input type="hidden" name="ktpwp_access_user" value="<?php echo esc_attr( $user->ID ); ?>">
-                                            <label style="margin-bottom: 0;">
-                                                <input type="radio" name="ktpwp_access_action" value="add" <?php checked( ! $user->has_cap( 'ktpwp_access' ) ); ?>>
-                                                <?php esc_html_e( '追加', 'ktpwp' ); ?>
+                                            <input type="hidden" name="ktpwp_access_action" class="ktpwp-staff-toggle-action" value="">
+                                            <?php
+                                            $checkbox_id = 'ktpwp_staff_toggle_' . (int) $user->ID;
+                                            $checked = $user->has_cap( 'ktpwp_access' );
+                                            ?>
+                                            <label class="ktpwp-switch" for="<?php echo esc_attr( $checkbox_id ); ?>" title="<?php echo esc_attr( $checked ? 'ON（利用中）' : 'OFF（未使用）' ); ?>">
+                                                <input
+                                                    type="checkbox"
+                                                    id="<?php echo esc_attr( $checkbox_id ); ?>"
+                                                    class="ktpwp-staff-toggle-checkbox"
+                                                    <?php checked( $checked ); ?>
+                                                    aria-label="<?php echo esc_attr( sprintf( 'staff-toggle-%d', (int) $user->ID ) ); ?>"
+                                                />
+                                                <span class="ktpwp-switch-slider" aria-hidden="true"></span>
                                             </label>
-                                            <label style="margin-bottom: 0;">
-                                                <input type="radio" name="ktpwp_access_action" value="remove" <?php checked( $user->has_cap( 'ktpwp_access' ) ); ?>>
-                                                <?php esc_html_e( '削除', 'ktpwp' ); ?>
-                                            </label>
-                                            <button type="submit" class="button"><?php esc_html_e( '適用', 'ktpwp' ); ?></button>
+                                            <noscript>
+                                                <button type="submit" class="button"><?php esc_html_e( '適用', 'ktpwp' ); ?></button>
+                                            </noscript>
                                         </form>
                                     </div>
                                 </td>
@@ -2010,6 +2030,22 @@ class KTPWP_Settings {
                 </div>
             </div>
         </div>
+        <script>
+        (function() {
+            const forms = document.querySelectorAll('.ktpwp-staff-toggle-form');
+            forms.forEach((form) => {
+                const checkbox = form.querySelector('.ktpwp-staff-toggle-checkbox');
+                const actionInput = form.querySelector('.ktpwp-staff-toggle-action');
+                if (!checkbox || !actionInput) return;
+
+                checkbox.addEventListener('change', function() {
+                    // ON -> add, OFF -> remove
+                    actionInput.value = this.checked ? 'add' : 'remove';
+                    form.submit();
+                });
+            });
+        })();
+        </script>
         <?php
     }
 

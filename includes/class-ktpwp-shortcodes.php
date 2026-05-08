@@ -374,7 +374,17 @@ class KTPWP_Shortcodes {
         $icon_img = $this->get_plugin_icon();
 
         // ナビゲーション要素の生成
-        $logged_in_users_html = $this->get_logged_in_users_display();
+        $logged_in_raw = $this->get_logged_in_users_display();
+
+        // 閲覧専用モーダルは user-avatars 内（flex 子）に置かないよう、ヘッダー直下へ分離
+        $logged_in_users_html     = $logged_in_raw;
+        $readonly_profile_suffix = '';
+        $modal_pos                = strpos( $logged_in_raw, '<div id="ktp-readonly-profile-modal"' );
+        if ( false !== $modal_pos ) {
+            $logged_in_users_html     = substr( $logged_in_raw, 0, $modal_pos );
+            $readonly_profile_suffix = substr( $logged_in_raw, $modal_pos );
+        }
+
         $navigation_links = $this->get_navigation_links();
 
         // ヘッダーHTML構築（PC・タブレット表示用）
@@ -389,7 +399,7 @@ class KTPWP_Shortcodes {
         $header_html .= '</div>';
         $header_html .= '</div>';
 
-        return $header_html;
+        return $header_html . $readonly_profile_suffix;
     }
 
     /**
@@ -423,6 +433,8 @@ class KTPWP_Shortcodes {
         }
 
         $logged_in_users_html = '<div class="logged-in-staff-avatars">';
+        $current_user_id = get_current_user_id();
+        $can_edit_users = current_user_can( 'edit_users' );
         
         foreach ($logged_in_staff as $user) {
             $nickname = get_user_meta($user->ID, 'nickname', true);
@@ -430,21 +442,97 @@ class KTPWP_Shortcodes {
                 $nickname = $user->display_name ? $user->display_name : $user->user_login;
             }
             $nickname_esc = esc_attr($nickname);
+            $display_name_esc = esc_attr($user->display_name ? $user->display_name : $user->user_login);
+            $email_esc = esc_attr($user->user_email);
             
             // 現在のユーザーかどうかで表示を変更
-            $is_current = (get_current_user_id() === $user->ID);
+            $is_current = ( $current_user_id === (int) $user->ID );
             $class = $is_current ? 'user_icon user_icon--current' : 'user_icon user_icon--staff';
-            
-            if ($is_current) {
-                $logged_in_users_html .= '<strong><span title="' . $nickname_esc . '">' . 
-                    get_avatar($user->ID, 32, '', '', array('class' => $class)) . '</span></strong>';
+
+            // 自分は常に profile.php、他人は edit_users 権限がある場合のみ編集画面へ
+            if ( $is_current ) {
+                $profile_url = esc_url( admin_url( 'profile.php' ) );
+                $logged_in_users_html .= '<a class="ktp-avatar-trigger" href="' . $profile_url . '" title="' . $nickname_esc . '">'
+                    . get_avatar($user->ID, 32, '', '', array('class' => $class))
+                    . '</a>';
+            } elseif ( $can_edit_users ) {
+                $profile_link = get_edit_user_link( $user->ID );
+                if ( empty( $profile_link ) ) {
+                    $profile_link = admin_url( 'user-edit.php?user_id=' . (int) $user->ID );
+                }
+                $profile_url = esc_url( $profile_link );
+                $logged_in_users_html .= '<a class="ktp-avatar-trigger" href="' . $profile_url . '" title="' . $nickname_esc . '">'
+                    . get_avatar($user->ID, 32, '', '', array('class' => $class))
+                    . '</a>';
             } else {
-                $logged_in_users_html .= '<span title="' . $nickname_esc . '">' . 
-                    get_avatar($user->ID, 32, '', '', array('class' => $class)) . '</span>';
+                $role_label = in_array('administrator', (array) $user->roles, true) ? '管理者' : 'スタッフ';
+                $role_label_esc = esc_attr($role_label);
+                $logged_in_users_html .= '<button type="button" class="ktp-avatar-trigger ktp-avatar-trigger--other"'
+                    . ' title="' . $nickname_esc . '"'
+                    . ' data-name="' . $display_name_esc . '"'
+                    . ' data-email="' . $email_esc . '"'
+                    . ' data-role="' . $role_label_esc . '"'
+                    . ' onclick="return window.ktpwpOpenReadonlyProfile ? window.ktpwpOpenReadonlyProfile(this, event) : false;">'
+                    . get_avatar($user->ID, 32, '', '', array('class' => $class))
+                    . '</button>';
             }
         }
 
         $logged_in_users_html .= '</div>';
+
+        // 編集権限がないユーザー向けに、他人アバターは閲覧専用プロフィールを表示
+        if ( ! $can_edit_users ) {
+            $logged_in_users_html .= '<div id="ktp-readonly-profile-modal" class="ktp-readonly-profile-modal" hidden>'
+                . '<div class="ktp-readonly-profile-backdrop" data-close="1"></div>'
+                . '<div class="ktp-readonly-profile-panel" role="dialog" aria-modal="true" aria-label="スタッフプロフィール">'
+                . '<button type="button" class="ktp-readonly-profile-close" data-close="1" aria-label="閉じる">×</button>'
+                . '<div class="ktp-readonly-profile-title">スタッフプロフィール</div>'
+                . '<div class="ktp-readonly-profile-name"></div>'
+                . '<div class="ktp-readonly-profile-email"></div>'
+                . '<div class="ktp-readonly-profile-role"></div>'
+                . '<div class="ktp-readonly-profile-note">このプロフィールは表示専用です（編集不可）。</div>'
+                . '</div>'
+                . '</div>';
+
+            $logged_in_users_html .= '<script>(function(){'
+                . 'if(window.__ktpReadonlyProfileInit){return;} window.__ktpReadonlyProfileInit=true;'
+                . 'function ktpwpRelocateReadonlyModal(){'
+                . 'var m=document.getElementById("ktp-readonly-profile-modal");'
+                . 'if(m&&m.parentNode!==document.body){document.body.appendChild(m);}'
+                . '}'
+                . 'window.ktpwpRelocateReadonlyModal=ktpwpRelocateReadonlyModal;'
+                . 'if(document.readyState==="loading"){'
+                . 'document.addEventListener("DOMContentLoaded",ktpwpRelocateReadonlyModal);'
+                . '}else{ktpwpRelocateReadonlyModal();}'
+                . 'window.ktpwpCloseReadonlyProfile=function(){'
+                . 'var modal=document.getElementById("ktp-readonly-profile-modal");'
+                . 'if(modal){modal.hidden=true;}'
+                . '};'
+                . 'window.ktpwpOpenReadonlyProfile=function(trigger,e){'
+                . 'if(e){e.preventDefault();e.stopPropagation();}'
+                . 'ktpwpRelocateReadonlyModal();'
+                . 'var modal=document.getElementById("ktp-readonly-profile-modal");'
+                . 'if(!modal){return false;}'
+                . 'var name=trigger.getAttribute("data-name")||"";'
+                . 'var email=trigger.getAttribute("data-email")||"";'
+                . 'var role=trigger.getAttribute("data-role")||"";'
+                . 'var nameEl=modal.querySelector(".ktp-readonly-profile-name");'
+                . 'var emailEl=modal.querySelector(".ktp-readonly-profile-email");'
+                . 'var roleEl=modal.querySelector(".ktp-readonly-profile-role");'
+                . 'if(nameEl){nameEl.textContent=name;}'
+                . 'if(emailEl){emailEl.textContent=email;}'
+                . 'if(roleEl){roleEl.textContent=role;}'
+                . 'modal.hidden=false;'
+                . 'return false;'
+                . '};'
+                . 'document.addEventListener("click",function(e){'
+                . 'var closeTarget=e.target.closest("[data-close=\\"1\\"]");'
+                . 'if(closeTarget){window.ktpwpCloseReadonlyProfile();}'
+                . '});'
+                . 'document.addEventListener("keydown",function(e){if(e.key==="Escape"){window.ktpwpCloseReadonlyProfile();}});'
+                . '})();</script>';
+        }
+
         return $logged_in_users_html;
     }
 
@@ -487,12 +575,30 @@ class KTPWP_Shortcodes {
                 $logged_in_staff[] = $user;
             }
         }
+
+        // 現在のユーザーはセッションメタ検出に依存せず必ず含める
+        $current_user_id = get_current_user_id();
+        if ($current_user_id > 0) {
+            $exists_current = false;
+            foreach ($logged_in_staff as $staff_user) {
+                if ((int) $staff_user->ID === (int) $current_user_id) {
+                    $exists_current = true;
+                    break;
+                }
+            }
+            if (!$exists_current) {
+                $current_user = get_userdata($current_user_id);
+                if ($current_user && $this->is_staff_user($current_user)) {
+                    $logged_in_staff[] = $current_user;
+                }
+            }
+        }
         
-        // 現在のユーザーを先頭に並べ替え
+        // 現在のユーザーを末尾（右端）に並べ替え
         usort($logged_in_staff, function($a, $b) {
             $current_user_id = get_current_user_id();
-            if ($a->ID === $current_user_id) return -1;
-            if ($b->ID === $current_user_id) return 1;
+            if ($a->ID === $current_user_id) return 1;
+            if ($b->ID === $current_user_id) return -1;
             return strcmp($a->display_name, $b->display_name);
         });
         
