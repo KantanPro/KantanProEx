@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.3
+Stable tag: 1.3.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,12 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.4 - 2026年05月18日 =
+* 宛名印刷機能を追加（共通モジュール `js/ktp-atena-print.js`）。プレビューモーダル・罫線エリアのメモ入力（次回まで localStorage 保存）・印刷に対応
+* 顧客タブ・協力会社タブの宛名印刷を共通 API（`KtpAtenaPrint.openPreview`）へ統合し、インライン iframe 印刷処理を整理
+* 宛名印刷用スクリプトの読み込みを顧客・協力会社タブに限定（`class-ktpwp-assets.php`）
+* `class-ktpwp-client.php`／`class-ktpwp-tab-supplier.php` ほか計4ファイル・428行増・113行減（v1.3.3…HEAD）
 
 = 1.3.3 - 2026年05月08日 =
 * WordPress標準の更新ページから更新した場合に、更新前処理でプラグインが無効化されたまま残る可能性を修正（更新前は有効化状態の記録のみ行い、更新完了時に `active_plugins` / network active のレコードを復旧）
