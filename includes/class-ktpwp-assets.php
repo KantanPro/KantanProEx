@@ -495,6 +495,13 @@ class KTPWP_Assets {
                 'in_footer' => true,
                 'admin'     => false,
             ),
+            'ktp-atena-print' => array(
+                'src'       => 'js/ktp-atena-print.js',
+                'deps'      => array(),
+                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-atena-print.js' ),
+                'in_footer' => true,
+                'admin'     => false,
+            ),
             'ktp-client-invoice' => array(
                 'src'       => 'js/ktp-client-invoice.js',
                 'deps'      => array( 'jquery', 'ktp-svg-icons' ),
@@ -684,6 +691,10 @@ class KTPWP_Assets {
         // 顧客タブ専用（顧客以外のタブでは不要な MutationObserver を避ける）
         $client_only_scripts = array( 'ktp-client-delete-popup', 'ktp-client-invoice' );
 
+        // 宛名印刷（顧客・協力会社タブ）
+        $atena_print_tabs         = array( 'client', 'supplier' );
+        $atena_print_only_scripts = array( 'ktp-atena-print' );
+
         foreach ( $this->scripts as $handle => $script ) {
             if ( $script['admin'] === $is_admin || ! $script['admin'] ) {
                 // 権限チェック
@@ -698,6 +709,12 @@ class KTPWP_Assets {
                 // 顧客タブ以外では顧客専用JSをスキップ
                 if ( ! $is_admin && $current_tab_name !== '' && $current_tab_name !== 'client'
                     && in_array( $handle, $client_only_scripts, true ) ) {
+                    continue;
+                }
+                // 宛名印刷は顧客・協力会社タブのみ
+                if ( ! $is_admin && $current_tab_name !== ''
+                    && ! in_array( $current_tab_name, $atena_print_tabs, true )
+                    && in_array( $handle, $atena_print_only_scripts, true ) ) {
                     continue;
                 }
 

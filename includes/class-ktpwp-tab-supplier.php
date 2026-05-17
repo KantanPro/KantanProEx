@@ -1641,64 +1641,24 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
                 if (line3) { inner += '<div>' + esc(line3) + '</div>'; }
                 if (company) { inner += '<div style="font-weight:bold;margin-top:0.35em;">' + esc(company) + '</div>'; }
                 if (person) { inner += '<div style="margin-top:0.25em;">' + esc(person) + esc(honor) + '</div>'; }
-                var title = t('宛名');
-                var gridStartMm = 105;
-                var gridStepMm = 10;
-                var gridLineCount = 18;
-                var gridLinesHtml = '<div class="ktp-atena-grid-lines" aria-hidden="true">';
-                var gi;
-                for (gi = 0; gi < gridLineCount; gi++) {
-                    gridLinesHtml += '<div class="ktp-atena-line" style="top:' + (gridStartMm + gi * gridStepMm) + 'mm"></div>';
+                if (!window.KtpAtenaPrint || typeof window.KtpAtenaPrint.openPreview !== 'function') {
+                    alert(t('宛名印刷の準備ができていません。ページを再読み込みしてください。'));
+                    return;
                 }
-                gridLinesHtml += '</div>';
-                var printHTML = '<!DOCTYPE html><html lang="' + (document.documentElement.lang || 'ja') + '"><head><meta charset="UTF-8">';
-                printHTML += '<title>' + esc(title) + '</title>';
-                printHTML += '<style>';
-                printHTML += '*{margin:0;padding:0;box-sizing:border-box;}';
-                printHTML += 'body{position:relative;margin:0;padding:0;min-height:235mm;font-family:"Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;font-size:12px;line-height:1.4;color:#333;background:#fff;}';
-                printHTML += '.ktp-atena-grid-lines{position:absolute;left:10mm;right:10mm;top:0;bottom:0;pointer-events:none;z-index:0;}';
-                printHTML += '.ktp-atena-line{position:absolute;left:0;right:0;height:0;border-top:1px dotted rgba(0,0,0,0.22);}';
-                printHTML += '@page{size:120mm 235mm;margin:10mm;}';
-                printHTML += '@media print{body{margin:0;padding:0;}.ktp-atena-line{border-top-width:0.25mm;border-top-style:dotted;border-top-color:rgba(0,0,0,0.2);}button,.no-print{display:none!important;}}';
-                printHTML += '.label{position:absolute;z-index:1;top:6mm;left:23mm;text-align:left;font-size:12px;line-height:1.4;color:#333;max-width:88mm;word-wrap:break-word;}';
-                printHTML += '</style></head><body>';
-                printHTML += gridLinesHtml;
-                printHTML += '<div class="label">' + inner + '</div>';
-                printHTML += '</body></html>';
-                var iframe = document.createElement('iframe');
-                iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
-                document.body.appendChild(iframe);
-                var cleanupDone = false;
-                function cleanup() {
-                    if (cleanupDone) { return; }
-                    cleanupDone = true;
-                    setTimeout(function() {
-                        try { document.body.removeChild(iframe); } catch (_) {}
-                    }, 300);
+                var recordId = field('data_id');
+                if (!recordId) {
+                    var params = new URLSearchParams(window.location.search);
+                    recordId = params.get('data_id') || '0';
                 }
-                var printed = false;
-                function triggerPrint() {
-                    if (printed) { return; }
-                    printed = true;
-                    try {
-                        var frameWin = iframe.contentWindow || iframe;
-                        frameWin.focus();
-                        frameWin.onafterprint = cleanup;
-                        setTimeout(function() {
-                            try { frameWin.print(); } catch (e) { cleanup(); }
-                        }, 50);
-                    } catch (e) { cleanup(); }
-                }
-                try {
-                    var frameDoc = iframe.contentDocument || iframe.contentWindow.document;
-                    frameDoc.open();
-                    frameDoc.write(printHTML);
-                    frameDoc.close();
-                    setTimeout(triggerPrint, 50);
-                } catch (e) {
-                    console.error('[協力会社宛名印刷] iframe印刷に失敗:', e);
-                    cleanup();
-                }
+                window.KtpAtenaPrint.openPreview({
+                    entityType: 'supplier',
+                    recordId: recordId,
+                    labelInnerHtml: inner,
+                    title: t('宛名印刷'),
+                    gridStartMm: 105,
+                    gridStepMm: 10,
+                    maxMemoLines: 18
+                });
             }
 
             // プレビュー機能（廃止）
