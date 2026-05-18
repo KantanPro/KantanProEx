@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.5
+Stable tag: 1.3.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,12 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.6 - 2026年05月18日 =
+* 外部URLヘルパークラス `KTPWP_External_Url` を追加（URL正規化・地球アイコン付き外部リンク・入力連動スクリプト）
+* 顧客タブ・協力会社タブの URL フィールドに地球アイコン付き外部リンク UI を適用（KantanBiz 詳細表示と同様の操作感）
+* URL フィールド用スタイルを `css/styles.css` に追加（`.form-group--url`・`.ktp-url-open-link`）
+* `class-ktpwp-client.php`／`class-ktpwp-tab-supplier.php`／`class-ktpwp-external-url.php` ほか計5ファイル・290行増・5行減（v1.3.5…HEAD）
 
 = 1.3.5 - 2026年05月18日 =
 * 宛名印刷のレイアウトを A4 用紙基準に改善（上下左右 10mm 余白、宛名・罫線の位置を用紙座標で統一）
