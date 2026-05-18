@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.4
+Stable tag: 1.3.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,13 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.5 - 2026年05月18日 =
+* 宛名印刷のレイアウトを A4 用紙基準に改善（上下左右 10mm 余白、宛名・罫線の位置を用紙座標で統一）
+* 罫線行間を A4 1 ページに 18 行が収まるよう自動算出（固定 10mm 指定を廃止）
+* プレビューモーダルの用紙スケール表示・パネル幅を調整し、印刷用 CSS を `@page` A4 に統一
+* 顧客タブ・協力会社タブから `gridStepMm` の固定指定を削除（`js/ktp-atena-print.js` で自動計算）
+* `js/ktp-atena-print.js` ほか計3ファイル・204行増・54行減（v1.3.4…HEAD）
 
 = 1.3.4 - 2026年05月18日 =
 * 宛名印刷機能を追加（共通モジュール `js/ktp-atena-print.js`）。プレビューモーダル・罫線エリアのメモ入力（次回まで localStorage 保存）・印刷に対応
