@@ -2394,7 +2394,6 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
                     labelInnerHtml: inner,
                     title: t('宛名印刷'),
                     gridStartMm: 105,
-                    gridStepMm: 10,
                     maxMemoLines: 18
                 });
             }
