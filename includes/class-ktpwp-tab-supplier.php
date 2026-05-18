@@ -1266,7 +1266,20 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 						$default = isset( $field['default'] ) ? $field['default'] : '';
 						$data_forms .= "<div class=\"form-group\"><label>{$label}：</label> <select name=\"{$fieldName}\"{$required}><option value=\"\">{$default}</option>{$options}</select></div>";
 					} else {
-						$data_forms .= "<div class=\"form-group\"><label>{$label}：</label> <input type=\"{$field['type']}\" name=\"{$fieldName}\" value=\"{$value}\"{$pattern}{$required}{$placeholder}></div>";
+						if ( $fieldName === 'url' && class_exists( 'KTPWP_External_Url' ) ) {
+							$field_id = 'ktp-supplier-' . preg_replace( '/[^a-zA-Z0-9_-]/', '', $fieldName );
+							$data_forms .= KTPWP_External_Url::render_url_form_group(
+								__( $label, 'ktpwp' ),
+								$field_id,
+								$field,
+								(string) $value,
+								$pattern,
+								$required,
+								$placeholder
+							);
+						} else {
+							$data_forms .= "<div class=\"form-group\"><label>{$label}：</label> <input type=\"{$field['type']}\" name=\"{$fieldName}\" value=\"{$value}\"{$pattern}{$required}{$placeholder}></div>";
+						}
 					}
 				}
 				$data_forms .= "<div class='button'>";
@@ -1468,7 +1481,20 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 						}
 						$data_forms .= "<div class=\"form-group\"><label>{$label}：</label> <select name=\"{$field['name']}\"{$required}>{$options}</select></div>";
 					} else {
-						$data_forms .= "<div class=\"form-group\"><label>{$label}：</label> <input type=\"{$field['type']}\" name=\"{$field['name']}\" value=\"{$value}\"{$pattern}{$required}{$placeholder}></div>";
+						if ( $field['name'] === 'url' && class_exists( 'KTPWP_External_Url' ) ) {
+							$field_id = 'ktp-supplier-' . preg_replace( '/[^a-zA-Z0-9_-]/', '', $field['name'] );
+							$data_forms .= KTPWP_External_Url::render_url_form_group(
+								__( $label, 'ktpwp' ),
+								$field_id,
+								$field,
+								(string) $value,
+								$pattern,
+								$required,
+								$placeholder
+							);
+						} else {
+							$data_forms .= "<div class=\"form-group\"><label>{$label}：</label> <input type=\"{$field['type']}\" name=\"{$field['name']}\" value=\"{$value}\"{$pattern}{$required}{$placeholder}></div>";
+						}
 					}
 				}
 

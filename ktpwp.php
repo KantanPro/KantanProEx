@@ -976,6 +976,7 @@ if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
         'KTPWP_FM_Import'       => 'includes/class-ktpwp-fm-import.php',
         'KTPWP_Settings'        => 'includes/class-ktpwp-settings.php',
         'KTPWP_Payment_Timing'  => 'includes/class-ktpwp-payment-timing.php',
+        'KTPWP_External_Url'    => 'includes/class-ktpwp-external-url.php',
     );
 
     foreach ( $classes as $class_name => $file_path ) {

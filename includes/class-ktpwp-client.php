@@ -1529,8 +1529,20 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 						$data_forms .= "<div class=\"form-group\"><label for=\"{$fieldId}\">{$label_i18n}：</label> <select id=\"{$fieldId}\" name=\"{$fieldName}\"{$required}>{$options}</select></div>";
 					} else {
 						$fieldId = 'ktp-client-' . preg_replace( '/[^a-zA-Z0-9_-]/', '', $fieldName );
-						$generated_html = "<div class=\"form-group\"><label for=\"{$fieldId}\">{$label_i18n}：</label> <input id=\"{$fieldId}\" type=\"{$field['type']}\" name=\"{$fieldName}\" value=\"" . esc_attr( $value ) . "\"{$pattern}{$required}{$placeholder}></div>";
-						$data_forms .= $generated_html;
+						if ( $fieldName === 'url' && class_exists( 'KTPWP_External_Url' ) ) {
+							$data_forms .= KTPWP_External_Url::render_url_form_group(
+								__( $label, 'ktpwp' ),
+								$fieldId,
+								$field,
+								$value,
+								$pattern,
+								$required,
+								$placeholder
+							);
+						} else {
+							$generated_html = "<div class=\"form-group\"><label for=\"{$fieldId}\">{$label_i18n}：</label> <input id=\"{$fieldId}\" type=\"{$field['type']}\" name=\"{$fieldName}\" value=\"" . esc_attr( $value ) . "\"{$pattern}{$required}{$placeholder}></div>";
+							$data_forms .= $generated_html;
+						}
 
 						// デバッグ: 生成されたHTMLをログ出力（istmodeの場合のみ）
 						if ( $action === 'istmode' ) {
@@ -1928,7 +1940,19 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 						$data_forms .= '<div class="form-group"><label for="' . $fieldId . '">' . esc_html__( $field_key, 'ktpwp' ) . '：</label> <select id="' . $fieldId . '" name="' . esc_attr( $field['name'] ) . '"' . $required . '>' . $options . '</select></div>';
 					} else {
 						$fieldId = 'ktp-client-' . preg_replace( '/[^a-zA-Z0-9_-]/', '', $field['name'] );
-						$data_forms .= '<div class="form-group"><label for="' . $fieldId . '">' . esc_html__( $field_key, 'ktpwp' ) . '：</label> <input id="' . $fieldId . '" type="' . esc_attr( $field['type'] ) . '" name="' . esc_attr( $field['name'] ) . '" value="' . esc_attr( $value ) . '"' . $pattern . $required . $placeholder . '></div>';
+						if ( $field['name'] === 'url' && class_exists( 'KTPWP_External_Url' ) ) {
+							$data_forms .= KTPWP_External_Url::render_url_form_group(
+								__( $field_key, 'ktpwp' ),
+								$fieldId,
+								$field,
+								$value,
+								$pattern,
+								$required,
+								$placeholder
+							);
+						} else {
+							$data_forms .= '<div class="form-group"><label for="' . $fieldId . '">' . esc_html__( $field_key, 'ktpwp' ) . '：</label> <input id="' . $fieldId . '" type="' . esc_attr( $field['type'] ) . '" name="' . esc_attr( $field['name'] ) . '" value="' . esc_attr( $value ) . '"' . $pattern . $required . $placeholder . '></div>';
+						}
 					}
 				}
 				$data_forms .= '<input type="hidden" name="query_post" value="update">';
