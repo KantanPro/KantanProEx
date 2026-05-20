@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.9
+Stable tag: 1.3.10
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,12 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.10 - 2026年05月20日 =
+* ヘッダー更新チェックボタンに赤丸バッジを追加（更新あり時に表示。「後で」で吹き出しを閉じてもバッジは残す）
+* `has_header_update_badge()` を `class-ktpwp-update-checker.php` に追加し、フロント・AJAX・`ktpwp-update-balloon.js` と連携
+* 更新チェック成功時にバッジの表示／非表示を切り替え（`ktpwp_update_badge_available` の localize）
+* `ktpwp.php`／`class-ktpwp-update-checker.php`／`ktpwp-update-balloon.js`／`ktpwp-update-balloon.css` 計4ファイル・118行増・8行減（v1.3.9…HEAD）
 
 = 1.3.9 - 2026年05月20日 =
 * 一括請求の明細テーブル見出し行のスタイルを追加（薄いピンク背景・`ktp-bulk-items-table-head` クラス）
