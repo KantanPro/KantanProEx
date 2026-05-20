@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.7
+Stable tag: 1.3.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,11 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.8 - 2026年05月20日 =
+* 一括請求の月別グループに「締日」表示を追加（顧客マスタの締め日と対象年月から算出。完了日ベースの表示を廃止）
+* `bulk_invoice_closing_date_label_for_period` を追加（末日・数値日・「なし」対応。不正な場合は「—」）
+* `includes/class-ktpwp-ajax.php` のみ・51行増・1行減（v1.3.7…HEAD）
 
 = 1.3.7 - 2026年05月20日 =
 * PDF帳票用クラス群を追加（`KTPWP_Pdf_Document_Kind`・`KTPWP_Pdf_Document_Settings`・`KTPWP_Pdf_Branding`・`KTPWP_Pdf_Document_Renderer`・`KTPWP_Pdf_Branding_Admin`）
