@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.6
+Stable tag: 1.3.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,14 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.7 - 2026年05月20日 =
+* PDF帳票用クラス群を追加（`KTPWP_Pdf_Document_Kind`・`KTPWP_Pdf_Document_Settings`・`KTPWP_Pdf_Branding`・`KTPWP_Pdf_Document_Renderer`・`KTPWP_Pdf_Branding_Admin`）
+* 管理画面に帳票表示設定・ブランディング（ロゴ・発行者情報）を追加し、受注書・請求書プレビューへ反映
+* 一括請求プレビューに自社情報（ブランディング）表示を対応（`js/ktp-client-invoice.js`）
+* 請求書プレビューのレイアウトを改善（コンパクト表示・帳票タイトル／リード文の設定連動・明細行の高さ調整）
+* 開発者設定サブメニューを管理画面メニュー最下部に表示するよう変更（`class-ktpwp-settings.php`）
+* `class-ktpwp-order-main.php`／PDF関連クラス5件／`js/ktp-client-invoice.js` ほか計13ファイル・1468行増・62行減（v1.3.6…HEAD）
 
 = 1.3.6 - 2026年05月18日 =
 * 外部URLヘルパークラス `KTPWP_External_Url` を追加（URL正規化・地球アイコン付き外部リンク・入力連動スクリプト）
