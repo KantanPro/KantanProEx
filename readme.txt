@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.10
+Stable tag: 1.3.11
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,12 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.11 - 2026年05月20日 =
+* 管理画面アクセスなしでも更新状態を維持できるよう、更新チェック初期化をフロント側でも動作するよう改善（`init` フックの整理）
+* ヘッダー更新バッジの軽量ポーリングAPIを追加（`ktpwp_poll_header_update`）し、ページ表示時にバッジ状態を自動更新
+* KantanPro 設置ページ判定と定期更新チェック処理を整理（`is_ktpwp_shortcode_page` / `maybe_run_scheduled_update_check` / `maybe_check_on_ktpwp_page`）
+* `class-ktpwp-update-checker.php` / `ktpwp-update-balloon.js` / `ktpwp.php` 計3ファイル・131行増・28行減（v1.3.10…HEAD）
 
 = 1.3.10 - 2026年05月20日 =
 * ヘッダー更新チェックボタンに赤丸バッジを追加（更新あり時に表示。「後で」で吹き出しを閉じてもバッジは残す）
