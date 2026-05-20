@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.8
+Stable tag: 1.3.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,11 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.9 - 2026年05月20日 =
+* 一括請求の明細テーブル見出し行のスタイルを追加（薄いピンク背景・`ktp-bulk-items-table-head` クラス）
+* 画面表示・印刷プレビューともに見出し行の色を統一（`css/styles.css`・`js/ktp-client-invoice.js`）
+* 計2ファイル・9行増・1行減（v1.3.8…HEAD）
 
 = 1.3.8 - 2026年05月20日 =
 * 一括請求の月別グループに「締日」表示を追加（顧客マスタの締め日と対象年月から算出。完了日ベースの表示を廃止）
