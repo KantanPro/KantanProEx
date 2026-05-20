@@ -5684,3 +5684,10 @@ body.ktpwp-modal-open {
 .ktp-bulk-show-tax-amount .ktp-bulk-tax-amount-col {
   display: table-cell;
 }
+
+/* 一括請求：明細タイトル行は薄いピンク、データ行はデザイン設定の青/白交互 */
+.ktp-biz-items-table thead.ktp-bulk-items-table-head tr,
+.ktp-biz-items-table thead.ktp-bulk-items-table-head th {
+  background-color: #ffeef1;
+  border-bottom: 1px solid #fecdd3;
+}

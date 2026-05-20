@@ -402,7 +402,7 @@ jQuery(document).ready(function($) {
                                         if (order.invoice_items && order.invoice_items.length > 0) {
                                             html += "<div style=\"overflow-x:auto;\">";
                                             html += "<table class=\"ktp-biz-items-table\" style=\"width:100%;border-collapse:collapse;font-size:14px;\">";
-                                            html += "<thead><tr style=\"color:#4b5563;border-bottom:1px solid #f3f4f6;background-color:#f9fafb;\">";
+                                            html += "<thead class=\"ktp-bulk-items-table-head\"><tr style=\"color:#4b5563;border-bottom:1px solid #fecdd3;background-color:#ffeef1;\">";
                                             html += "<th style=\"text-align:left;padding:8px 12px;width:3.5rem;\">No.</th>";
                                             html += "<th style=\"text-align:left;padding:8px 12px;\">" + t("サービス") + "</th>";
                                             html += "<th style=\"text-align:right;padding:8px 12px;white-space:nowrap;\">" + t("単価") + "</th>";
@@ -931,6 +931,7 @@ function printInvoiceContent(outputMode) {
         printHTML += '* { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; print-color-adjust: exact !important; }';
         printHTML += '@media print { button, .no-print { display: none !important; } }';
         printHTML += '.ktp-bulk-tax-amount-col { display: none !important; }';
+        printHTML += '.ktp-biz-items-table thead.ktp-bulk-items-table-head tr, .ktp-biz-items-table thead.ktp-bulk-items-table-head th { background-color: #ffeef1 !important; border-bottom: 1px solid #fecdd3 !important; }';
         if (showTaxAmountForPrint) {
             printHTML += '.ktp-bulk-show-tax-amount .ktp-bulk-tax-amount-col { display: table-cell !important; }';
         }
