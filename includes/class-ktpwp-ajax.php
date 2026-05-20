@@ -5052,6 +5052,17 @@ class KTPWP_Ajax {
 			$company_info_html = $order_for_company->get_company_info_box_html();
 		}
 
+		$issuer_company_html = $company_info_html;
+		if ( class_exists( 'KTPWP_Pdf_Branding' ) && class_exists( 'KTPWP_Pdf_Document_Settings' ) && class_exists( 'KTPWP_Pdf_Document_Renderer' ) ) {
+			$bulk_doc_settings = KTPWP_Pdf_Document_Settings::resolve( KTPWP_Pdf_Document_Kind::BULK_INVOICE );
+			$pdf_branding      = KTPWP_Pdf_Branding::for_documents();
+			$issuer_company_html = KTPWP_Pdf_Document_Renderer::bulk_invoice_company_section_html(
+				$pdf_branding,
+				$bulk_doc_settings,
+				$company_info_html
+			);
+		}
+
 		// レスポンスデータを構築
 		$response_data = array(
 			'client_name' => $client_data->company_name,
@@ -5065,6 +5076,7 @@ class KTPWP_Ajax {
 			'payment_due_date' => $payment_due_date,
 			'bank_transfer_html' => $bank_transfer_html,
 			'company_info' => $company_info_html,
+			'issuer_company_html' => $issuer_company_html,
 		);
 		
 		wp_send_json_success($response_data);

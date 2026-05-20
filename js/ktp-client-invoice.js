@@ -86,6 +86,40 @@ function ktpInvoiceUnwrapCompanyInfoBox(html) {
     return m ? m[1].trim() : str;
 }
 
+/**
+ * 一括請求の自社情報（ロゴ・印影）— AJAX 未対応時のフォールバック
+ */
+function ktpBuildBulkIssuerCompanyHtml(bulkDoc, branding, legacyHtml) {
+    if (!branding || !bulkDoc) {
+        return legacyHtml || '';
+    }
+    var showLogo = !!bulkDoc.show_logo && branding.logo_data_uri;
+    var showSeal = !!bulkDoc.show_seal && branding.seal_data_uri;
+    var lh = bulkDoc.issuer_line_height || 1.35;
+    var html = '<div class="ktp-bulk-company-info" style="font-size:14px;color:#374151;line-height:' + lh + ';">';
+    if (showLogo || showSeal) {
+        html += '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px;">';
+        if (showLogo) {
+            html += '<img src="' + branding.logo_data_uri + '" alt="" style="display:block;height:' + (bulkDoc.logo_max_height_px || 32) + 'px;width:auto;max-width:' + (bulkDoc.logo_max_width_px || 180) + 'px;object-fit:contain;">';
+        }
+        if (showSeal) {
+            html += '<img src="' + branding.seal_data_uri + '" alt="" style="display:block;max-height:' + (bulkDoc.seal_max_height_px || 48) + 'px;max-width:' + (bulkDoc.seal_max_width_px || 48) + 'px;object-fit:contain;">';
+        }
+        html += '</div>';
+    }
+    var name = (branding.name || '').trim();
+    if (name) {
+        html += '<div style="font-weight:bold;">' + ktpInvoiceEscapeHtml(name) + '</div>';
+        if (branding.address_html) {
+            html += '<div>' + branding.address_html + '</div>';
+        }
+    } else if (legacyHtml) {
+        html += legacyHtml;
+    }
+    html += '</div>';
+    return html;
+}
+
 /** 二重枠を避けるため振込ブロックの外側 div を外す */
 function ktpInvoiceUnwrapBankTransferBox(html) {
     var str = String(html || '').trim();
@@ -140,6 +174,12 @@ jQuery(document).ready(function($) {
         var list = document.getElementById("invoiceList");
 
         if (invoiceButton && popup && list) {
+            function ensureInvoicePopupOnBody() {
+                if (popup.parentNode !== document.body) {
+                    document.body.appendChild(popup);
+                }
+            }
+
             // ポップアップを閉じる関数
             function closeInvoicePopup() {
                 popup.style.display = "none";
@@ -167,6 +207,7 @@ jQuery(document).ready(function($) {
             });
 
             invoiceButton.addEventListener("click", function() {
+                ensureInvoicePopupOnBody();
                 popup.style.display = "block";
                 
                 var xhr = new XMLHttpRequest();
@@ -311,7 +352,12 @@ jQuery(document).ready(function($) {
 
                                 var oddRowColor = window.ktp_design_settings.odd_row_color || "#E7EEFD";
                                 var evenRowColor = window.ktp_design_settings.even_row_color || "#FFFFFF";
+                                var bulkDocSettings = (typeof ktpClientInvoice !== 'undefined' && ktpClientInvoice.document_settings && ktpClientInvoice.document_settings.bulk_invoice)
+                                    ? ktpClientInvoice.document_settings.bulk_invoice
+                                    : {};
                                 var hideTaxCols = !!(window.ktp_tax_policy && window.ktp_tax_policy.hide_tax_columns);
+                                var showTaxRateCol = !hideTaxCols && bulkDocSettings.show_tax_column !== false;
+                                var defaultShowTaxAmount = !!bulkDocSettings.show_tax_amount_column;
 
                                 function formatDecimalDisplay(value) {
                                     if (value === '' || value === null || value === undefined) {
@@ -363,7 +409,9 @@ jQuery(document).ready(function($) {
                                             html += "<th style=\"text-align:right;padding:8px 12px;white-space:nowrap;\">" + t("数量/単位") + "</th>";
                                             html += "<th style=\"text-align:right;padding:8px 12px;\">" + t("金額") + "</th>";
                                             if (!hideTaxCols) {
-                                                html += "<th style=\"text-align:right;padding:8px 12px;\">" + t("税額") + "</th>";
+                                                html += "<th class=\"ktp-bulk-tax-amount-col\" style=\"text-align:right;padding:8px 12px;\">" + t("税額") + "</th>";
+                                            }
+                                            if (showTaxRateCol) {
                                                 html += "<th style=\"text-align:right;padding:8px 12px;\">" + t("税率") + "</th>";
                                             }
                                             html += "<th style=\"text-align:left;padding:8px 12px;white-space:nowrap;\">" + t("備考") + "</th>";
@@ -392,15 +440,13 @@ jQuery(document).ready(function($) {
                                                     taxRateDisplay = itemTaxRate + "%";
                                                 }
                                                 var lineTaxAmountDisplay = "";
-                                                if (!hideTaxCols) {
-                                                    if (itemTaxRate !== null && !isNaN(itemTaxRate) && itemTaxRate >= 0 && amount > 0) {
-                                                        if (itemTaxRate === 0) {
-                                                            lineTaxAmountDisplay = "—";
-                                                        } else if (res.data.tax_category === "外税") {
-                                                            lineTaxAmountDisplay = ktpwpFormatMoney(Math.ceil(amount * (itemTaxRate / 100)));
-                                                        } else {
-                                                            lineTaxAmountDisplay = ktpwpFormatMoney(Math.ceil(amount * (itemTaxRate / 100) / (1 + itemTaxRate / 100)));
-                                                        }
+                                                if (!hideTaxCols && itemTaxRate !== null && !isNaN(itemTaxRate) && itemTaxRate >= 0 && amount > 0) {
+                                                    if (itemTaxRate === 0) {
+                                                        lineTaxAmountDisplay = "—";
+                                                    } else if (res.data.tax_category === "外税") {
+                                                        lineTaxAmountDisplay = ktpwpFormatMoney(Math.ceil(amount * (itemTaxRate / 100)));
+                                                    } else {
+                                                        lineTaxAmountDisplay = ktpwpFormatMoney(Math.ceil(amount * (itemTaxRate / 100) / (1 + itemTaxRate / 100)));
                                                     }
                                                 }
                                                 if (amount > 0) {
@@ -414,7 +460,9 @@ jQuery(document).ready(function($) {
                                                 html += "<td style=\"padding:8px 12px;text-align:right;color:#374151;white-space:nowrap;\">" + quantity + "/" + ktpInvoiceEscapeHtml(item.unit || t("式")) + "</td>";
                                                 html += "<td style=\"padding:8px 12px;text-align:right;color:#111827;white-space:nowrap;\">" + totalPrice + "</td>";
                                                 if (!hideTaxCols) {
-                                                    html += "<td style=\"padding:8px 12px;text-align:right;color:#374151;white-space:nowrap;\">" + lineTaxAmountDisplay + "</td>";
+                                                    html += "<td class=\"ktp-bulk-tax-amount-col\" style=\"padding:8px 12px;text-align:right;color:#374151;white-space:nowrap;\">" + lineTaxAmountDisplay + "</td>";
+                                                }
+                                                if (showTaxRateCol) {
                                                     html += "<td style=\"padding:8px 12px;text-align:right;color:#374151;white-space:nowrap;\">" + taxRateDisplay + "</td>";
                                                 }
                                                 var remarksDisplay = item.remarks ? ktpInvoiceEscapeHtml(item.remarks) : "—";
@@ -443,8 +491,15 @@ jQuery(document).ready(function($) {
 
                                 html += "<div class=\"ktp-biz-company-bank-grid\" style=\"display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin-top:24px;margin-bottom:24px;break-inside:avoid-page;page-break-inside:avoid;\">";
                                 html += "<section style=\"border:1px solid #e5e7eb;border-radius:6px;padding:16px;break-inside:avoid-page;page-break-inside:avoid;\">";
-                                if (res.data.company_info && String(res.data.company_info).trim() !== "") {
-                                    html += "<div style=\"font-size:14px;color:#374151;line-height:1.5;\">" + ktpInvoiceUnwrapCompanyInfoBox(res.data.company_info) + "</div>";
+                                var issuerCompanyHtml = (res.data.issuer_company_html && String(res.data.issuer_company_html).trim() !== "")
+                                    ? res.data.issuer_company_html
+                                    : ktpBuildBulkIssuerCompanyHtml(
+                                        bulkDocSettings,
+                                        (typeof ktpClientInvoice !== 'undefined' ? ktpClientInvoice.branding : null),
+                                        res.data.company_info ? ktpInvoiceUnwrapCompanyInfoBox(res.data.company_info) : ''
+                                    );
+                                if (issuerCompanyHtml && String(issuerCompanyHtml).trim() !== "") {
+                                    html += issuerCompanyHtml;
                                 }
                                 html += "</section>";
                                 html += "<section style=\"border:1px solid #e5e7eb;border-radius:6px;padding:16px;break-inside:avoid-page;page-break-inside:avoid;\">";
@@ -455,6 +510,12 @@ jQuery(document).ready(function($) {
 
                                 // 印刷・PDF保存ボタンの上にチェックボックスを追加
                                 html += '<div id="ktp-invoice-footer-actions" style="margin-top:20px;text-align:center;">';
+                                if (!hideTaxCols) {
+                                    html += '<label style="display:block;font-size:15px;font-weight:500;margin-bottom:12px;">';
+                                    html += '<input type="checkbox" id="show-tax-amount-column" style="width:18px;height:18px;margin-right:8px;vertical-align:middle;"' + (defaultShowTaxAmount ? ' checked' : '') + '>';
+                                    html += t('請求行の税額を表示・印刷する');
+                                    html += '</label>';
+                                }
                                 html += '<label style="display:inline-flex;align-items:center;font-size:15px;font-weight:500;margin-bottom:12px;">';
                                 html += '<input type="checkbox" id="set-invoice-completed" style="width:18px;height:18px;margin-right:8px;">';
                                 html += t('対象受注書の進捗を「請求済」に変更する');
@@ -470,6 +531,15 @@ jQuery(document).ready(function($) {
                                 html += '</div>';
 
                                 list.innerHTML = html;
+                                list.classList.toggle('ktp-bulk-show-tax-amount', defaultShowTaxAmount);
+                                var showTaxAmountCheckbox = document.getElementById('show-tax-amount-column');
+                                function updateKtpBulkTaxAmountVisibility() {
+                                    list.classList.toggle('ktp-bulk-show-tax-amount', !!(showTaxAmountCheckbox && showTaxAmountCheckbox.checked));
+                                }
+                                if (showTaxAmountCheckbox) {
+                                    showTaxAmountCheckbox.addEventListener('change', updateKtpBulkTaxAmountVisibility);
+                                    updateKtpBulkTaxAmountVisibility();
+                                }
                             } else {
                                 list.innerHTML = "<div style=\"color:#888;\">" + t("該当する案件はありません。") + "</div>";
                             }
@@ -552,15 +622,30 @@ jQuery(document).ready(function($) {
  */
 function printInvoiceContent(outputMode) {
     var mode = (outputMode === 'pdf') ? 'pdf' : 'print';
-    // 印刷のみ：宛名 absolute top=6 left=23（用紙 10+6 / 左33）。請求書タイトル枠は用紙上67mm（10+57）起点＝padding-top 57mm。宛名以外 padding 左10・右5・下5
+    var bulkDoc = (typeof ktpClientInvoice !== 'undefined' && ktpClientInvoice.document_settings && ktpClientInvoice.document_settings.bulk_invoice)
+        ? ktpClientInvoice.document_settings.bulk_invoice
+        : {};
+    var marginTop = parseInt(bulkDoc.margin_top_mm, 10);
+    var marginLeft = parseInt(bulkDoc.margin_left_mm, 10);
+    var marginRight = parseInt(bulkDoc.margin_right_mm, 10);
+    var marginBottom = parseInt(bulkDoc.margin_bottom_mm, 10);
+    var envTop = parseInt(bulkDoc.envelope_top_mm, 10);
+    var envLeft = parseInt(bulkDoc.envelope_left_mm, 10);
+    if (isNaN(marginTop)) { marginTop = 57; }
+    if (isNaN(marginLeft)) { marginLeft = 10; }
+    if (isNaN(marginRight)) { marginRight = 5; }
+    if (isNaN(marginBottom)) { marginBottom = 5; }
+    if (isNaN(envTop)) { envTop = 6; }
+    if (isNaN(envLeft)) { envLeft = 23; }
+    // 印刷のみ：@page 10mm。本文 padding と封筒窓は帳票表示設定（一括請求）から
     var invPrintPageMarginMm = (mode === 'print') ? 10 : 0;
-    var invAddrTopMm = (mode === 'print') ? (16 - invPrintPageMarginMm) : 0;
-    var invAddrLeftMm = (mode === 'print') ? (33 - invPrintPageMarginMm) : 0;
-    var invInvoiceTitleTopFromPaperMm = 67;
-    var invPrintBodyFlowPadTopMm = (mode === 'print') ? (invInvoiceTitleTopFromPaperMm - invPrintPageMarginMm) : 0;
-    var invPrintPadLeftInnerMm = (mode === 'print') ? 10 : 0;
-    var invPrintPadRightInnerMm = (mode === 'print') ? 5 : 0;
-    var invPrintPadBottomInnerMm = (mode === 'print') ? 5 : 0;
+    var invAddrTopMm = (mode === 'print') ? envTop : 0;
+    var invAddrLeftMm = (mode === 'print') ? envLeft : 0;
+    var invInvoiceTitleTopFromPaperMm = (mode === 'print') ? (invPrintPageMarginMm + marginTop) : 0;
+    var invPrintBodyFlowPadTopMm = (mode === 'print') ? marginTop : 0;
+    var invPrintPadLeftInnerMm = (mode === 'print') ? marginLeft : 0;
+    var invPrintPadRightInnerMm = (mode === 'print') ? marginRight : 0;
+    var invPrintPadBottomInnerMm = (mode === 'print') ? marginBottom : 0;
     // チェックボックスの状態を確認
     var setInvoiceCompleted = document.getElementById('set-invoice-completed');
     var shouldSetCompleted = false;
@@ -616,6 +701,12 @@ function printInvoiceContent(outputMode) {
             carryoverSpan.style.fontWeight = 'bold';
             carryoverSpan.textContent = carryoverAmount.toLocaleString();
             carryoverInputInContent.parentNode.replaceChild(carryoverSpan, carryoverInputInContent);
+        }
+
+        var showTaxAmountForPrint = false;
+        var showTaxAmountCheckboxLive = document.getElementById('show-tax-amount-column');
+        if (showTaxAmountCheckboxLive) {
+            showTaxAmountForPrint = !!showTaxAmountCheckboxLive.checked;
         }
 
         // フッター（請求済チェック・印刷／PDFボタン）を印刷用HTMLから除去
@@ -839,6 +930,10 @@ function printInvoiceContent(outputMode) {
         printHTML += 'h1, h2, h3, h4, h5, h6 { font-weight: bold; }';
         printHTML += '* { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; print-color-adjust: exact !important; }';
         printHTML += '@media print { button, .no-print { display: none !important; } }';
+        printHTML += '.ktp-bulk-tax-amount-col { display: none !important; }';
+        if (showTaxAmountForPrint) {
+            printHTML += '.ktp-bulk-show-tax-amount .ktp-bulk-tax-amount-col { display: table-cell !important; }';
+        }
         if (mode === 'pdf') {
             printHTML += 'body { padding: 20px; background: white; }';
             printHTML += '.page-container { width: 210mm; max-width: 210mm; margin: 0 auto; background: white; padding: 50px; }';
@@ -865,9 +960,10 @@ function printInvoiceContent(outputMode) {
         printHTML += '</style>';
         printHTML += '</head>';
         printHTML += '<body>';
+        var printContainerClass = 'page-container' + (showTaxAmountForPrint ? ' ktp-bulk-show-tax-amount' : '');
         printHTML += (mode === 'pdf')
-            ? '<div class="page-container">'
-            : '<div class="page-container ktp-inv-print-envelope">';
+            ? '<div class="' + printContainerClass + '">'
+            : '<div class="' + printContainerClass + ' ktp-inv-print-envelope">';
         printHTML += invoiceContent;
         printHTML += '</div>';
         printHTML += '</body>';

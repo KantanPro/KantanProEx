@@ -354,6 +354,7 @@ class KTPWP_Settings {
      */
     private function __construct() {
         add_action( 'admin_menu', array( $this, 'add_plugin_page' ) );
+        add_action( 'admin_menu', array( $this, 'register_developer_submenu' ), 100 );
         add_action( 'admin_init', array( $this, 'page_init' ) );
         add_action( 'rest_api_init', array( $this, 'register_central_banner_rest_route' ) );
         add_action( 'phpmailer_init', array( $this, 'setup_smtp_settings' ) );
@@ -791,20 +792,26 @@ class KTPWP_Settings {
 			'ktp-fm-import',
 			array( $this, 'create_fm_import_page' )
 		);
+    }
 
-        // サブメニュー - 開発者設定（開発モード時のみ登録）
-        if ( $this->is_developer_settings_enabled() ) {
-            add_submenu_page(
-                'ktp-settings', // 親メニューのスラッグ
-                __( '開発者設定', 'ktpwp' ), // ページタイトル
-                __( '開発者設定', 'ktpwp' ), // メニュータイトル
-                'manage_options', // 権限
-                'ktp-developer-settings', // メニューのスラッグ
-                array( $this, 'create_developer_page' ) // 表示を処理する関数
-            );
+    /**
+     * 開発者設定はサブメニュー最下部に表示（帳票表示設定などより後に登録）
+     *
+     * @since 1.0.0
+     */
+    public function register_developer_submenu() {
+        if ( ! $this->is_developer_settings_enabled() ) {
+            return;
         }
 
-
+        add_submenu_page(
+            'ktp-settings',
+            __( '開発者設定', 'ktpwp' ),
+            __( '開発者設定', 'ktpwp' ),
+            'manage_options',
+            'ktp-developer-settings',
+            array( $this, 'create_developer_page' )
+        );
     }
 
 	/**

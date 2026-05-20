@@ -975,6 +975,11 @@ if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
         'KTPWP_SVG_Icons'       => 'includes/class-ktpwp-svg-icons.php',
         'KTPWP_FM_Import'       => 'includes/class-ktpwp-fm-import.php',
         'KTPWP_Settings'        => 'includes/class-ktpwp-settings.php',
+        'KTPWP_Pdf_Document_Kind' => 'includes/class-ktpwp-pdf-document-kind.php',
+        'KTPWP_Pdf_Document_Settings' => 'includes/class-ktpwp-pdf-document-settings.php',
+        'KTPWP_Pdf_Branding'    => 'includes/class-ktpwp-pdf-branding.php',
+        'KTPWP_Pdf_Document_Renderer' => 'includes/class-ktpwp-pdf-document-renderer.php',
+        'KTPWP_Pdf_Branding_Admin' => 'includes/class-ktpwp-pdf-branding-admin.php',
         'KTPWP_Payment_Timing'  => 'includes/class-ktpwp-payment-timing.php',
         'KTPWP_External_Url'    => 'includes/class-ktpwp-external-url.php',
     );
@@ -1112,6 +1117,15 @@ add_action( 'plugins_loaded', 'ktpwp_init_hook_manager', 0 );
 add_action( 'plugins_loaded', 'ktpwp_init_update_checker' );
 add_action( 'plugins_loaded', 'ktpwp_init_cache' );
 add_action( 'plugins_loaded', 'ktpwp_init_image_optimizer' );
+add_action(
+	'plugins_loaded',
+	static function () {
+		if ( class_exists( 'KTPWP_Pdf_Branding_Admin' ) ) {
+			KTPWP_Pdf_Branding_Admin::init();
+		}
+	},
+	15
+);
 
 // WooCommerce 連携: 注文を KantanPro に自動追加
 add_action( 'woocommerce_loaded', 'ktpwp_init_woocommerce_integration' );

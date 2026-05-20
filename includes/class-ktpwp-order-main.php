@@ -27,6 +27,9 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 	 */
 	class KTPWP_Order_Class {
 
+		/** @var array<string, mixed> プレビュー生成時の帳票レイアウト設定 */
+		private $preview_doc_settings = array();
+
 		/**
 		 * Constructor
 		 *
@@ -2392,10 +2395,22 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 			// 帳票タイトルと内容の定義
 			$document_info = $this->Get_Document_Info_By_Progress( $order_data->progress );
 
+			$pdf_kind = class_exists( 'KTPWP_Pdf_Document_Kind' )
+				? KTPWP_Pdf_Document_Kind::from_order_progress( $order_data->progress )
+				: 'order';
+			$this->preview_doc_settings = class_exists( 'KTPWP_Pdf_Document_Settings' )
+				? KTPWP_Pdf_Document_Settings::resolve( $pdf_kind )
+				: array();
+			$pdf_branding = class_exists( 'KTPWP_Pdf_Branding' ) ? KTPWP_Pdf_Branding::for_documents() : array();
+			$doc_title = class_exists( 'KTPWP_Pdf_Document_Settings' )
+				? KTPWP_Pdf_Document_Settings::resolve_title( $pdf_kind, $document_info['title'] )
+				: $document_info['title'];
+			$doc_lead = class_exists( 'KTPWP_Pdf_Document_Settings' )
+				? KTPWP_Pdf_Document_Settings::resolve_lead( $pdf_kind, sprintf( $document_info['content'], '%s' ) )
+				: sprintf( $document_info['content'], '%s' );
+
 			// 案件名の取得（空の場合はデフォルト値）
 			$project_name = ! empty( $order_data->project_name ) ? $order_data->project_name : '案件';
-
-			// デバッグ: 文字化け対策
 
 			// 請求項目の取得
 			$invoice_result = $this->Generate_Invoice_Items_For_Preview( $order_data->id );
@@ -2411,9 +2426,18 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				$qualified_invoice_number = KTPWP_Settings::get_qualified_invoice_number();
 			}
 
+			$compact_class = ( ( $this->preview_doc_settings['layout'] ?? '' ) === KTPWP_Pdf_Document_Settings::LAYOUT_COMPACT ) ? ' ktp-pdf-compact' : '';
+			$doc_styles    = class_exists( 'KTPWP_Pdf_Document_Renderer' )
+				? KTPWP_Pdf_Document_Renderer::document_styles_css( $this->preview_doc_settings )
+				: '';
+
 			// プレビューHTML生成 - A4サイズに最適化
-			$html = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>受注書プレビュー</title></head><body>';
-			$html .= '<div class="order-preview-document" style="font-family: \'Noto Sans JP\', \'Hiragino Kaku Gothic ProN\', Meiryo, sans-serif; line-height: 1.4; color: #333; max-width: 210mm; margin: 0 auto; padding: 50px; background: #fff; min-height: 297mm; box-sizing: border-box;">';
+			$html = '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>受注書プレビュー</title>';
+			if ( $doc_styles !== '' ) {
+				$html .= '<style>' . $doc_styles . '</style>';
+			}
+			$html .= '</head><body class="ktp-pdf-doc' . esc_attr( $compact_class ) . '">';
+			$html .= '<div class="order-preview-document ktp-pdf-doc" style="font-family: \'Noto Sans JP\', \'Hiragino Kaku Gothic ProN\', Meiryo, sans-serif; line-height: 1.4; color: #333; max-width: 210mm; margin: 0 auto; padding: 50px; background: #fff; min-height: 297mm; box-sizing: border-box;">';
 
 			// 宛先情報（住所対応）
 			$html .= '<div class="customer-info" style="margin-bottom: 20px;">';
@@ -2497,20 +2521,23 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 
 			$html .= '</div>';
 
+			if ( class_exists( 'KTPWP_Pdf_Document_Renderer' ) && ! empty( $pdf_branding ) ) {
+				$html .= KTPWP_Pdf_Document_Renderer::branding_row_html( $pdf_branding, $this->preview_doc_settings, 'header' );
+			}
+
 			// 帳票タイトル（コンパクト）
-			$html .= '<div class="document-title" style="text-align: center; margin-bottom: 15px; padding: 12px; border: 2px solid #333; font-size: 18px; font-weight: bold;">';
-			$html .= esc_html( sprintf( __( '＜%s＞', 'ktpwp' ), $document_info['title'] ) );
-            // 適格請求書番号を表示（税廃止でなく、設定されている場合のみ）
-            if ( ! ( class_exists( 'KTPWP_Tax_Policy' ) && KTPWP_Tax_Policy::is_abolished() ) && ! empty( $qualified_invoice_number ) ) {
-                $html .= '<div style="font-size: 14px; font-weight: normal; margin-top: 5px; color: #333;">' . esc_html__( '適格請求書番号', 'ktpwp' ) . '：' . esc_html( $qualified_invoice_number ) . '</div>';
-            }
+			$html .= '<div class="document-title ktp-doc-title-box" style="text-align: center; margin-bottom: 15px; padding: 12px; border: 2px solid #333; font-size: 18px; font-weight: bold;">';
+			$html .= esc_html( sprintf( __( '＜%s＞', 'ktpwp' ), $doc_title ) );
+			$show_qualified = ! empty( $this->preview_doc_settings['show_qualified_invoice_number'] );
+			if ( $show_qualified && ! ( class_exists( 'KTPWP_Tax_Policy' ) && KTPWP_Tax_Policy::is_abolished() ) && ! empty( $qualified_invoice_number ) ) {
+				$html .= '<div style="font-size: 14px; font-weight: normal; margin-top: 5px; color: #333;">' . esc_html__( '適格請求書番号', 'ktpwp' ) . '：' . esc_html( $qualified_invoice_number ) . '</div>';
+			}
 			$html .= '</div>';
 
 			// 帳票内容（コンパクト）
-            // 平文表示（装飾ボックスを廃止）
-            $html .= '<div class="document-content" style="margin: 0 0 12px 0; font-size: 14px;">';
-            $html .= sprintf( $document_info['content'], esc_html( $project_name ) );
-            $html .= '</div>';
+			$html .= '<div class="document-content" style="margin: 0 0 12px 0; font-size: 14px;">';
+			$html .= esc_html( sprintf( $doc_lead, $project_name ) );
+			$html .= '</div>';
 
 			// 請求項目（メインコンテンツ）
 			$html .= '<div class="invoice-items" style="margin-bottom: 20px;">';
@@ -2519,11 +2546,15 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 
 			// 自社情報（コンパクト）
 			$html .= '<div class="company-info" style="margin-bottom: 15px;">';
-			$html .= $company_info_html;
+			if ( class_exists( 'KTPWP_Pdf_Document_Renderer' ) && ! empty( $pdf_branding ) ) {
+				$html .= KTPWP_Pdf_Document_Renderer::branding_row_html( $pdf_branding, $this->preview_doc_settings, 'footer' );
+				$html .= KTPWP_Pdf_Document_Renderer::issuer_block_html( $pdf_branding, $this->preview_doc_settings );
+			} else {
+				$html .= $company_info_html;
+			}
 			$html .= '</div>';
 
-			// 見積書（進捗1）・請求書（進捗4）のとき、入力があれば振込先口座を表示
-			if ( class_exists( 'KTPWP_Settings' ) && in_array( (int) $order_data->progress, array( 1, 4 ), true ) ) {
+			if ( ! empty( $this->preview_doc_settings['show_bank_transfer'] ) && class_exists( 'KTPWP_Settings' ) ) {
 				$bank_html = KTPWP_Settings::get_bank_transfer_invoice_html();
 				if ( $bank_html !== '' ) {
 					$html .= $bank_html;
@@ -2745,7 +2776,7 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				$amount_label = ( $tax_category === '外税' ) ? __( '金額（税抜）', 'ktpwp' ) : __( '金額（税込）', 'ktpwp' );
 				$price_label  = ( $tax_category === '外税' ) ? __( '単価（税抜）', 'ktpwp' ) : __( '単価（税込）', 'ktpwp' );
 				$tax_col_label = ( $tax_category === '外税' ) ? __( '税額（外税）', 'ktpwp' ) : __( '税額（内税）', 'ktpwp' );
-				$html .= '<div style="display: flex; background: #f0f0f0; padding: 8px; font-weight: bold; border-bottom: 1px solid #ccc; align-items: center;">';
+				$html .= '<div class="ktp-invoice-items-header" style="display: flex; background: #f0f0f0; padding: 8px; font-weight: bold; border-bottom: 1px solid #ccc; align-items: center;">';
 				$html .= '<div style="width: 30px; text-align: center;">No.</div>';
 				$html .= '<div style="flex: 1; text-align: left; margin-left: 8px;">' . esc_html__( '項目名', 'ktpwp' ) . '</div>';
 				$html .= '<div style="width: 80px; text-align: right;">' . esc_html( $price_label ) . '</div>';
@@ -2801,7 +2832,7 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					// 設定された奇数偶数の背景色を使用
 					$bg_color = ( $global_row_count % 2 === 0 ) ? $even_row_color : $odd_row_color;
 
-					$html .= '<div style="display: flex; padding: 6px 8px; height: 24px; background: ' . esc_attr( $bg_color ) . '; align-items: center;">';
+					$html .= '<div style="display: flex; padding: 6px 8px; min-height: 24px; background: ' . esc_attr( $bg_color ) . '; align-items: center;">';
 					$html .= '<div style="width: 30px; text-align: center;">' . $item_no . '</div>';
 					$html .= '<div style="flex: 1; text-align: left; margin-left: 8px;">' . esc_html( $product_name ) . '</div>';
 					$html .= '<div style="width: 80px; text-align: right;">' . esc_html( KTPWP_Settings::format_money( $price ) ) . '</div>';
@@ -2841,7 +2872,7 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 						// 設定された奇数偶数の背景色を使用
 						$bg_color = ( $global_row_count % 2 === 0 ) ? $even_row_color : $odd_row_color;
 
-						$html .= '<div style="display: flex; padding: 6px 8px; height: 24px; background: ' . esc_attr( $bg_color ) . '; align-items: center;">';
+						$html .= '<div style="display: flex; padding: 6px 8px; min-height: 24px; background: ' . esc_attr( $bg_color ) . '; align-items: center;">';
 						$html .= '<div style="width: 30px; text-align: center;">&nbsp;</div>';
 						$html .= '<div style="flex: 1; text-align: left; margin-left: 8px;">&nbsp;</div>';
 						$html .= '<div style="width: 80px; text-align: right;">&nbsp;</div>';

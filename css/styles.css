@@ -805,6 +805,27 @@ a.ktp-avatar-trigger {
     display: block !important;
 }
 
+/* 一括請求プレビュー（.ktp_header z-index:100000 より手前） */
+#ktp-invoice-preview-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  isolation: isolate;
+  box-sizing: border-box;
+}
+
+#ktp-invoice-preview-popup .ktp-invoice-preview-dialog {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
 .ktp-readonly-profile-close {
     position: absolute;
     top: 6px;
@@ -5652,4 +5673,14 @@ body.ktpwp-modal-open {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+/* 一括請求：税額列は既定非表示（チェックまたは帳票設定で表示） */
+#invoiceList .ktp-bulk-tax-amount-col,
+.ktp-bulk-tax-amount-col {
+  display: none;
+}
+#invoiceList.ktp-bulk-show-tax-amount .ktp-bulk-tax-amount-col,
+.ktp-bulk-show-tax-amount .ktp-bulk-tax-amount-col {
+  display: table-cell;
 }

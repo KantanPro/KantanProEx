@@ -1430,8 +1430,8 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 			$controller_html .= '<button type="button" id="addressLabelPrintButton" class="ktp-client-address-label-btn" onclick="printClientAddressLabel(); return false;" title="' . esc_attr__( '宛名印刷', 'ktpwp' ) . '"><span class="material-symbols-outlined" aria-label="' . esc_attr__( '宛名', 'ktpwp' ) . '">contact_mail</span><span class="btn-label">' . esc_html__( '宛名印刷', 'ktpwp' ) . '</span></button>';
 
 			// 請求書発行ポップアップ
-			$controller_html .= '<div id="ktp-invoice-preview-popup" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;">';
-			$controller_html .= '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;border-radius:8px;width:90%;max-width:800px;max-height:80vh;display:flex;flex-direction:column;">';
+			$controller_html .= '<div id="ktp-invoice-preview-popup" style="display:none;background:rgba(0,0,0,0.5);">';
+			$controller_html .= '<div class="ktp-invoice-preview-dialog" style="background:white;padding:20px;border-radius:8px;width:90%;max-width:800px;">';
 
 			// ヘッダー部分（固定）
 			$controller_html .= '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;border-bottom:1px solid #ddd;padding-bottom:10px;">';
