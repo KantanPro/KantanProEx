@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.11
+Stable tag: 1.3.12
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,11 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.12 - 2026年05月24日 =
+* ヘッダー更新バッジ用の `ktpwp_update_badge_available` を `wp_localize_script` から `wp_add_inline_script` に変更し、スクリプト読み込み順に依存しないよう改善
+* 更新結果画面（`update-core.php` / `update.php`）と通常表示で、バッジ可用フラグを `wp_json_encode` 経由で正しく出力
+* `includes/class-ktpwp-update-checker.php` のみ・10行増・2行減（v1.3.11…HEAD）
 
 = 1.3.11 - 2026年05月20日 =
 * 管理画面アクセスなしでも更新状態を維持できるよう、更新チェック初期化をフロント側でも動作するよう改善（`init` フックの整理）
