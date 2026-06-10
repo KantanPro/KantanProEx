@@ -33,92 +33,56 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 		 * @return string ソートプルダウンHTML
 		 */
 		private function generate_sort_dropdown( $name, $view_mode, $base_page_url, $sort_by, $sort_order, $order_sort_by, $order_sort_order ) {
-			global $wpdb;
-			$sort_dropdown = '';
-
-			// 顧客リストのソートプルダウン
 			if ( $view_mode !== 'order_history' ) {
-				// 現在のURLからソート用プルダウンのアクションURLを生成
-				$sort_url = add_query_arg( array( 'tab_name' => $name ), $base_page_url );
-
-				// ソート用プルダウンのHTMLを構築
-				$sort_dropdown = '<div class="sort-dropdown" style="float:right;margin-left:10px;">' .
-                '<form method="get" action="' . esc_url( $sort_url ) . '" style="display:flex;align-items:center;">';
-
-				// 現在のGETパラメータを維持するための隠しフィールド
-				foreach ( $_GET as $key => $value ) {
-					if ( $key !== 'sort_by' && $key !== 'sort_order' ) {
-						$sort_dropdown .= '<input type="hidden" name="' . esc_attr( $key ) . '" value="' . esc_attr( $value ) . '">';
-					}
-				}
-
-				$sort_dropdown .=
-                '<select id="' . esc_attr( 'ktp-' . $name . '-sort-select' ) . '" name="sort_by" style="margin-right:5px;">' .
-                '<option value="id" ' . selected( $sort_by, 'id', false ) . '>' . esc_html__( 'ID', 'ktpwp' ) . '</option>' .
-                '<option value="company_name" ' . selected( $sort_by, 'company_name', false ) . '>' . esc_html__( '会社名', 'ktpwp' ) . '</option>' .
-                '<option value="frequency" ' . selected( $sort_by, 'frequency', false ) . '>' . esc_html__( '頻度', 'ktpwp' ) . '</option>' .
-                '<option value="time" ' . selected( $sort_by, 'time', false ) . '>' . esc_html__( '登録日', 'ktpwp' ) . '</option>' .
-                '<option value="client_status" ' . selected( $sort_by, 'client_status', false ) . '>' . esc_html__( '対象｜対象外', 'ktpwp' ) . '</option>' .
-                '<option value="category" ' . selected( $sort_by, 'category', false ) . '>' . esc_html__( 'カテゴリー', 'ktpwp' ) . '</option>' .
-                '</select>' .
-                '<select id="' . esc_attr( 'ktp-' . $name . '-sort-order' ) . '" name="sort_order">' .
-                '<option value="ASC" ' . selected( $sort_order, 'ASC', false ) . '>' . esc_html__( '昇順', 'ktpwp' ) . '</option>' .
-                '<option value="DESC" ' . selected( $sort_order, 'DESC', false ) . '>' . esc_html__( '降順', 'ktpwp' ) . '</option>' .
-                '</select>' .
-                '<button type="submit" style="margin-left:5px;padding:4px 8px;background:#f0f0f0;border:1px solid #ccc;border-radius:3px;cursor:pointer;" title="' . esc_attr__( '適用', 'ktpwp' ) . '">' .
-                (class_exists('KTPWP_SVG_Icons') ? KTPWP_SVG_Icons::get_icon('check', array('style' => 'font-size:18px;line-height:18px;vertical-align:middle;')) : '<span class="material-symbols-outlined" style="font-size:18px;line-height:18px;vertical-align:middle;">check</span>') .
-                '</button>' .
-                '</form></div>';
+				return '';
 			}
+
 			// 注文履歴のソートプルダウン
-			else {
-				// 現在表示中の顧客ID
-				$cookie_name = 'ktp_' . $name . '_id';
-				$client_id = null;
+			$cookie_name = 'ktp_' . $name . '_id';
+			$client_id = null;
 
-				if ( isset( $_GET['data_id'] ) ) {
-					$client_id = filter_input( INPUT_GET, 'data_id', FILTER_SANITIZE_NUMBER_INT );
-				} elseif ( isset( $_COOKIE[ $cookie_name ] ) ) {
-					$client_id = filter_input( INPUT_COOKIE, $cookie_name, FILTER_SANITIZE_NUMBER_INT );
-				}
-
-				// 現在のURLからソート用プルダウンのアクションURLを生成
-				$sort_url = add_query_arg(
-                    array(
-						'tab_name' => $name,
-						'view_mode' => 'order_history',
-						'data_id' => $client_id ?? '',
-                    ),
-                    $base_page_url
-                );
-
-				// ソート用プルダウンのHTMLを構築
-				$sort_dropdown = '<div class="sort-dropdown" style="float:right;margin-left:10px;">' .
-					'<form method="get" action="' . esc_url( $sort_url ) . '" style="display:flex;align-items:center;">';
-
-				// 現在のGETパラメータを維持するための隠しフィールド
-				foreach ( $_GET as $key => $value ) {
-					if ( $key !== 'order_sort_by' && $key !== 'order_sort_order' ) {
-						$sort_dropdown .= '<input type="hidden" name="' . esc_attr( $key ) . '" value="' . esc_attr( $value ) . '">';
-					}
-				}
-
-				$sort_dropdown .=
-                '<select id="' . esc_attr( 'ktp-' . $name . '-order-sort-select' ) . '" name="order_sort_by" style="margin-right:5px;">' .
-                '<option value="id" ' . selected( $order_sort_by, 'id', false ) . '>' . esc_html__( '注文ID', 'ktpwp' ) . '</option>' .
-                '<option value="time" ' . selected( $order_sort_by, 'time', false ) . '>' . esc_html__( '日付', 'ktpwp' ) . '</option>' .
-                '<option value="progress" ' . selected( $order_sort_by, 'progress', false ) . '>' . esc_html__( '進捗', 'ktpwp' ) . '</option>' .
-                '<option value="project_name" ' . selected( $order_sort_by, 'project_name', false ) . '>' . esc_html__( '案件名', 'ktpwp' ) . '</option>' .
-                '</select>' .
-                '<select id="' . esc_attr( 'ktp-' . $name . '-order-sort-order' ) . '" name="order_sort_order">' .
-                '<option value="ASC" ' . selected( $order_sort_order, 'ASC', false ) . '>' . esc_html__( '昇順', 'ktpwp' ) . '</option>' .
-                '<option value="DESC" ' . selected( $order_sort_order, 'DESC', false ) . '>' . esc_html__( '降順', 'ktpwp' ) . '</option>' .
-                '</select>' .
-                '<button type="submit" style="margin-left:5px;padding:4px 8px;background:#f0f0f0;border:1px solid #ccc;border-radius:3px;cursor:pointer;" title="' . esc_attr__( '適用', 'ktpwp' ) . '">' .
-                (class_exists('KTPWP_SVG_Icons') ? KTPWP_SVG_Icons::get_icon('check', array('style' => 'font-size:18px;line-height:18px;vertical-align:middle;')) : '<span class="material-symbols-outlined" style="font-size:18px;line-height:18px;vertical-align:middle;">check</span>') .
-                '</button>' .
-                '</form></div>';
+			if ( isset( $_GET['data_id'] ) ) {
+				$client_id = filter_input( INPUT_GET, 'data_id', FILTER_SANITIZE_NUMBER_INT );
+			} elseif ( isset( $_COOKIE[ $cookie_name ] ) ) {
+				$client_id = filter_input( INPUT_COOKIE, $cookie_name, FILTER_SANITIZE_NUMBER_INT );
 			}
+
+			// 現在のURLからソート用プルダウンのアクションURLを生成
+			$sort_url = add_query_arg(
+				array(
+					'tab_name'  => $name,
+					'view_mode' => 'order_history',
+					'data_id'   => $client_id ?? '',
+				),
+				$base_page_url
+			);
+
+			// ソート用プルダウンのHTMLを構築
+			$sort_dropdown = '<div class="sort-dropdown" style="float:right;margin-left:10px;">' .
+				'<form method="get" action="' . esc_url( $sort_url ) . '" style="display:flex;align-items:center;">';
+
+			// 現在のGETパラメータを維持するための隠しフィールド
+			foreach ( $_GET as $key => $value ) {
+				if ( $key !== 'order_sort_by' && $key !== 'order_sort_order' ) {
+					$sort_dropdown .= '<input type="hidden" name="' . esc_attr( $key ) . '" value="' . esc_attr( $value ) . '">';
+				}
+			}
+
+			$sort_dropdown .=
+				'<select id="' . esc_attr( 'ktp-' . $name . '-order-sort-select' ) . '" name="order_sort_by" style="margin-right:5px;">' .
+				'<option value="id" ' . selected( $order_sort_by, 'id', false ) . '>' . esc_html__( '注文ID', 'ktpwp' ) . '</option>' .
+				'<option value="time" ' . selected( $order_sort_by, 'time', false ) . '>' . esc_html__( '日付', 'ktpwp' ) . '</option>' .
+				'<option value="progress" ' . selected( $order_sort_by, 'progress', false ) . '>' . esc_html__( '進捗', 'ktpwp' ) . '</option>' .
+				'<option value="project_name" ' . selected( $order_sort_by, 'project_name', false ) . '>' . esc_html__( '案件名', 'ktpwp' ) . '</option>' .
+				'</select>' .
+				'<select id="' . esc_attr( 'ktp-' . $name . '-order-sort-order' ) . '" name="order_sort_order">' .
+				'<option value="ASC" ' . selected( $order_sort_order, 'ASC', false ) . '>' . esc_html__( '昇順', 'ktpwp' ) . '</option>' .
+				'<option value="DESC" ' . selected( $order_sort_order, 'DESC', false ) . '>' . esc_html__( '降順', 'ktpwp' ) . '</option>' .
+				'</select>' .
+				'<button type="submit" style="margin-left:5px;padding:4px 8px;background:#f0f0f0;border:1px solid #ccc;border-radius:3px;cursor:pointer;" title="' . esc_attr__( '適用', 'ktpwp' ) . '">' .
+				( class_exists( 'KTPWP_SVG_Icons' ) ? KTPWP_SVG_Icons::get_icon( 'check', array( 'style' => 'font-size:18px;line-height:18px;vertical-align:middle;' ) ) : '<span class="material-symbols-outlined" style="font-size:18px;line-height:18px;vertical-align:middle;">check</span>' ) .
+				'</button>' .
+				'</form></div>';
 
 			return $sort_dropdown;
 		}
@@ -391,7 +355,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 			if ( isset( $_GET['sort_by'] ) ) {
 				$sort_by = sanitize_text_field( $_GET['sort_by'] );
 				// 安全なカラム名のみ許可（SQLインジェクション対策）
-				$allowed_columns = array( 'id', 'company_name', 'frequency', 'time', 'client_status', 'category' );
+				$allowed_columns = array( 'id', 'company_name', 'name', 'frequency', 'time', 'client_status', 'category' );
 				if ( ! in_array( $sort_by, $allowed_columns ) ) {
 					$sort_by = 'id'; // 不正な値の場合はデフォルトに戻す
 				}
@@ -499,22 +463,10 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
             ? esc_html__( '■ 注文履歴', 'ktpwp' )
             : esc_html__( '■ 顧客リスト', 'ktpwp' );
 
-			// ソートプルダウンを生成
-			if ( method_exists( $this, 'generate_sort_dropdown' ) ) {
+			// 注文履歴表示時のみソートプルダウンを生成
+			$sort_dropdown = '';
+			if ( $view_mode === 'order_history' ) {
 				$sort_dropdown = $this->generate_sort_dropdown( $name, $view_mode, $base_page_url, $sort_by, $sort_order, $order_sort_by, $order_sort_order );
-			} else {
-				// UIクラスから適切なソートプルダウンを取得
-				if ( ! class_exists( 'KTPWP_Client_UI' ) ) {
-					require_once __DIR__ . '/class-ktpwp-client-ui.php';
-				}
-				$ui = KTPWP_Client_UI::get_instance();
-				$sort_dropdown = $ui->render_list_header( $name, $view_mode, '', $base_page_url, $sort_by, $sort_order, $order_sort_by, $order_sort_order );
-				// ヘッダー全体ではなくドロップダウンだけを取得するため、必要な部分だけを抽出
-				if ( preg_match( '/<div class="sort-dropdown".*?<\/div><\/div>/s', $sort_dropdown, $matches ) ) {
-					$sort_dropdown = $matches[0];
-				} else {
-					$sort_dropdown = '';
-				}
 			}
 
 			// 段階的にUIクラスに処理を委譲
@@ -523,6 +475,13 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 			}
 			$client_ui = KTPWP_Client_UI::get_instance();
 			$results_h = $client_ui->view_table( $name );
+
+			if ( ! class_exists( 'KTPWP_List_Table' ) ) {
+				require_once __DIR__ . '/class-ktpwp-list-table.php';
+			}
+
+			$list_header = '';
+			$list_footer = '';
 
 			// スタート位置を決める
 			$page_stage = $_GET['page_stage'] ?? '';
@@ -735,6 +694,49 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 				$results = array(); // 結果を格納する配列を初期化
 
 				if ( $post_row ) {
+					$list_header = KTPWP_List_Table::open(
+						array(
+							array(
+								'class'    => 'col-id',
+								'label'    => __( 'ID', 'ktpwp' ),
+								'sort_key' => 'id',
+							),
+							array(
+								'class'    => 'col-company',
+								'label'    => __( '会社名', 'ktpwp' ),
+								'sort_key' => 'company_name',
+							),
+							array(
+								'class'    => 'col-contact',
+								'label'    => __( '担当者', 'ktpwp' ),
+								'sort_key' => 'name',
+							),
+							array(
+								'class'    => 'col-category',
+								'label'    => __( 'カテゴリー', 'ktpwp' ),
+								'sort_key' => 'category',
+							),
+							array(
+								'class'    => 'col-frequency',
+								'label'    => __( '頻度', 'ktpwp' ),
+								'sort_key' => 'frequency',
+							),
+							array(
+								'class'    => 'col-status',
+								'label'    => __( 'ステータス', 'ktpwp' ),
+								'sort_key' => 'client_status',
+							),
+						),
+						array(
+							'base_url'      => $base_page_url,
+							'sort_by'       => $sort_by,
+							'sort_order'    => $sort_order,
+							'preserve_args' => KTPWP_List_Table::preserved_query_args(
+								array( 'query_post', 'send_post' )
+							),
+						)
+					);
+
 					foreach ( $post_row as $row ) {
 						$id = esc_html( $row->id );
 						$time = esc_html( $row->time );
@@ -773,21 +775,27 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
                             )
                         );
 
-						// 対象外の場合の視覚的スタイリング（ラベルは行末に表示）
-						$list_style = '';
-						$excluded_mark = '';
-						if ( $client_status === '対象外' || $client_status === 'Inactive' ) {
-							$list_style = ' style="background-color: #ffe6e6; border-left: 3px solid #ff4444;"';
-							$excluded_mark = '<span style="color: #ff4444; font-weight: bold; margin-left: 5px;">' . esc_html__( '【対象外】', 'ktpwp' ) . '</span>';
-						}
+						$is_excluded = ( $client_status === '対象外' || $client_status === 'Inactive' );
+						$row_class   = $is_excluded ? 'ktp-data-list-row--excluded' : '';
+						$status_cell = $is_excluded
+							? '<span class="ktp-data-list-status-excluded">' . esc_html__( '対象外', 'ktpwp' ) . '</span>'
+							: esc_html( $client_status );
 
 						// カテゴリーが空の場合は何も表示しない
 						$display_category = ! empty( $category ) ? $category : '';
 
-						$results[] = '<a href="' . $link_url . '" onclick="document.cookie = \'{$cookie_name}=\' + ' . $id . ';">'
-						. '<div class="ktp_data_list_item"' . $list_style . '>D:' . $id . ' ' . $company_name . ' | ' . $user_name . ' | ' . $display_category . ' | ' . esc_html__( '頻度', 'ktpwp' ) . '(' . $frequency . ')' . $excluded_mark . '</div>'
-						. '</a>';
+						$row_attrs = KTPWP_List_Table::row_nav_attrs( $link_url, $cookie_name, (int) $row->id, $row_class );
+						$results[] = '<tr' . $row_attrs . '>'
+							. '<td class="col-id">' . $id . '</td>'
+							. '<td class="col-company">' . $company_name . '</td>'
+							. '<td class="col-contact">' . $user_name . '</td>'
+							. '<td class="col-category">' . esc_html( $display_category ) . '</td>'
+							. '<td class="col-frequency">' . $frequency . '</td>'
+							. '<td class="col-status">' . $status_cell . '</td>'
+							. '</tr>';
 					}
+
+					$list_footer = KTPWP_List_Table::close();
 				} else {
 					// 新しい0データ案内メッセージ（統一デザイン・ガイダンス）
 					$results[] = '<div class="ktp_data_list_item" style="padding: 15px 20px; background: linear-gradient(135deg, #e3f2fd 0%, #fce4ec 100%); border-radius: 8px; margin: 18px 0; color: #333; font-weight: 600; box-shadow: 0 3px 12px rgba(0,0,0,0.07); display: flex; align-items: center; font-size: 15px; gap: 10px;">'
@@ -992,7 +1000,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 			// リストBOXを閉じる
 			$results_f .= '</div>';
 
-			$data_list = $results_h . implode( $results ) . $results_f;
+			$data_list = $results_h . $list_header . implode( $results ) . $list_footer . $results_f;
 
 			// -----------------------------
 			// 詳細表示(GET)

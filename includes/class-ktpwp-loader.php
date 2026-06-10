@@ -101,6 +101,8 @@ class KTPWP_Loader {
             'KTPWP_Service_DB'      => 'includes/class-ktpwp-service-db.php',
             'KTPWP_Service_UI'      => 'includes/class-ktpwp-service-ui.php',
             'KTPWP_UI_Generator'    => 'includes/class-ktpwp-ui-generator.php',
+            'KTPWP_List_Table'      => 'includes/class-ktpwp-list-table.php',
+            'KTPWP_Public_Product_Order' => 'includes/class-ktpwp-public-product-order.php',
             'KTPWP_Graph_Renderer'  => 'includes/class-ktpwp-graph-renderer.php',
             'KTPWP_Post_Data_Handler' => 'includes/class-ktpwp-post-handler.php',
             'KTPWP_Client_DB'       => 'includes/class-ktpwp-client-db.php',

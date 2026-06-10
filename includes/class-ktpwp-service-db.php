@@ -65,6 +65,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				search_field TEXT,
 				frequency INT NOT NULL DEFAULT 0,
 				category VARCHAR(100) NOT NULL DEFAULT '" . esc_sql( __( 'General', 'ktpwp' ) ) . "',
+				is_public TINYINT(1) NOT NULL DEFAULT 0,
 				PRIMARY KEY  (id)
 			) {$charset_collate};";
 
@@ -124,6 +125,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			$unit = isset( $_POST['unit'] ) ? sanitize_text_field( $_POST['unit'] ) : '';
 			$memo = isset( $_POST['memo'] ) ? sanitize_textarea_field( $_POST['memo'] ) : '';
 			$category = isset( $_POST['category'] ) ? sanitize_text_field( $_POST['category'] ) : '';
+			$is_public = isset( $_POST['is_public'] ) && '1' === (string) $_POST['is_public'] ? 1 : 0;
 
 			// Create search field value
 			$search_field_value = implode(
@@ -158,6 +160,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 							'unit' => $unit,
 							'memo' => $memo,
 							'category' => $category,
+							'is_public' => $is_public,
 							'search_field' => $search_field_value,
 						);
 
@@ -165,7 +168,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
                             $table_name,
                             $data,
                             array( 'id' => $data_id ),
-                            array( '%s', '%f', '%f', '%s', '%s', '%s', '%s' ),
+                            array( '%s', '%f', '%f', '%s', '%s', '%s', '%d', '%s' ),
                             array( '%d' )
 						);
 					}
@@ -231,6 +234,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			$unit = isset( $_POST['unit'] ) ? sanitize_text_field( $_POST['unit'] ) : '';
 			$memo = isset( $_POST['memo'] ) ? sanitize_textarea_field( $_POST['memo'] ) : '';
 			$category = isset( $_POST['category'] ) ? sanitize_text_field( $_POST['category'] ) : '';
+			$is_public = isset( $_POST['is_public'] ) && '1' === (string) $_POST['is_public'] ? 1 : 0;
 
 			// 検索フィールド値を作成
 			$search_field_value = implode(
@@ -258,11 +262,12 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 					'unit' => $unit,
 					'memo' => $memo,
 					'category' => $category,
+					'is_public' => $is_public,
 					'image_url' => '',
 					'frequency' => 0,
 					'search_field' => $search_field_value,
                 ),
-                array( '%d', '%s', '%s', '%f', '%f', '%s', '%s', '%s', '%s', '%d', '%s' )
+                array( '%d', '%s', '%s', '%f', '%f', '%s', '%s', '%s', '%d', '%s', '%d', '%s' )
 			);
 
 			if ( $insert_result === false ) {
@@ -386,11 +391,12 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 							'unit' => $original_data->unit,
 							'memo' => $original_data->memo,
 							'category' => $original_data->category,
+							'is_public' => isset( $original_data->is_public ) ? (int) $original_data->is_public : 0,
 							'image_url' => $original_data->image_url,
 							'frequency' => $original_data->frequency,
 							'search_field' => $original_data->service_name . esc_html__( ' (複製)', 'ktpwp' ) . ', ' . $original_data->price . ', ' . ( $original_data->tax_rate ?? '' ) . ', ' . $original_data->unit . ', ' . $original_data->category,
                         ),
-                        array( '%d', '%s', '%s', '%f', '%f', '%s', '%s', '%s', '%s', '%s', '%s' )
+                        array( '%d', '%s', '%s', '%f', '%f', '%s', '%s', '%s', '%d', '%s', '%d', '%s' )
 					);
 
 					if ( $insert_result === false ) {
@@ -788,12 +794,30 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				'order'       => 'DESC',
 				'search'      => '',
 				'category'    => '',
+				'is_public'   => false,
+				'ids'         => array(),
 			);
 
 			$args = wp_parse_args( $args, $defaults );
 
 			$where_clauses = array();
 			$where_values = array();
+
+			// サイト公開フラグ
+			if ( ! empty( $args['is_public'] ) && $this->service_table_has_is_public_column( $table_name ) ) {
+				$where_clauses[] = 'is_public = %d';
+				$where_values[] = 1;
+			}
+
+			// ID 指定
+			if ( ! empty( $args['ids'] ) && is_array( $args['ids'] ) ) {
+				$ids = array_values( array_filter( array_map( 'absint', $args['ids'] ) ) );
+				if ( ! empty( $ids ) ) {
+					$placeholders  = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
+					$where_clauses[] = "id IN ({$placeholders})";
+					$where_values    = array_merge( $where_values, $ids );
+				}
+			}
 
 			// カテゴリーフィルター
 			if ( ! empty( $args['category'] ) ) {
@@ -831,11 +855,14 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			}
 
 			// クエリの構築
-			$sql = "SELECT * FROM `{$table_name}` {$where_sql} ORDER BY {$args['order_by']} {$args['order']} LIMIT %d OFFSET %d";
-
-			// LIMIT, OFFSETパラメータを追加
-			$where_values[] = $args['limit'];
-			$where_values[] = $args['offset'];
+			$limit = (int) $args['limit'];
+			if ( $limit > 0 ) {
+				$sql = "SELECT * FROM `{$table_name}` {$where_sql} ORDER BY {$args['order_by']} {$args['order']} LIMIT %d OFFSET %d";
+				$where_values[] = $limit;
+				$where_values[] = (int) $args['offset'];
+			} else {
+				$sql = "SELECT * FROM `{$table_name}` {$where_sql} ORDER BY {$args['order_by']} {$args['order']}";
+			}
 
 			// プリペアードステートメントの実行
 			if ( ! empty( $where_values ) ) {
@@ -865,12 +892,28 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			$defaults = array(
 				'search'      => '',
 				'category'    => '',
+				'is_public'   => false,
+				'ids'         => array(),
 			);
 
 			$args = wp_parse_args( $args, $defaults );
 
 			$where_clauses = array();
 			$where_values = array();
+
+			if ( ! empty( $args['is_public'] ) && $this->service_table_has_is_public_column( $table_name ) ) {
+				$where_clauses[] = 'is_public = %d';
+				$where_values[] = 1;
+			}
+
+			if ( ! empty( $args['ids'] ) && is_array( $args['ids'] ) ) {
+				$ids = array_values( array_filter( array_map( 'absint', $args['ids'] ) ) );
+				if ( ! empty( $ids ) ) {
+					$placeholders  = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
+					$where_clauses[] = "id IN ({$placeholders})";
+					$where_values    = array_merge( $where_values, $ids );
+				}
+			}
 
 			// カテゴリーフィルター
 			if ( ! empty( $args['category'] ) ) {
@@ -906,6 +949,116 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			}
 
 			return $count ? (int) $count : 0;
+		}
+
+		/**
+		 * サービス画像 URL を解決する（アップロード画像 → DB の image_url → デフォルト）。
+		 *
+		 * @param int    $service_id サービス ID。
+		 * @param string $image_url  DB に保存された image_url。
+		 * @return string
+		 */
+		public function resolve_image_url( $service_id, $image_url = '' ) {
+			$service_id  = absint( $service_id );
+			$plugin_root = dirname( __DIR__ );
+			$plugin_url  = plugin_dir_url( $plugin_root . '/ktpwp.php' );
+			$default_url = $plugin_url . 'images/default/no-image-icon.jpg';
+
+			if ( $service_id > 0 ) {
+				$upload_file = $plugin_root . '/images/upload/' . $service_id . '.jpeg';
+				if ( file_exists( $upload_file ) ) {
+					return $plugin_url . 'images/upload/' . $service_id . '.jpeg';
+				}
+			}
+
+			$image_url = trim( (string) $image_url );
+			if ( $image_url !== '' ) {
+				return esc_url( $image_url );
+			}
+
+			return $default_url;
+		}
+
+		/**
+		 * 公開中のサービスを ID で取得する。
+		 *
+		 * @param int $service_id サービス ID。
+		 * @return object|null
+		 */
+		public function get_public_service_by_id( $service_id ) {
+			$service_id = absint( $service_id );
+			if ( $service_id <= 0 ) {
+				return null;
+			}
+
+			global $wpdb;
+			$table_name = $wpdb->prefix . 'ktp_service';
+
+			if ( ! $this->service_table_has_is_public_column( $table_name ) ) {
+				return null;
+			}
+
+			return $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT * FROM {$table_name} WHERE id = %d AND is_public = 1",
+					$service_id
+				)
+			);
+		}
+
+		/**
+		 * 公開中サービスのカテゴリー一覧（重複なし）を取得する。
+		 *
+		 * @return array<int, string>
+		 */
+		public function get_public_service_categories() {
+			global $wpdb;
+
+			$table_name = $wpdb->prefix . 'ktp_service';
+
+			if ( ! $this->service_table_has_is_public_column( $table_name ) ) {
+				return array();
+			}
+
+			$results = $wpdb->get_col(
+				"SELECT DISTINCT category FROM {$table_name} WHERE is_public = 1 AND COALESCE(category, '') <> '' ORDER BY category ASC"
+			);
+
+			if ( ! is_array( $results ) ) {
+				return array();
+			}
+
+			return array_values(
+				array_filter(
+					array_map(
+						static function ( $value ) {
+							return sanitize_text_field( (string) $value );
+						},
+						$results
+					)
+				)
+			);
+		}
+
+		/**
+		 * サービステーブルに is_public カラムがあるか確認する。
+		 *
+		 * @param string $table_name テーブル名。
+		 * @return bool
+		 */
+		private function service_table_has_is_public_column( $table_name ) {
+			global $wpdb;
+
+			static $cache = array();
+
+			if ( isset( $cache[ $table_name ] ) ) {
+				return $cache[ $table_name ];
+			}
+
+			$columns = $wpdb->get_col( "SHOW COLUMNS FROM `{$table_name}`" );
+			$cache[ $table_name ] = is_array( $columns ) && in_array( 'is_public', $columns, true );
+
+			return $cache[ $table_name ];
 		}
 	}
 }

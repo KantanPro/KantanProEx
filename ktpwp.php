@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.3.12
+ * Version: 1.3.13
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -948,6 +948,7 @@ if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
         'KTPWP_Shortcodes'      => 'includes/class-ktpwp-shortcodes.php',
         'KTPWP_Redirect'        => 'includes/class-ktpwp-redirect.php',
         'KTPWP_Contact_Form'    => 'includes/class-ktpwp-contact-form.php',
+        'KTPWP_Public_Product_Order' => 'includes/class-ktpwp-public-product-order.php',
         'KTPWP_Database'        => 'includes/class-ktpwp-database.php',
         'KTPWP_Order'           => 'includes/class-ktpwp-order.php',
         'KTPWP_Order_Items'     => 'includes/class-ktpwp-order-items.php',
@@ -3942,6 +3943,10 @@ add_action(
 		} elseif ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
             error_log( 'KTPWP Plugin: KTPWP_Contact_Form class not found' );
 		}
+
+		if ( class_exists( 'KTPWP_Public_Product_Order' ) ) {
+			KTPWP_Public_Product_Order::get_instance();
+		}
 	},
     20
 ); // Run after KTPWP_Main initialization
@@ -4334,17 +4339,29 @@ add_action( 'plugins_loaded', 'KTPWP_Index' );
 
 /**
  * ショートコード登録の保険処理。
- * 何らかの理由で KTPWP_Index の登録が漏れても [ktpwp_all_tab] を利用可能にする。
+ * KTPWP_Index 経由で ktpwp_all_tab のみ登録された場合でも、公開用ショートコード等を確実に登録する。
  */
 function ktpwp_ensure_shortcodes_registered() {
-    if ( shortcode_exists( 'ktpwp_all_tab' ) ) {
+    if ( ! get_option( 'ktp_service_is_public_migration_completed' ) ) {
+        $migration_file = plugin_dir_path( __FILE__ ) . 'includes/migrations/20260611_add_is_public_to_service.php';
+        if ( file_exists( $migration_file ) ) {
+            require_once $migration_file;
+        }
+    }
+
+    if ( ! class_exists( 'KTPWP_Shortcodes' ) ) {
+        $shortcodes_file = plugin_dir_path( __FILE__ ) . 'includes/class-ktpwp-shortcodes.php';
+        if ( file_exists( $shortcodes_file ) ) {
+            require_once $shortcodes_file;
+        }
+    }
+
+    if ( ! class_exists( 'KTPWP_Shortcodes' ) ) {
         return;
     }
-    if ( class_exists( 'KTPWP_Shortcodes' ) ) {
-        $shortcodes = KTPWP_Shortcodes::get_instance();
-        add_shortcode( 'ktpwp_all_tab', array( $shortcodes, 'render_all_tabs' ) );
-        add_shortcode( 'kantanpro_ex', array( $shortcodes, 'render_all_tabs' ) );
-    }
+
+    $shortcodes = KTPWP_Shortcodes::get_instance();
+    $shortcodes->register_shortcodes();
 }
 add_action( 'init', 'ktpwp_ensure_shortcodes_registered', 20 );
 

@@ -2393,8 +2393,104 @@ class KTPWP_Settings {
                     </form>
                 </div>
 
+                <?php $this->render_shortcodes_reference_section(); ?>
 
             </div>
+        </div>
+        <?php
+    }
+
+    /**
+     * 一般設定ページ下部：利用可能なショートコード一覧
+     *
+     * @return void
+     */
+    private function render_shortcodes_reference_section() {
+        ?>
+        <div class="ktp-settings-section ktp-shortcodes-reference">
+            <h2><?php echo esc_html__( 'ショートコード', 'ktpwp' ); ?></h2>
+            <p class="description">
+                <?php echo esc_html__( '固定ページや投稿の本文に以下のショートコードを設置して利用できます。', 'ktpwp' ); ?>
+            </p>
+
+            <table class="widefat striped ktp-shortcodes-table">
+                <thead>
+                    <tr>
+                        <th scope="col"><?php echo esc_html__( 'ショートコード', 'ktpwp' ); ?></th>
+                        <th scope="col"><?php echo esc_html__( '用途', 'ktpwp' ); ?></th>
+                        <th scope="col"><?php echo esc_html__( '備考', 'ktpwp' ); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>[ktpwp_all_tab]</code></td>
+                        <td><?php echo esc_html__( 'KantanPro の業務画面（顧客・案件・商品など全タブ）', 'ktpwp' ); ?></td>
+                        <td><?php echo esc_html__( 'ログイン必須。社内・会員向けページに設置します。', 'ktpwp' ); ?></td>
+                    </tr>
+                    <tr>
+                        <td><code>[kantanpro_ex]</code></td>
+                        <td><?php echo esc_html__( '上記と同じ（別名）', 'ktpwp' ); ?></td>
+                        <td><?php echo esc_html__( 'ログイン必須。', 'ktpwp' ); ?></td>
+                    </tr>
+                    <tr>
+                        <td><code>[ktpwp_public_products]</code></td>
+                        <td><?php echo esc_html__( '公開商品の一覧表示', 'ktpwp' ); ?></td>
+                        <td><?php echo esc_html__( 'ログイン不要。商品編集で「サイトに公開」にチェックした商品のみ表示されます。', 'ktpwp' ); ?></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3 class="ktp-shortcodes-subheading"><?php echo esc_html__( '[ktpwp_public_products] の属性', 'ktpwp' ); ?></h3>
+            <table class="widefat striped ktp-shortcodes-table">
+                <thead>
+                    <tr>
+                        <th scope="col"><?php echo esc_html__( '属性', 'ktpwp' ); ?></th>
+                        <th scope="col"><?php echo esc_html__( '既定値', 'ktpwp' ); ?></th>
+                        <th scope="col"><?php echo esc_html__( '説明', 'ktpwp' ); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>layout</code></td>
+                        <td><code>grid</code></td>
+                        <td><?php echo esc_html__( '表示形式: grid / table / cards', 'ktpwp' ); ?></td>
+                    </tr>
+                    <tr>
+                        <td><code>columns</code></td>
+                        <td><code>3</code></td>
+                        <td><?php echo esc_html__( '列数（1〜4）。grid / cards で有効', 'ktpwp' ); ?></td>
+                    </tr>
+                    <tr>
+                        <td><code>category</code></td>
+                        <td><?php echo esc_html__( '（空）', 'ktpwp' ); ?></td>
+                        <td><?php echo esc_html__( 'カテゴリで絞り込み（サーバー側）。絞り込み UI 表示時は初期値にも使用', 'ktpwp' ); ?></td>
+                    </tr>
+                    <tr>
+                        <td><code>show_filter</code></td>
+                        <td><code>yes</code></td>
+                        <td><?php echo esc_html__( 'カテゴリ絞り込み UI（サジェスト付き）の表示 ON/OFF', 'ktpwp' ); ?></td>
+                    </tr>
+                    <tr>
+                        <td><code>ids</code></td>
+                        <td><?php echo esc_html__( '（空）', 'ktpwp' ); ?></td>
+                        <td><?php echo esc_html__( '表示する商品 ID（例: 2,5,8）', 'ktpwp' ); ?></td>
+                    </tr>
+                    <tr>
+                        <td><code>show_image</code> / <code>show_price</code> / <code>show_unit</code> / <code>show_category</code> / <code>show_tax</code></td>
+                        <td><code>yes</code>（<code>show_tax</code> は <code>no</code>）</td>
+                        <td><?php echo esc_html__( '各項目の表示 ON/OFF（yes / no）', 'ktpwp' ); ?></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3 class="ktp-shortcodes-subheading"><?php echo esc_html__( '記述例', 'ktpwp' ); ?></h3>
+            <ul class="ktp-shortcodes-examples">
+                <li><code>[ktpwp_public_products]</code></li>
+                <li><code>[ktpwp_public_products layout="grid" columns="3"]</code></li>
+                <li><code>[ktpwp_public_products layout="table"]</code></li>
+                <li><code>[ktpwp_public_products layout="cards" columns="2" show_tax="yes"]</code></li>
+                <li><code>[ktpwp_public_products category="Web制作" ids="2,5,8"]</code></li>
+            </ul>
         </div>
         <?php
     }

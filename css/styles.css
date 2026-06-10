@@ -1638,6 +1638,167 @@ form > .create-order-btn {
   margin-bottom: 20px;
 }
 
+/* サービスリスト（表形式） */
+.ktp-service-list-table-wrap {
+  overflow-x: auto;
+}
+
+.ktp-service-list-table {
+  border-collapse: collapse;
+  margin: 0;
+  width: 100%;
+}
+
+.ktp-service-list-table th,
+.ktp-service-list-table td {
+  border: 1px solid #e5e7eb;
+  padding: 6px 12px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.ktp-service-list-table tbody td {
+  padding: 4px 12px;
+}
+
+.ktp-service-list-table thead th {
+  background: #fdeef2;
+  color: #1d2327;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ktp-service-list-table th.ktp-sortable-col {
+  padding: 0;
+}
+
+.ktp-service-list-table .ktp-sortable-header {
+  align-items: center;
+  color: inherit;
+  display: inline-flex;
+  gap: 4px;
+  padding: 10px 12px;
+  text-decoration: none;
+  width: 100%;
+}
+
+.ktp-service-list-table .ktp-sortable-header:hover {
+  background: #f8d7e3;
+  color: #2271b1;
+  text-decoration: underline;
+}
+
+.ktp-service-list-table th.is-sorted {
+  background: #f8c8dc;
+}
+
+.ktp-service-list-table .ktp-sort-indicator {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.ktp-service-list-table tbody tr:nth-child(odd) {
+  background: #f9fafb;
+}
+
+.ktp-service-list-table tbody tr:nth-child(even) {
+  background: #fff;
+}
+
+.ktp-service-list-data-row {
+  cursor: pointer;
+}
+
+.ktp-service-list-data-row:hover {
+  background: #f0f7ff !important;
+}
+
+.ktp-service-list-table .col-id {
+  text-align: right;
+  white-space: nowrap;
+  width: 3.5em;
+}
+
+.ktp-service-list-table .col-image {
+  line-height: 0;
+  text-align: center;
+  width: 52px;
+}
+
+.ktp-service-list-table tbody td.col-image {
+  padding: 4px 6px;
+  vertical-align: middle;
+}
+
+.ktp-service-list-table thead th.col-image {
+  padding: 6px 8px;
+}
+
+.ktp-service-list-table .ktp-service-list-thumb-wrap {
+  align-items: center;
+  background: #f6f7f7;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  box-sizing: border-box;
+  display: flex;
+  flex-shrink: 0;
+  height: 40px;
+  justify-content: center;
+  line-height: 0;
+  margin: 0 auto;
+  overflow: hidden;
+  width: 40px;
+}
+
+.ktp-service-list-table .ktp-service-list-thumb {
+  display: block;
+  height: 100%;
+  margin: 0;
+  object-fit: cover;
+  width: 100%;
+}
+
+.ktp-service-list-table .col-name,
+.ktp-service-list-table .col-company {
+  font-weight: 600;
+  max-width: 240px;
+  min-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktp-service-list-table .col-price,
+.ktp-service-list-table .col-tax,
+.ktp-service-list-table .col-unit,
+.ktp-service-list-table .col-frequency,
+.ktp-service-list-table .col-contact,
+.ktp-service-list-table .col-status {
+  white-space: nowrap;
+}
+
+.ktp-data-list-row--excluded {
+  background: #ffe6e6 !important;
+}
+
+.ktp-data-list-row--excluded td.col-id {
+  border-left: 3px solid #ff4444;
+}
+
+.ktp-data-list-status-excluded {
+  color: #d63638;
+  font-weight: 700;
+}
+
+.ktp-service-list-table .ktp-service-list-thumb {
+  display: block;
+  height: 100%;
+  margin: 0;
+  object-fit: cover;
+  width: 100%;
+}
+
 /* データリストボックスの見出し */
 .data_list_box h3,
 .ktp_data_list_box h3 {

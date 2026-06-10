@@ -60,8 +60,8 @@ class KTPWP_Shortcodes {
      * フック初期化
      */
     private function init_hooks() {
-        // WordPressがプラグインを読み込んだ後にショートコードを登録
-        add_action('plugins_loaded', array($this, 'register_shortcodes'), 20);
+        add_action( 'init', array( $this, 'register_shortcodes' ), 15 );
+        add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_public_products_assets' ) );
         // ※Ajaxハンドラの登録は class-ktpwp-ajax.php 側でのみ行う
     }
 
@@ -69,20 +69,24 @@ class KTPWP_Shortcodes {
      * ショートコード登録
      */
     public function register_shortcodes() {
-        // メインショートコード（旧名）
-        add_shortcode('kantanAllTab', array($this, 'render_all_tabs'));
-        $this->registered_shortcodes[] = 'kantanAllTab';
+        $map = array(
+            'kantanAllTab'          => 'render_all_tabs',
+            'ktpwp_all_tab'         => 'render_all_tabs',
+            'kantanpro_ex'          => 'render_all_tabs',
+            'ktpwp_public_products' => 'render_public_products',
+        );
 
-        // メインショートコード（新名）
-        add_shortcode('ktpwp_all_tab', array($this, 'render_all_tabs'));
-        $this->registered_shortcodes[] = 'ktpwp_all_tab';
+        foreach ( $map as $tag => $method ) {
+            if ( shortcode_exists( $tag ) ) {
+                continue;
+            }
 
-        // KantanProEX 用ショートコード
-        add_shortcode('kantanpro_ex', array($this, 'render_all_tabs'));
-        $this->registered_shortcodes[] = 'kantanpro_ex';
+            add_shortcode( $tag, array( $this, $method ) );
+            $this->registered_shortcodes[] = $tag;
+        }
 
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('KTPWP Shortcodes: Registered shortcodes - ' . implode(', ', $this->registered_shortcodes));
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            error_log( 'KTPWP Shortcodes: Registered shortcodes - ' . implode( ', ', $this->registered_shortcodes ) );
         }
     }
 
@@ -1108,6 +1112,535 @@ class KTPWP_Shortcodes {
         wp_cache_set('ktpwp_logged_in_staff', $users_data, '', 30);
 
         wp_send_json($users_data);
+    }
+
+    /**
+     * 公開商品ショートコード用アセットを読み込む。
+     *
+     * @return void
+     */
+    public function enqueue_public_products_assets() {
+        if ( is_admin() ) {
+            return;
+        }
+
+        global $post;
+        if ( ! $post instanceof WP_Post ) {
+            return;
+        }
+
+        if ( ! has_shortcode( (string) $post->post_content, 'ktpwp_public_products' ) ) {
+            return;
+        }
+
+        $plugin_root = dirname( __DIR__ );
+        wp_enqueue_style(
+            'ktpwp-public-products',
+            plugin_dir_url( $plugin_root . '/ktpwp.php' ) . 'css/public-products.css',
+            array(),
+            defined( 'KTPWP_PLUGIN_VERSION' ) ? KTPWP_PLUGIN_VERSION : '1.0.0'
+        );
+
+        wp_enqueue_script(
+            'ktpwp-public-products',
+            plugin_dir_url( $plugin_root . '/ktpwp.php' ) . 'js/public-products.js',
+            array(),
+            defined( 'KTPWP_PLUGIN_VERSION' ) ? KTPWP_PLUGIN_VERSION : '1.0.0',
+            true
+        );
+
+        $nonce_action = class_exists( 'KTPWP_Public_Product_Order' )
+            ? KTPWP_Public_Product_Order::get_nonce_action()
+            : 'ktpwp_public_product_order';
+
+        wp_localize_script(
+            'ktpwp-public-products',
+            'ktpwpPublicProducts',
+            array(
+                'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+                'nonce'   => wp_create_nonce( $nonce_action ),
+                'i18n'    => array(
+                    'orderTitle'   => __( 'お申し込み', 'ktpwp' ),
+                    'submit'       => __( '送信する', 'ktpwp' ),
+                    'submitting'   => __( '送信中…', 'ktpwp' ),
+                    'close'        => __( '閉じる', 'ktpwp' ),
+                    'category'     => __( 'カテゴリ', 'ktpwp' ),
+                    'price'        => __( '単価', 'ktpwp' ),
+                    'unit'         => __( '単位', 'ktpwp' ),
+                    'tax'          => __( '税率', 'ktpwp' ),
+                    'quantity'     => __( '数量', 'ktpwp' ),
+                    'companyName'  => __( '会社名', 'ktpwp' ),
+                    'contactName'  => __( 'お名前', 'ktpwp' ),
+                    'email'        => __( 'メールアドレス', 'ktpwp' ),
+                    'phone'        => __( '電話番号', 'ktpwp' ),
+                    'message'      => __( 'ご要望・備考', 'ktpwp' ),
+                    'requiredMark' => __( '必須', 'ktpwp' ),
+                    'networkError' => __( '通信エラーが発生しました。時間をおいて再度お試しください。', 'ktpwp' ),
+                    'filterLabel'  => __( 'カテゴリで絞り込み', 'ktpwp' ),
+                    'filterPlaceholder' => __( 'カテゴリを入力または選択…', 'ktpwp' ),
+                    'filterAll'    => __( 'すべて表示', 'ktpwp' ),
+                    'filterEmpty'  => __( '該当する商品がありません。', 'ktpwp' ),
+                ),
+            )
+        );
+    }
+
+    /**
+     * 一般公開用の商品一覧ショートコード。
+     *
+     * @param array $atts ショートコード属性。
+     * @return string
+     */
+    public function render_public_products( $atts = array() ) {
+        if ( defined( 'DOING_AJAX' ) && DOING_AJAX ) {
+            return '';
+        }
+
+        $atts = shortcode_atts(
+            array(
+                'layout'        => 'grid',
+                'columns'       => '3',
+                'category'      => '',
+                'ids'           => '',
+                'limit'         => '0',
+                'order_by'      => 'id',
+                'order'         => 'ASC',
+                'show_image'    => 'yes',
+                'show_price'    => 'yes',
+                'show_unit'     => 'yes',
+                'show_category' => 'yes',
+                'show_tax'      => 'no',
+                'show_filter'   => 'yes',
+            ),
+            $atts,
+            'ktpwp_public_products'
+        );
+
+        $layout = sanitize_key( $atts['layout'] );
+        if ( ! in_array( $layout, array( 'grid', 'table', 'cards' ), true ) ) {
+            $layout = 'grid';
+        }
+
+        $columns = max( 1, min( 4, (int) $atts['columns'] ) );
+        $category = sanitize_text_field( $atts['category'] );
+        $ids = $this->parse_public_products_ids( $atts['ids'] );
+        $limit = max( 0, (int) $atts['limit'] );
+        $order_by = sanitize_key( $atts['order_by'] );
+        $order = strtoupper( sanitize_key( $atts['order'] ) );
+        if ( ! in_array( $order, array( 'ASC', 'DESC' ), true ) ) {
+            $order = 'ASC';
+        }
+
+        $display = array(
+            'image'    => $this->is_shortcode_flag_enabled( $atts['show_image'] ),
+            'price'    => $this->is_shortcode_flag_enabled( $atts['show_price'] ),
+            'unit'     => $this->is_shortcode_flag_enabled( $atts['show_unit'] ),
+            'category' => $this->is_shortcode_flag_enabled( $atts['show_category'] ),
+            'tax'      => $this->is_shortcode_flag_enabled( $atts['show_tax'] ),
+        );
+
+        if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
+            $service_db_file = dirname( __FILE__ ) . '/class-ktpwp-service-db.php';
+            if ( file_exists( $service_db_file ) ) {
+                require_once $service_db_file;
+            }
+        }
+
+        if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
+            return '<p class="ktpwp-public-products ktpwp-public-products--empty">' . esc_html__( '商品データを読み込めませんでした。', 'ktpwp' ) . '</p>';
+        }
+
+        $query_args = array(
+            'is_public' => true,
+            'limit'     => $limit,
+            'order_by'  => $order_by,
+            'order'     => $order,
+        );
+
+        if ( $category !== '' ) {
+            $query_args['category'] = $category;
+        }
+
+        if ( ! empty( $ids ) ) {
+            $query_args['ids'] = $ids;
+        }
+
+        $services = KTPWP_Service_DB::get_instance()->get_services( 'service', $query_args );
+
+        if ( empty( $services ) ) {
+            return '<p class="ktpwp-public-products ktpwp-public-products--empty">' . esc_html__( '公開中の商品がありません。', 'ktpwp' ) . '</p>';
+        }
+
+        $inner = '';
+        if ( $layout === 'table' ) {
+            $inner = $this->render_public_products_table( $services, $display );
+        } elseif ( $layout === 'cards' ) {
+            $inner = $this->render_public_products_cards( $services, $display, $columns );
+        } else {
+            $inner = $this->render_public_products_grid( $services, $display, $columns );
+        }
+
+        $service_db   = KTPWP_Service_DB::get_instance();
+        $categories   = $service_db->get_public_service_categories();
+        $show_filter  = $this->is_shortcode_flag_enabled( $atts['show_filter'] );
+        $filter_html  = ( $show_filter && ! empty( $categories ) )
+            ? $this->render_public_category_filter( $categories, $category )
+            : '';
+
+        return '<div class="ktpwp-public-products ktpwp-public-products--' . esc_attr( $layout ) . '">'
+            . $filter_html
+            . '<div class="ktpwp-public-products-list">'
+            . $inner
+            . '<p class="ktpwp-public-products-filter__empty" hidden>' . esc_html__( '該当する商品がありません。', 'ktpwp' ) . '</p>'
+            . '</div>'
+            . $this->render_public_product_detail_shell()
+            . '</div>';
+    }
+
+    /**
+     * yes/no 属性を真偽値に変換する。
+     *
+     * @param string $value 属性値。
+     * @return bool
+     */
+    private function is_shortcode_flag_enabled( $value ) {
+        $value = strtolower( trim( (string) $value ) );
+        return in_array( $value, array( '1', 'true', 'yes', 'on' ), true );
+    }
+
+    /**
+     * カンマ区切り ID 属性を配列に変換する。
+     *
+     * @param string $ids_attr ID 属性。
+     * @return array<int, int>
+     */
+    private function parse_public_products_ids( $ids_attr ) {
+        if ( $ids_attr === '' ) {
+            return array();
+        }
+
+        $parts = preg_split( '/\s*,\s*/', (string) $ids_attr );
+        if ( ! is_array( $parts ) ) {
+            return array();
+        }
+
+        return array_values( array_filter( array_map( 'absint', $parts ) ) );
+    }
+
+    /**
+     * 商品画像 URL を解決する。
+     *
+     * @param object $service 商品レコード。
+     * @return string
+     */
+    private function resolve_public_product_image_url( $service ) {
+        $plugin_root = dirname( __DIR__ );
+        $plugin_url  = plugin_dir_url( $plugin_root . '/ktpwp.php' );
+        $service_id  = isset( $service->id ) ? (int) $service->id : 0;
+
+        if ( $service_id > 0 ) {
+            $upload_file = $plugin_root . '/images/upload/' . $service_id . '.jpeg';
+            if ( file_exists( $upload_file ) ) {
+                return $plugin_url . 'images/upload/' . $service_id . '.jpeg';
+            }
+        }
+
+        $image_url = isset( $service->image_url ) ? trim( (string) $service->image_url ) : '';
+        if ( $image_url !== '' ) {
+            return esc_url( $image_url );
+        }
+
+        return $plugin_url . 'images/default/no-image-icon.jpg';
+    }
+
+    /**
+     * 公開商品の表示用データを整形する。
+     *
+     * @param object $service 商品レコード。
+     * @return array<string, string>
+     */
+    private function format_public_product_row( $service ) {
+        $name = isset( $service->service_name ) ? (string) $service->service_name : '';
+        $price = isset( $service->price ) ? (float) $service->price : 0.0;
+        $unit = isset( $service->unit ) ? (string) $service->unit : '';
+        $category = isset( $service->category ) ? (string) $service->category : '';
+        $tax_rate = isset( $service->tax_rate ) && $service->tax_rate !== null && $service->tax_rate !== ''
+            ? (string) $service->tax_rate
+            : '';
+
+        $price_display = class_exists( 'KTPWP_Settings' )
+            ? KTPWP_Settings::format_money( $price )
+            : number_format( $price );
+
+        return array(
+            'id'            => isset( $service->id ) ? (int) $service->id : 0,
+            'name'          => $name,
+            'price'         => $price,
+            'price_display' => $price_display,
+            'unit'          => $unit,
+            'category'      => $category,
+            'tax_rate'      => $tax_rate,
+            'image'         => $this->resolve_public_product_image_url( $service ),
+        );
+    }
+
+    /**
+     * クリック可能な商品要素の data 属性文字列を返す。
+     *
+     * @param array<string, mixed> $payload 商品データ。
+     * @return string
+     */
+    private function get_public_product_item_attrs( array $payload, $extra_class = '' ) {
+        $classes  = trim( 'ktpwp-public-product-item ' . $extra_class );
+        $category = isset( $payload['category'] ) ? (string) $payload['category'] : '';
+
+        return ' class="' . esc_attr( $classes ) . '"'
+            . ' role="button" tabindex="0"'
+            . ' data-category="' . esc_attr( $category ) . '"'
+            . ' data-product="' . esc_attr( wp_json_encode( $payload ) ) . '"';
+    }
+
+    /**
+     * カテゴリー絞り込み UI を返す。
+     *
+     * @param array<int, string> $categories  カテゴリー一覧。
+     * @param string             $initial     初期選択カテゴリー。
+     * @return string
+     */
+    private function render_public_category_filter( array $categories, $initial = '' ) {
+        $list_id = 'ktpwp-public-products-categories-' . wp_rand( 1000, 9999 );
+
+        $options = '';
+        foreach ( $categories as $cat ) {
+            $options .= '<option value="' . esc_attr( $cat ) . '"></option>';
+        }
+
+        $initial_attr = $initial !== '' ? ' value="' . esc_attr( $initial ) . '"' : '';
+
+        return '<div class="ktpwp-public-products-filter">'
+            . '<label class="ktpwp-public-products-filter__label" for="' . esc_attr( $list_id ) . '-input">'
+            . esc_html__( 'カテゴリで絞り込み', 'ktpwp' )
+            . '</label>'
+            . '<input type="search" class="ktpwp-public-products-filter__input" id="' . esc_attr( $list_id ) . '-input" list="' . esc_attr( $list_id ) . '"'
+            . ' placeholder="' . esc_attr__( 'カテゴリを入力または選択…', 'ktpwp' ) . '" autocomplete="off"' . $initial_attr . ' />'
+            . '<datalist id="' . esc_attr( $list_id ) . '">' . $options . '</datalist>'
+            . '<button type="button" class="ktpwp-public-products-filter__clear">' . esc_html__( 'すべて表示', 'ktpwp' ) . '</button>'
+            . '</div>';
+    }
+
+    /**
+     * 商品詳細・お申し込みフォームのシェルを返す。
+     *
+     * @return string
+     */
+    private function render_public_product_detail_shell() {
+        ob_start();
+        ?>
+        <div class="ktpwp-public-product-detail" id="ktpwp-public-product-detail" hidden>
+            <button type="button" class="ktpwp-public-product-detail__backdrop" aria-label="<?php echo esc_attr__( '閉じる', 'ktpwp' ); ?>"></button>
+            <div class="ktpwp-public-product-detail__panel" role="dialog" aria-modal="true" aria-labelledby="ktpwp-public-product-detail-title">
+                <button type="button" class="ktpwp-public-product-detail__close" aria-label="<?php echo esc_attr__( '閉じる', 'ktpwp' ); ?>">&times;</button>
+                <div class="ktpwp-public-product-detail__content"></div>
+                <form class="ktpwp-public-product-order-form" novalidate>
+                    <h4 class="ktpwp-public-product-order-form__title" id="ktpwp-public-product-detail-title"><?php echo esc_html__( 'お申し込み', 'ktpwp' ); ?></h4>
+                    <input type="hidden" name="service_id" value="" />
+                    <p class="ktpwp-public-product-order-form__field">
+                        <label for="ktpwp-pp-company"><?php echo esc_html__( '会社名', 'ktpwp' ); ?></label>
+                        <input type="text" id="ktpwp-pp-company" name="company_name" autocomplete="organization" />
+                    </p>
+                    <p class="ktpwp-public-product-order-form__field">
+                        <label for="ktpwp-pp-contact"><?php echo esc_html__( 'お名前', 'ktpwp' ); ?> <span class="required">*</span></label>
+                        <input type="text" id="ktpwp-pp-contact" name="contact_name" required autocomplete="name" />
+                    </p>
+                    <p class="ktpwp-public-product-order-form__field">
+                        <label for="ktpwp-pp-email"><?php echo esc_html__( 'メールアドレス', 'ktpwp' ); ?> <span class="required">*</span></label>
+                        <input type="email" id="ktpwp-pp-email" name="email" required autocomplete="email" />
+                    </p>
+                    <p class="ktpwp-public-product-order-form__field">
+                        <label for="ktpwp-pp-phone"><?php echo esc_html__( '電話番号', 'ktpwp' ); ?></label>
+                        <input type="tel" id="ktpwp-pp-phone" name="phone" autocomplete="tel" />
+                    </p>
+                    <p class="ktpwp-public-product-order-form__field">
+                        <label for="ktpwp-pp-quantity"><?php echo esc_html__( '数量', 'ktpwp' ); ?></label>
+                        <input type="number" id="ktpwp-pp-quantity" name="quantity" min="1" step="1" value="1" />
+                    </p>
+                    <p class="ktpwp-public-product-order-form__field">
+                        <label for="ktpwp-pp-message"><?php echo esc_html__( 'ご要望・備考', 'ktpwp' ); ?></label>
+                        <textarea id="ktpwp-pp-message" name="message" rows="4"></textarea>
+                    </p>
+                    <p class="ktpwp-public-product-order-form__honeypot" aria-hidden="true">
+                        <label for="ktpwp-pp-company-url">URL</label>
+                        <input type="text" id="ktpwp-pp-company-url" name="company_url" tabindex="-1" autocomplete="off" />
+                    </p>
+                    <p class="ktpwp-public-product-order-form__actions">
+                        <button type="submit" class="ktpwp-public-product-order-form__submit"><?php echo esc_html__( '送信する', 'ktpwp' ); ?></button>
+                    </p>
+                    <div class="ktpwp-public-product-order-form__message" role="status" aria-live="polite" hidden></div>
+                </form>
+            </div>
+        </div>
+        <?php
+        return (string) ob_get_clean();
+    }
+
+    /**
+     * テーブルレイアウトを描画する。
+     *
+     * @param array<int, object> $services 商品一覧。
+     * @param array<string, bool> $display 表示フラグ。
+     * @return string
+     */
+    private function render_public_products_table( $services, $display ) {
+        $headers = array();
+        $rows = '';
+
+        if ( $display['image'] ) {
+            $headers[] = '<th scope="col">' . esc_html__( '画像', 'ktpwp' ) . '</th>';
+        }
+        $headers[] = '<th scope="col">' . esc_html__( '商品名', 'ktpwp' ) . '</th>';
+        if ( $display['category'] ) {
+            $headers[] = '<th scope="col">' . esc_html__( 'カテゴリ', 'ktpwp' ) . '</th>';
+        }
+        if ( $display['price'] ) {
+            $headers[] = '<th scope="col">' . esc_html__( '単価', 'ktpwp' ) . '</th>';
+        }
+        if ( $display['unit'] ) {
+            $headers[] = '<th scope="col">' . esc_html__( '単位', 'ktpwp' ) . '</th>';
+        }
+        if ( $display['tax'] ) {
+            $headers[] = '<th scope="col">' . esc_html__( '税率（%）', 'ktpwp' ) . '</th>';
+        }
+
+        foreach ( $services as $service ) {
+            $row     = $this->format_public_product_row( $service );
+            $payload = $row;
+            $cells   = array();
+
+            if ( $display['image'] ) {
+                $cells[] = '<td><img src="' . esc_url( $row['image'] ) . '" alt="' . esc_attr( $row['name'] ) . '" class="ktpwp-public-products-thumb" loading="lazy" decoding="async" width="48" height="48" /></td>';
+            }
+            $cells[] = '<td>' . esc_html( $row['name'] ) . '</td>';
+            if ( $display['category'] ) {
+                $cells[] = '<td>' . esc_html( $row['category'] ) . '</td>';
+            }
+            if ( $display['price'] ) {
+                $cells[] = '<td>' . esc_html( $row['price_display'] ) . '</td>';
+            }
+            if ( $display['unit'] ) {
+                $cells[] = '<td>' . esc_html( $row['unit'] ) . '</td>';
+            }
+            if ( $display['tax'] ) {
+                $cells[] = '<td>' . esc_html( $row['tax_rate'] ) . '</td>';
+            }
+
+            $rows .= '<tr' . $this->get_public_product_item_attrs( $payload ) . '>' . implode( '', $cells ) . '</tr>';
+        }
+
+        return '<table class="ktpwp-public-products-table"><thead><tr>' . implode( '', $headers ) . '</tr></thead><tbody>' . $rows . '</tbody></table>';
+    }
+
+    /**
+     * グリッドレイアウトを描画する。
+     *
+     * @param array<int, object> $services 商品一覧。
+     * @param array<string, bool> $display 表示フラグ。
+     * @param int $columns 列数。
+     * @return string
+     */
+    private function render_public_products_grid( $services, $display, $columns ) {
+        $items = '';
+
+        foreach ( $services as $service ) {
+            $row     = $this->format_public_product_row( $service );
+            $payload = $row;
+            $image_html = '';
+            if ( $display['image'] ) {
+                $image_html = '<div class="ktpwp-public-products-grid__image-wrap"><img src="' . esc_url( $row['image'] ) . '" alt="' . esc_attr( $row['name'] ) . '" class="ktpwp-public-products-grid__image" loading="lazy" decoding="async" /></div>';
+            }
+
+            $category_html = ( $display['category'] && $row['category'] !== '' )
+                ? '<p class="ktpwp-public-products-grid__category">' . esc_html( $row['category'] ) . '</p>'
+                : '';
+            $price_row_html = '';
+            if ( $display['price'] || ( $display['unit'] && $row['unit'] !== '' ) ) {
+                $price_part = $display['price']
+                    ? '<span class="ktpwp-public-products-grid__price">' . esc_html( $row['price_display'] ) . '</span>'
+                    : '';
+                $unit_part = ( $display['unit'] && $row['unit'] !== '' )
+                    ? '<span class="ktpwp-public-products-grid__unit">/' . esc_html( $row['unit'] ) . '</span>'
+                    : '';
+                $price_row_html = '<div class="ktpwp-public-products-grid__price-row">' . $price_part . $unit_part . '</div>';
+            }
+            $tax_html = ( $display['tax'] && $row['tax_rate'] !== '' )
+                ? '<span class="ktpwp-public-products-grid__tax">' . esc_html__( '税率', 'ktpwp' ) . ': ' . esc_html( $row['tax_rate'] ) . '%</span>'
+                : '';
+            $price_block = '';
+            if ( $price_row_html !== '' || $tax_html !== '' ) {
+                $price_block = '<div class="ktpwp-public-products-grid__price-block">' . $price_row_html . $tax_html . '</div>';
+            }
+
+            $items .= '<article' . $this->get_public_product_item_attrs( $payload, 'ktpwp-public-products-grid__item' ) . '>'
+                . $image_html
+                . '<div class="ktpwp-public-products-grid__body">'
+                . '<h3 class="ktpwp-public-products-grid__name">' . esc_html( $row['name'] ) . '</h3>'
+                . $category_html
+                . $price_block
+                . '</div></article>';
+        }
+
+        return '<div class="ktpwp-public-products-grid ktpwp-public-products-grid--cols-' . esc_attr( (string) $columns ) . '">' . $items . '</div>';
+    }
+
+    /**
+     * カードレイアウトを描画する。
+     *
+     * @param array<int, object> $services 商品一覧。
+     * @param array<string, bool> $display 表示フラグ。
+     * @param int $columns 列数。
+     * @return string
+     */
+    private function render_public_products_cards( $services, $display, $columns ) {
+        $items = '';
+
+        foreach ( $services as $service ) {
+            $row     = $this->format_public_product_row( $service );
+            $payload = $row;
+            $image_html = '';
+            if ( $display['image'] ) {
+                $image_html = '<div class="ktpwp-public-products-card__image-wrap"><img src="' . esc_url( $row['image'] ) . '" alt="' . esc_attr( $row['name'] ) . '" class="ktpwp-public-products-card__image" loading="lazy" decoding="async" /></div>';
+            }
+
+            $category_html = ( $display['category'] && $row['category'] !== '' )
+                ? '<p class="ktpwp-public-products-card__category">' . esc_html( $row['category'] ) . '</p>'
+                : '';
+            $price_row_html = '';
+            if ( $display['price'] || ( $display['unit'] && $row['unit'] !== '' ) ) {
+                $price_part = $display['price']
+                    ? '<span class="ktpwp-public-products-card__price">' . esc_html( $row['price_display'] ) . '</span>'
+                    : '';
+                $unit_part = ( $display['unit'] && $row['unit'] !== '' )
+                    ? '<span class="ktpwp-public-products-card__unit">/' . esc_html( $row['unit'] ) . '</span>'
+                    : '';
+                $price_row_html = '<div class="ktpwp-public-products-card__price-row">' . $price_part . $unit_part . '</div>';
+            }
+            $tax_html = ( $display['tax'] && $row['tax_rate'] !== '' )
+                ? '<span class="ktpwp-public-products-card__tax">' . esc_html__( '税率', 'ktpwp' ) . ': ' . esc_html( $row['tax_rate'] ) . '%</span>'
+                : '';
+            $price_block = '';
+            if ( $price_row_html !== '' || $tax_html !== '' ) {
+                $price_block = '<div class="ktpwp-public-products-card__price-block">' . $price_row_html . $tax_html . '</div>';
+            }
+
+            $items .= '<article' . $this->get_public_product_item_attrs( $payload, 'ktpwp-public-products-card' ) . '>'
+                . $image_html
+                . '<div class="ktpwp-public-products-card__body">'
+                . $category_html
+                . '<h3 class="ktpwp-public-products-card__name">' . esc_html( $row['name'] ) . '</h3>'
+                . $price_block
+                . '</div></article>';
+        }
+
+        return '<div class="ktpwp-public-products-cards ktpwp-public-products-cards--cols-' . esc_attr( (string) $columns ) . '">' . $items . '</div>';
     }
 
     /**

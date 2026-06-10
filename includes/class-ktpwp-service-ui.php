@@ -216,12 +216,12 @@ if ( ! class_exists( 'KTPWP_Service_UI' ) ) {
 					$html .= '<td class="column-id">' . $service_id . '</td>';
 
 					// 画像列
+					$thumb_url = $service_db->resolve_image_url(
+						(int) $service_id,
+						isset( $service->image_url ) ? (string) $service->image_url : ''
+					);
 					$html .= '<td class="column-image">';
-					if ( ! empty( $service->image_url ) ) {
-						$html .= '<img src="' . esc_url( $service->image_url ) . '" alt="' . esc_attr( $service->service_name ) . '" width="60" />';
-					} else {
-						$html .= '<span class="no-image">-</span>';
-					}
+					$html .= '<span class="ktp-service-list-thumb-wrap"><img src="' . esc_url( $thumb_url ) . '" alt="' . esc_attr( $service->service_name ) . '" class="ktp-service-list-thumb" loading="lazy" decoding="async" width="40" height="40" /></span>';
 					$html .= '</td>';
 
 					// サービス名列
@@ -382,6 +382,10 @@ if ( ! class_exists( 'KTPWP_Service_UI' ) ) {
 				$html .= '<textarea id="memo" name="memo" rows="3"></textarea>';
 				$html .= '</div>';
 
+				$html .= '<div class="form-group ktpwp-service-public-field">';
+				$html .= '<label><input type="checkbox" name="is_public" value="1"> ' . esc_html__( 'サイトに公開', 'ktpwp' ) . '</label>';
+				$html .= '</div>';
+
 				// 画像アップロード機能（新規サービス追加時）
 				$html .= '<div class="form-group">';
 				$html .= '<label for="service_image">' . esc_html__( 'サービス画像', 'ktpwp' ) . '</label>';
@@ -429,44 +433,13 @@ if ( ! class_exists( 'KTPWP_Service_UI' ) ) {
 		 * @return string HTML部分
 		 */
 		private function render_list_header( $name, $base_page_url, $sort_by, $sort_order ) {
-			// ソート用プルダウンアクションURLからは 'message' を除去
-			$sort_action_url = remove_query_arg( 'message', $base_page_url );
-
-			// ソートプルダウンのHTMLを構築
-			$sort_dropdown = '<div class="sort-dropdown" style="float:right;margin-left:10px;">' .
-            '<form method="get" action="' . esc_url( $sort_action_url ) . '" style="display:flex;align-items:center;">';
-
-			// 現在のGETパラメータを維持するための隠しフィールド (不要なパラメータは除外)
-			foreach ( $_GET as $key => $value ) {
-				if ( ! in_array( $key, array( 'message', 'sort_by', 'sort_order', '_ktp_service_nonce', 'query_post', 'send_post' ) ) ) {
-					$sort_dropdown .= '<input type="hidden" name="' . esc_attr( $key ) . '" value="' . esc_attr( $value ) . '">';
-				}
-			}
-
-			$sort_dropdown .=
-            '<select id="' . esc_attr( 'ktp-' . $name . '-sort-select' ) . '" name="sort_by" style="margin-right:5px;">' .
-            '<option value="id" ' . selected( $sort_by, 'id', false ) . '>' . esc_html__( 'ID', 'ktpwp' ) . '</option>' .
-            '<option value="service_name" ' . selected( $sort_by, 'service_name', false ) . '>' . esc_html__( 'サービス名', 'ktpwp' ) . '</option>' .
-            '<option value="price" ' . selected( $sort_by, 'price', false ) . '>' . esc_html__( '価格', 'ktpwp' ) . '</option>' .
-            '<option value="unit" ' . selected( $sort_by, 'unit', false ) . '>' . esc_html__( '単位', 'ktpwp' ) . '</option>' .
-            '<option value="category" ' . selected( $sort_by, 'category', false ) . '>' . esc_html__( 'カテゴリー', 'ktpwp' ) . '</option>' .
-            '<option value="frequency" ' . selected( $sort_by, 'frequency', false ) . '>' . esc_html__( '頻度', 'ktpwp' ) . '</option>' .
-            '<option value="time" ' . selected( $sort_by, 'time', false ) . '>' . esc_html__( '登録日', 'ktpwp' ) . '</option>' .
-            '</select>' .
-            '<select id="' . esc_attr( 'ktp-' . $name . '-sort-order' ) . '" name="sort_order">' .
-            '<option value="ASC" ' . selected( $sort_order, 'ASC', false ) . '>' . esc_html__( '昇順', 'ktpwp' ) . '</option>' .
-            '<option value="DESC" ' . selected( $sort_order, 'DESC', false ) . '>' . esc_html__( '降順', 'ktpwp' ) . '</option>' .
-            '</select>' .
-            '<button type="submit" style="margin-left:5px;padding:4px 8px;background:#f0f0f0;border:1px solid #ccc;border-radius:3px;cursor:pointer;" title="' . esc_attr__( '適用', 'ktpwp' ) . '">' .
-            '<span class="material-symbols-outlined" style="font-size:18px;line-height:18px;vertical-align:middle;">check</span>' .
-            '</button>' .
-            '</form></div>';
+			unset( $name, $base_page_url, $sort_by, $sort_order );
 
 			// リスト表示部分の開始
 			$html = <<<END
         <div class="ktp_data_contents">
             <div class="ktp_data_list_box">
-                <div class="data_list_title">■ サービスリスト {$sort_dropdown}</div>
+                <div class="data_list_title">■ サービスリスト</div>
 END;
 
 			return $html;

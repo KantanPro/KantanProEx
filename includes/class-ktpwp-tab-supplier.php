@@ -640,7 +640,7 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 			if ( isset( $_GET['sort_by'] ) ) {
 				$sort_by = sanitize_text_field( $_GET['sort_by'] );
 				// 安全なカラム名のみ許可（SQLインジェクション対策）
-				$allowed_columns = array( 'id', 'company_name', 'frequency', 'time', 'category' );
+				$allowed_columns = array( 'id', 'company_name', 'name', 'frequency', 'time', 'category' );
 				if ( ! in_array( $sort_by, $allowed_columns ) ) {
 					$sort_by = 'id'; // 不正な値の場合はデフォルトに戻す
 				}
@@ -738,45 +738,11 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 				$query_limit = 20; // フォールバック値
 			}
 
-			// ソートプルダウンを追加
-			$sort_dropdown = '';
-
-			// 現在のURLからソート用プルダウンのアクションURLを生成
-			$sort_url = add_query_arg( array( 'tab_name' => $name ), $base_page_url );
-
-			// ソート用プルダウンのHTMLを構築
-			$sort_dropdown = '<div class="sort-dropdown" style="float:right;margin-left:10px;">' .
-            '<form method="get" action="' . esc_url( $sort_url ) . '" style="display:flex;align-items:center;">';
-
-			// 現在のGETパラメータを維持するための隠しフィールド
-			foreach ( $_GET as $key => $value ) {
-				if ( $key !== 'sort_by' && $key !== 'sort_order' ) {
-					$sort_dropdown .= '<input type="hidden" name="' . esc_attr( $key ) . '" value="' . esc_attr( $value ) . '">';
-				}
-			}
-
-			$sort_dropdown .=
-            '<select id="' . esc_attr( 'ktp-' . $name . '-sort-select' ) . '" name="sort_by" style="margin-right:5px;">' .
-            '<option value="id" ' . selected( $sort_by, 'id', false ) . '>' . esc_html__( 'ID', 'ktpwp' ) . '</option>' .
-            '<option value="company_name" ' . selected( $sort_by, 'company_name', false ) . '>' . esc_html__( '会社名', 'ktpwp' ) . '</option>' .
-            '<option value="frequency" ' . selected( $sort_by, 'frequency', false ) . '>' . esc_html__( '頻度', 'ktpwp' ) . '</option>' .
-            '<option value="time" ' . selected( $sort_by, 'time', false ) . '>' . esc_html__( '登録日', 'ktpwp' ) . '</option>' .
-            '<option value="category" ' . selected( $sort_by, 'category', false ) . '>' . esc_html__( 'カテゴリー', 'ktpwp' ) . '</option>' .
-            '</select>' .
-            '<select id="' . esc_attr( 'ktp-' . $name . '-sort-order' ) . '" name="sort_order">' .
-            '<option value="ASC" ' . selected( $sort_order, 'ASC', false ) . '>' . esc_html__( '昇順', 'ktpwp' ) . '</option>' .
-            '<option value="DESC" ' . selected( $sort_order, 'DESC', false ) . '>' . esc_html__( '降順', 'ktpwp' ) . '</option>' .
-            '</select>' .
-            '<button type="submit" style="margin-left:5px;padding:4px 8px;background:#f0f0f0;border:1px solid #ccc;border-radius:3px;cursor:pointer;" title="' . esc_attr__( '適用', 'ktpwp' ) . '">' .
-            '<span class="material-symbols-outlined" style="font-size:18px;line-height:18px;vertical-align:middle;">check</span>' .
-            '</button>' .
-            '</form></div>';
-
 			// リスト表示部分の開始 - ktp_data_contentsを開始
 			$results_h = <<<END
         <div class="ktp_data_contents">
             <div class="ktp_data_list_box">
-            <div class="data_list_title">■ 協力会社リスト {$sort_dropdown}</div>
+            <div class="data_list_title">■ 協力会社リスト</div>
         END;
 
 			// スタート位置を決める
@@ -798,12 +764,58 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 			// 現在のページ番号を計算
 			$current_page = floor( $page_start / $query_limit ) + 1;
 
+			if ( ! class_exists( 'KTPWP_List_Table' ) ) {
+				require_once __DIR__ . '/class-ktpwp-list-table.php';
+			}
+
+			$list_header = '';
+			$list_footer = '';
+			$results     = array();
+
 			// データを取得（選択されたソート順で）
 			$sort_column = esc_sql( $sort_by ); // SQLインジェクション対策
 			$sort_direction = $sort_order === 'ASC' ? 'ASC' : 'DESC'; // SQLインジェクション対策
 			$query = $wpdb->prepare( "SELECT * FROM {$table_name} ORDER BY {$sort_column} {$sort_direction} LIMIT %d, %d", $page_start, $query_limit );
 			$post_row = $wpdb->get_results( $query );
 			if ( $post_row ) {
+				$list_header = KTPWP_List_Table::open(
+					array(
+						array(
+							'class'    => 'col-id',
+							'label'    => __( 'ID', 'ktpwp' ),
+							'sort_key' => 'id',
+						),
+						array(
+							'class'    => 'col-company',
+							'label'    => __( '会社名', 'ktpwp' ),
+							'sort_key' => 'company_name',
+						),
+						array(
+							'class'    => 'col-contact',
+							'label'    => __( '担当者', 'ktpwp' ),
+							'sort_key' => 'name',
+						),
+						array(
+							'class'    => 'col-category',
+							'label'    => __( 'カテゴリー', 'ktpwp' ),
+							'sort_key' => 'category',
+						),
+						array(
+							'class'    => 'col-frequency',
+							'label'    => __( '頻度', 'ktpwp' ),
+							'sort_key' => 'frequency',
+						),
+					),
+					array(
+						'base_url'      => $base_page_url,
+						'sort_by'       => $sort_by,
+						'sort_order'    => $sort_order,
+						'preserve_args' => KTPWP_List_Table::preserved_query_args(
+							array( 'query_post', 'send_post' )
+						),
+					)
+				);
+
 				foreach ( $post_row as $row ) {
 					  $id = esc_html( $row->id );
 					  $time = esc_html( $row->time );
@@ -845,14 +857,17 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 
 					  $item_link_url = esc_url( add_query_arg( $query_args, $base_page_url ) );
 					  $frequency_title = esc_attr__( 'アクセス頻度（クリックされた回数）', 'ktpwp' );
-					  $frequency_label = esc_html__( '頻度', 'ktpwp' );
-					  $results[] = <<<END
-                <a href="{$item_link_url}" onclick="document.cookie = '{$cookie_name}=' + {$id};">
-                    <div class="ktp_data_list_item">D: $id $company_name | 担当者: $user_name | $category | <span title="{$frequency_title}">{$frequency_label}($frequency)</span></div>
-                </a>
-                END;
+					  $row_attrs       = KTPWP_List_Table::row_nav_attrs( $item_link_url, $cookie_name, (int) $row->id );
+					  $results[]       = '<tr' . $row_attrs . '>'
+						. '<td class="col-id">' . $id . '</td>'
+						. '<td class="col-company">' . $company_name . '</td>'
+						. '<td class="col-contact">' . $user_name . '</td>'
+						. '<td class="col-category">' . $category . '</td>'
+						. '<td class="col-frequency" title="' . $frequency_title . '">' . $frequency . '</td>'
+						. '</tr>';
 
 				}
+				$list_footer   = KTPWP_List_Table::close();
 				$query_max_num = $wpdb->num_rows;
 			} else {
 				$results[] = '<div class="ktp_data_list_item" style="padding: 15px 20px; background: linear-gradient(135deg, #e3f2fd 0%, #fce4ec 100%); border-radius: 8px; margin: 18px 0; color: #333; font-weight: 600; box-shadow: 0 3px 12px rgba(0,0,0,0.07); display: flex; align-items: center; font-size: 15px; gap: 10px;">'
@@ -1087,7 +1102,7 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 			$memo = isset( $memo ) ? $memo : '';
 
 			// data_listに協力会社ID表示メッセージを追加 - 協力会社リストBOXを継続（職能セクションを含むため）
-			$data_list = $results_h . implode( $results ) . $results_f . $current_id_message;
+			$data_list = $results_h . $list_header . implode( $results ) . $list_footer . $results_f . $current_id_message;
 
 			// 表示するフォーム要素を定義
 			$fields = array(
