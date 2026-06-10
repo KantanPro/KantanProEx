@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.14
+Stable tag: 1.3.15
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,11 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.15 - 2026年06月11日 =
+* マイグレーション進行中フラグ（`ktpwp_migration_in_progress`）がスタックしたまま残り「データベースの更新を実行中です」通知が消えなくなる問題を修正
+* DB バージョンが最新、または開始から10分以上経過した場合にフラグを自動クリアする `ktpwp_clear_stale_migration_in_progress()` を追加
+* `ktpwp.php` のみ・56行増・4行減（v1.3.14…HEAD）
 
 = 1.3.14 - 2026年06月11日 =
 * 機能変更なし（v1.3.13 以降のコミットなし）

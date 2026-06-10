@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.3.14
+ * Version: 1.3.15
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -1373,18 +1373,68 @@ function ktpwp_handle_auto_update_toggle() {
 // === 改善された自動マイグレーション機能 ===
 
 /**
+ * スタックしたマイグレーション進行中フラグをクリアする
+ *
+ * PHP タイムアウトや Fatal エラーで finally が実行されない場合、
+ * ktpwp_migration_in_progress が true のまま残り通知が消えなくなる。
+ *
+ * @return bool フラグをクリアした場合 true
+ */
+function ktpwp_clear_stale_migration_in_progress() {
+    if ( ! get_option( 'ktpwp_migration_in_progress', false ) ) {
+        return false;
+    }
+
+    $plugin_version     = KANTANPRO_PLUGIN_VERSION;
+    $current_db_version = get_option( 'ktpwp_db_version', '0.0.0' );
+    $should_clear       = false;
+
+    // DB バージョンが最新なら完了済みとみなす
+    if ( $current_db_version === $plugin_version ) {
+        $should_clear = true;
+    }
+
+    // 開始から一定時間経過していればスタックとみなす
+    if ( ! $should_clear ) {
+        $start_time = get_option( 'ktpwp_migration_start_time', '' );
+        if ( empty( $start_time ) ) {
+            $should_clear = true;
+        } else {
+            $elapsed = current_time( 'timestamp' ) - strtotime( $start_time );
+            if ( $elapsed > 600 ) { // 10分
+                $should_clear = true;
+            }
+        }
+    }
+
+    if ( $should_clear ) {
+        delete_option( 'ktpwp_migration_in_progress' );
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            error_log( 'KTPWP: スタックしたマイグレーション進行中フラグをクリアしました' );
+        }
+        return true;
+    }
+
+    return false;
+}
+
+/**
  * 配布環境対応の強化された自動マイグレーション実行関数
  * 不特定多数のサイトでの配布に対応
  */
 function ktpwp_run_auto_migrations() {
     // 出力バッファリングを開始（予期しない出力を防ぐ）
     ob_start();
+
+    // スタックした進行中フラグを先にクリア（以降のマイグレーション再試行を可能にする）
+    ktpwp_clear_stale_migration_in_progress();
     
     // マイグレーション進行中チェック（重複実行防止）
     if ( get_option( 'ktpwp_migration_in_progress', false ) ) {
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
             error_log( 'KTPWP Auto Migration: マイグレーションが既に進行中です' );
         }
+        ob_end_clean();
         return;
     }
     
@@ -6112,11 +6162,13 @@ function ktpwp_distribution_admin_notices() {
         }
     }
     
-    // マイグレーション進行中の通知
+    // マイグレーション進行中の通知（スタックしたフラグは自動クリアして非表示）
     if ( get_option( 'ktpwp_migration_in_progress', false ) ) {
-        echo '<div class="notice notice-info is-dismissible">';
-        echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> データベースの更新を実行中です。完了までお待ちください。</p>';
-        echo '</div>';
+        if ( ! ktpwp_clear_stale_migration_in_progress() ) {
+            echo '<div class="notice notice-info is-dismissible">';
+            echo '<p><strong>' . esc_html( $notice_label ) . ':</strong> データベースの更新を実行中です。完了までお待ちください。</p>';
+            echo '</div>';
+        }
     }
     
     // データベース更新通知は KantanPro 設定ページ（ktp-*）でのみ ktpwp_admin_migration_status で表示（他画面では表示しない）
