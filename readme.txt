@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.12
+Stable tag: 1.3.13
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,14 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.13 - 2026年06月11日 =
+* サイト公開商品機能を追加（サービスに `is_public` フラグを追加し、Web サイト上で公開できるように改善）
+* 公開商品表示ショートコード `[ktpwp_public_products]` を追加（カテゴリ絞り込み・お申し込みモーダル・AJAX 送信対応）
+* 公開商品からのお申し込みで受付中案件を自動作成する `KTPWP_Public_Product_Order` クラスを追加（レート制限・nonce 検証付き）
+* サービス管理 UI に「サイト公開」チェックボックスを追加し、一覧・編集画面から公開設定を操作可能に
+* ショートコード登録を `init` フックに整理し、`ktpwp_ensure_shortcodes_registered` で公開用ショートコード等を確実に登録
+* 計23ファイル・2907行増・318行減（v1.3.12…HEAD）
 
 = 1.3.12 - 2026年05月24日 =
 * ヘッダー更新バッジ用の `ktpwp_update_badge_available` を `wp_localize_script` から `wp_add_inline_script` に変更し、スクリプト読み込み順に依存しないよう改善
