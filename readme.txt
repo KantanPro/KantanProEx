@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.13
+Stable tag: 1.3.14
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.14 - 2026年06月11日 =
+* 機能変更なし（v1.3.13 以降のコミットなし）
 
 = 1.3.13 - 2026年06月11日 =
 * サイト公開商品機能を追加（サービスに `is_public` フラグを追加し、Web サイト上で公開できるように改善）
