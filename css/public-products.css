@@ -181,6 +181,22 @@
 	margin: 0;
 }
 
+.ktpwp-public-products-grid__memo,
+.ktpwp-public-products-card__memo {
+	color: #50575e;
+	font-size: 0.85rem;
+	line-height: 1.45;
+	margin: 8px 0 0;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.ktpwp-public-products-table__memo {
+	max-width: 280px;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
 /* カード */
 .ktpwp-public-products-cards {
 	display: grid;
@@ -389,6 +405,22 @@ body.ktpwp-public-product-modal-open {
 .ktpwp-public-product-detail__tax {
 	color: #50575e;
 	margin: 0;
+}
+
+.ktpwp-public-product-detail__memo {
+	margin-top: 0.75rem;
+	color: #50575e;
+}
+
+.ktpwp-public-product-detail__memo-label {
+	display: block;
+	font-weight: 600;
+	margin-bottom: 0.25rem;
+}
+
+.ktpwp-public-product-detail__memo-body {
+	white-space: pre-wrap;
+	word-break: break-word;
 }
 
 .ktpwp-public-product-order-form {

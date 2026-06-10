@@ -237,7 +237,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			if ( isset( $_GET['sort_by'] ) ) {
 				$sort_by = sanitize_text_field( $_GET['sort_by'] );
 				// 安全なカラム名のみ許可（SQLインジェクション対策）
-				$allowed_columns = array( 'id', 'service_name', 'price', 'unit', 'frequency', 'time', 'category', 'tax_rate' );
+				$allowed_columns = array( 'id', 'service_name', 'price', 'unit', 'frequency', 'time', 'category', 'tax_rate', 'is_public' );
 				if ( ! in_array( $sort_by, $allowed_columns ) ) {
 					$sort_by = 'id'; // 不正な値の場合はデフォルトに戻す
 				}
@@ -423,19 +423,21 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					}
                     $tax_display = $tax_rate !== null ? intval( $tax_rate ) . '%' : esc_html__( '非課税', 'ktpwp' );
                     $formatted_price = number_format( $price, 0, '.', ',' );
+					$is_public = isset( $row->is_public ) ? (int) $row->is_public : 0;
 					$thumb_url   = $this->db_helper->resolve_image_url(
 						(int) $row->id,
 						isset( $row->image_url ) ? (string) $row->image_url : ''
 					);
 					$row_url = esc_url( add_query_arg( $item_link_args, $base_page_url ) );
 					$tax_cell = $hide_tax ? '' : '<td class="col-tax">' . esc_html( $tax_display ) . '</td>';
+					$price_unit_cell = '<td class="col-price-unit">' . $this->render_service_price_unit_display( $price, $unit ) . '</td>';
 					$results[] = '<tr class="ktp-service-list-data-row" data-href="' . $row_url . '" onclick="window.location.href=this.dataset.href">' .
 					'<td class="col-id">' . $id . '</td>' .
 					'<td class="col-image"><span class="ktp-service-list-thumb-wrap"><img src="' . esc_url( $thumb_url ) . '" alt="' . esc_attr( $service_name_raw ) . '" class="ktp-service-list-thumb" loading="lazy" decoding="async" width="40" height="40" /></span></td>' .
 					'<td class="col-name">' . $service_name . '</td>' .
-					'<td class="col-price">' . esc_html( KTPWP_Settings::format_money( $price ) ) . '</td>' .
+					'<td class="col-public">' . $this->render_service_public_badge( $is_public ) . '</td>' .
+					$price_unit_cell .
 					$tax_cell .
-					'<td class="col-unit">' . $unit . '</td>' .
 					'<td class="col-category">' . $category . '</td>' .
 					'<td class="col-frequency">' . $frequency . '</td>' .
 					'</tr><!-- DEBUG: price=' . $price . ' formatted=' . $formatted_price . ' -->';
@@ -1374,8 +1376,13 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					'sort_key' => 'service_name',
 				),
 				array(
-					'class'    => 'col-price',
-					'label'    => __( '価格', 'ktpwp' ),
+					'class'    => 'col-public',
+					'label'    => __( '公開', 'ktpwp' ),
+					'sort_key' => 'is_public',
+				),
+				array(
+					'class'    => 'col-price-unit',
+					'label'    => __( '価格/単位', 'ktpwp' ),
 					'sort_key' => 'price',
 				),
 			);
@@ -1388,11 +1395,6 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				);
 			}
 
-			$columns[] = array(
-				'class'    => 'col-unit',
-				'label'    => __( '単位', 'ktpwp' ),
-				'sort_key' => 'unit',
-			);
 			$columns[] = array(
 				'class'    => 'col-category',
 				'label'    => __( 'カテゴリー', 'ktpwp' ),
@@ -1422,6 +1424,41 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				. esc_html__( 'サイトに公開', 'ktpwp' )
 				. '</label>'
 				. '</div>';
+		}
+
+		/**
+		 * サービスリスト用の価格/単位表示 HTML を返す。
+		 *
+		 * @param float  $price 価格。
+		 * @param string $unit  単位（エスケープ済み想定）。
+		 * @return string
+		 */
+		private function render_service_price_unit_display( $price, $unit ) {
+			$html = esc_html( KTPWP_Settings::format_money( $price ) );
+
+			if ( $unit !== '' ) {
+				$html .= '<span class="ktp-service-price-unit-sep">/</span>' . $unit;
+			}
+
+			return $html;
+		}
+
+		/**
+		 * サービスリスト用の公開状態バッジ HTML を返す。
+		 *
+		 * @param int $is_public 公開フラグ（0 or 1）。
+		 * @return string
+		 */
+		private function render_service_public_badge( $is_public ) {
+			if ( (int) $is_public === 1 ) {
+				return '<span class="ktp-service-public-badge ktp-service-public-badge--public" title="' . esc_attr__( 'サイトに公開中', 'ktpwp' ) . '">'
+					. esc_html__( '公開', 'ktpwp' )
+					. '</span>';
+			}
+
+			return '<span class="ktp-service-public-badge ktp-service-public-badge--private" title="' . esc_attr__( 'サイト非公開', 'ktpwp' ) . '">'
+				. esc_html__( '非公開', 'ktpwp' )
+				. '</span>';
 		}
 	} // End class Kntan_Service_Class
 

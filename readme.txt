@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.15
+Stable tag: 1.3.17
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,12 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.17 - 2026年06月11日 =
+* 公開商品ショートコード `[ktpwp_public_products]` でサービスのメモを表示（詳細モーダル・グリッド・カード・テーブル、`show_memo` 属性対応）
+* サービスリストに公開/非公開バッジ列を追加し、`is_public` でソート可能に
+* サービスリストの価格列と単位列を「価格/単位」1列に統合
+* 一般設定のショートコード説明に `show_memo` 属性を追記
 
 = 1.3.15 - 2026年06月11日 =
 * マイグレーション進行中フラグ（`ktpwp_migration_in_progress`）がスタックしたまま残り「データベースの更新を実行中です」通知が消えなくなる問題を修正

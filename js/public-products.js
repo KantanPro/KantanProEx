@@ -91,6 +91,17 @@
 					'%</p>'
 			);
 		}
+		if (product.memo) {
+			parts.push(
+				'<div class="ktpwp-public-product-detail__memo">' +
+					'<span class="ktpwp-public-product-detail__memo-label">' +
+					escapeHtml(i18n.memo || 'メモ') +
+					'</span>' +
+					'<div class="ktpwp-public-product-detail__memo-body">' +
+					escapeHtml(product.memo) +
+					'</div></div>'
+			);
+		}
 		parts.push('</div></div>');
 		return parts.join('');
 	}

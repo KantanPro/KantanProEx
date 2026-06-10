@@ -1168,6 +1168,7 @@ class KTPWP_Shortcodes {
                     'price'        => __( '単価', 'ktpwp' ),
                     'unit'         => __( '単位', 'ktpwp' ),
                     'tax'          => __( '税率', 'ktpwp' ),
+                    'memo'         => __( 'メモ', 'ktpwp' ),
                     'quantity'     => __( '数量', 'ktpwp' ),
                     'companyName'  => __( '会社名', 'ktpwp' ),
                     'contactName'  => __( 'お名前', 'ktpwp' ),
@@ -1210,6 +1211,7 @@ class KTPWP_Shortcodes {
                 'show_unit'     => 'yes',
                 'show_category' => 'yes',
                 'show_tax'      => 'no',
+                'show_memo'     => 'yes',
                 'show_filter'   => 'yes',
             ),
             $atts,
@@ -1237,6 +1239,7 @@ class KTPWP_Shortcodes {
             'unit'     => $this->is_shortcode_flag_enabled( $atts['show_unit'] ),
             'category' => $this->is_shortcode_flag_enabled( $atts['show_category'] ),
             'tax'      => $this->is_shortcode_flag_enabled( $atts['show_tax'] ),
+            'memo'     => $this->is_shortcode_flag_enabled( $atts['show_memo'] ),
         );
 
         if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
@@ -1371,6 +1374,7 @@ class KTPWP_Shortcodes {
         $price_display = class_exists( 'KTPWP_Settings' )
             ? KTPWP_Settings::format_money( $price )
             : number_format( $price );
+        $memo = isset( $service->memo ) ? (string) $service->memo : '';
 
         return array(
             'id'            => isset( $service->id ) ? (int) $service->id : 0,
@@ -1380,6 +1384,7 @@ class KTPWP_Shortcodes {
             'unit'          => $unit,
             'category'      => $category,
             'tax_rate'      => $tax_rate,
+            'memo'          => $memo,
             'image'         => $this->resolve_public_product_image_url( $service ),
         );
     }
@@ -1398,6 +1403,21 @@ class KTPWP_Shortcodes {
             . ' role="button" tabindex="0"'
             . ' data-category="' . esc_attr( $category ) . '"'
             . ' data-product="' . esc_attr( wp_json_encode( $payload ) ) . '"';
+    }
+
+    /**
+     * 一覧レイアウト用のメモ HTML を返す。
+     *
+     * @param string $memo      メモ本文。
+     * @param string $css_class CSS クラス名。
+     * @return string
+     */
+    private function render_public_product_list_memo_html( $memo, $css_class ) {
+        if ( $memo === '' ) {
+            return '';
+        }
+
+        return '<p class="' . esc_attr( $css_class ) . '">' . esc_html( $memo ) . '</p>';
     }
 
     /**
@@ -1510,6 +1530,9 @@ class KTPWP_Shortcodes {
         if ( $display['tax'] ) {
             $headers[] = '<th scope="col">' . esc_html__( '税率（%）', 'ktpwp' ) . '</th>';
         }
+        if ( $display['memo'] ) {
+            $headers[] = '<th scope="col">' . esc_html__( 'メモ', 'ktpwp' ) . '</th>';
+        }
 
         foreach ( $services as $service ) {
             $row     = $this->format_public_product_row( $service );
@@ -1531,6 +1554,9 @@ class KTPWP_Shortcodes {
             }
             if ( $display['tax'] ) {
                 $cells[] = '<td>' . esc_html( $row['tax_rate'] ) . '</td>';
+            }
+            if ( $display['memo'] ) {
+                $cells[] = '<td class="ktpwp-public-products-table__memo">' . esc_html( $row['memo'] ) . '</td>';
             }
 
             $rows .= '<tr' . $this->get_public_product_item_attrs( $payload ) . '>' . implode( '', $cells ) . '</tr>';
@@ -1578,6 +1604,9 @@ class KTPWP_Shortcodes {
             if ( $price_row_html !== '' || $tax_html !== '' ) {
                 $price_block = '<div class="ktpwp-public-products-grid__price-block">' . $price_row_html . $tax_html . '</div>';
             }
+            $memo_html = $display['memo']
+                ? $this->render_public_product_list_memo_html( $row['memo'], 'ktpwp-public-products-grid__memo' )
+                : '';
 
             $items .= '<article' . $this->get_public_product_item_attrs( $payload, 'ktpwp-public-products-grid__item' ) . '>'
                 . $image_html
@@ -1585,6 +1614,7 @@ class KTPWP_Shortcodes {
                 . '<h3 class="ktpwp-public-products-grid__name">' . esc_html( $row['name'] ) . '</h3>'
                 . $category_html
                 . $price_block
+                . $memo_html
                 . '</div></article>';
         }
 
@@ -1630,6 +1660,9 @@ class KTPWP_Shortcodes {
             if ( $price_row_html !== '' || $tax_html !== '' ) {
                 $price_block = '<div class="ktpwp-public-products-card__price-block">' . $price_row_html . $tax_html . '</div>';
             }
+            $memo_html = $display['memo']
+                ? $this->render_public_product_list_memo_html( $row['memo'], 'ktpwp-public-products-card__memo' )
+                : '';
 
             $items .= '<article' . $this->get_public_product_item_attrs( $payload, 'ktpwp-public-products-card' ) . '>'
                 . $image_html
@@ -1637,6 +1670,7 @@ class KTPWP_Shortcodes {
                 . $category_html
                 . '<h3 class="ktpwp-public-products-card__name">' . esc_html( $row['name'] ) . '</h3>'
                 . $price_block
+                . $memo_html
                 . '</div></article>';
         }
 

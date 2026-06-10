@@ -2476,7 +2476,7 @@ class KTPWP_Settings {
                         <td><?php echo esc_html__( '表示する商品 ID（例: 2,5,8）', 'ktpwp' ); ?></td>
                     </tr>
                     <tr>
-                        <td><code>show_image</code> / <code>show_price</code> / <code>show_unit</code> / <code>show_category</code> / <code>show_tax</code></td>
+                        <td><code>show_image</code> / <code>show_price</code> / <code>show_unit</code> / <code>show_category</code> / <code>show_tax</code> / <code>show_memo</code></td>
                         <td><code>yes</code>（<code>show_tax</code> は <code>no</code>）</td>
                         <td><?php echo esc_html__( '各項目の表示 ON/OFF（yes / no）', 'ktpwp' ); ?></td>
                     </tr>

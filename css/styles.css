@@ -1714,6 +1714,32 @@ form > .create-order-btn {
   background: #f0f7ff !important;
 }
 
+.ktp-service-list-table .col-public {
+  text-align: center;
+  white-space: nowrap;
+  width: 4.5em;
+}
+
+.ktp-service-public-badge {
+  border-radius: 4px;
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.ktp-service-public-badge--public {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.ktp-service-public-badge--private {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
 .ktp-service-list-table .col-id {
   text-align: right;
   white-space: nowrap;
@@ -1769,6 +1795,7 @@ form > .create-order-btn {
   white-space: nowrap;
 }
 
+.ktp-service-list-table .col-price-unit,
 .ktp-service-list-table .col-price,
 .ktp-service-list-table .col-tax,
 .ktp-service-list-table .col-unit,
@@ -1776,6 +1803,11 @@ form > .create-order-btn {
 .ktp-service-list-table .col-contact,
 .ktp-service-list-table .col-status {
   white-space: nowrap;
+}
+
+.ktp-service-list-table .col-price-unit .ktp-service-price-unit-sep {
+  color: #646970;
+  margin: 0 0.1em;
 }
 
 .ktp-data-list-row--excluded {

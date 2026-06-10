@@ -843,7 +843,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			}
 
 			// ORDER BY句の検証とサニタイズ
-			$allowed_order_by = array( 'id', 'service_name', 'price', 'unit', 'frequency', 'time', 'category', 'tax_rate' );
+			$allowed_order_by = array( 'id', 'service_name', 'price', 'unit', 'frequency', 'time', 'category', 'tax_rate', 'is_public' );
 			if ( ! in_array( $args['order_by'], $allowed_order_by ) ) {
 				$args['order_by'] = 'id';
 			}
