@@ -1297,78 +1297,8 @@ function ktpwp_enable_auto_updates( $update, $item ) {
     return $update;
 }
 
-// 自動更新が利用可能であることをWordPressに通知
+// 自動更新が利用可能であることを WordPress に通知（UI・AJAX はコアの toggle-auto-updates に委譲）
 add_filter( 'plugins_auto_update_enabled', '__return_true' );
-
-// プラグインリストページで自動更新リンクを表示
-add_filter( 'plugin_auto_update_setting_html', 'ktpwp_auto_update_setting_html', 10, 3 );
-function ktpwp_auto_update_setting_html( $html, $plugin_file, $plugin_data ) {
-    if ( $plugin_file === plugin_basename( __FILE__ ) ) {
-        $auto_updates_enabled = (bool) get_site_option( 'auto_update_plugins', array() );
-        $auto_update_plugins = (array) get_site_option( 'auto_update_plugins', array() );
-        
-        if ( in_array( $plugin_file, $auto_update_plugins, true ) ) {
-            $action = 'disable';
-            $text = __( '自動更新を無効化', 'ktpwp' );
-            $aria_label = esc_attr( sprintf( __( '%s の自動更新を無効化', 'ktpwp' ), $plugin_data['Name'] ) );
-        } else {
-            $action = 'enable';
-            $text = __( '自動更新を有効化', 'ktpwp' );
-            $aria_label = esc_attr( sprintf( __( '%s の自動更新を有効化', 'ktpwp' ), $plugin_data['Name'] ) );
-        }
-        
-        $url = wp_nonce_url(
-            add_query_arg(
-                array(
-                    'action' => $action . '-auto-update',
-                    'plugin' => $plugin_file,
-                ),
-                admin_url( 'plugins.php' )
-            ),
-            'updates'
-        );
-        
-        $html = sprintf(
-            '<a href="%s" class="toggle-auto-update" aria-label="%s" data-wp-toggle-auto-update="%s">%s</a>',
-            esc_url( $url ),
-            $aria_label,
-            esc_attr( $action ),
-            $text
-        );
-    }
-    return $html;
-}
-
-// 自動更新の有効/無効を処理
-add_action( 'admin_init', 'ktpwp_handle_auto_update_toggle' );
-function ktpwp_handle_auto_update_toggle() {
-    if ( ! current_user_can( 'update_plugins' ) ) {
-        return;
-    }
-    
-    $action = isset( $_GET['action'] ) ? $_GET['action'] : '';
-    $plugin = isset( $_GET['plugin'] ) ? $_GET['plugin'] : '';
-    
-    if ( ! wp_verify_nonce( $_GET['_wpnonce'] ?? '', 'updates' ) ) {
-        return;
-    }
-    
-    if ( $plugin === plugin_basename( __FILE__ ) ) {
-        $auto_update_plugins = (array) get_site_option( 'auto_update_plugins', array() );
-        
-        if ( $action === 'enable-auto-update' ) {
-            $auto_update_plugins[] = $plugin;
-            $auto_update_plugins = array_unique( $auto_update_plugins );
-        } elseif ( $action === 'disable-auto-update' ) {
-            $auto_update_plugins = array_diff( $auto_update_plugins, array( $plugin ) );
-        }
-        
-        update_site_option( 'auto_update_plugins', $auto_update_plugins );
-        
-        wp_redirect( admin_url( 'plugins.php' ) );
-        exit;
-    }
-}
 
 // === 改善された自動マイグレーション機能 ===
 
