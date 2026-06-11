@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.24
+Stable tag: 1.3.25
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,11 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.25 - 2026年06月11日 =
+* 公開商品グリッドのレイアウト調整（画像サイズ・余白・商品名/カテゴリ/メモの間隔を最適化）
+* 公開商品テーブルのヘッダーと1行目の重なりを修正（表示安定化・余白調整・フォーカス表示改善）
+* 計1ファイル・75行増・8行減（v1.3.24…HEAD）
 
 = 1.3.24 - 2026年06月11日 =
 * 公開商品一覧（グリッド・カード・テーブル）の画像クリックで拡大表示（ライトボックス）を追加
