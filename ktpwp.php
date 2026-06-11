@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.3.22
+ * Version: 1.3.23
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -1287,17 +1287,7 @@ function ktpwp_enqueue_notification_dismiss_scripts( $hook ) {
 
 // スクリプト読み込みも更新チェッカークラスで管理
 
-// === WordPress標準自動更新機能のサポート ===
-add_filter( 'auto_update_plugin', 'ktpwp_enable_auto_updates', 10, 2 );
-function ktpwp_enable_auto_updates( $update, $item ) {
-    // このプラグインの場合のみ自動更新を許可
-    if ( isset( $item->plugin ) && $item->plugin === plugin_basename( __FILE__ ) ) {
-        return true;
-    }
-    return $update;
-}
-
-// 自動更新が利用可能であることを WordPress に通知（UI・AJAX はコアの toggle-auto-updates に委譲）
+// プラグイン自動更新 UI を有効化（有効/無効は auto_update_plugins オプションとコア AJAX に委譲）
 add_filter( 'plugins_auto_update_enabled', '__return_true' );
 
 // === 改善された自動マイグレーション機能 ===
