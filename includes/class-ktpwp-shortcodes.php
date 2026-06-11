@@ -1182,6 +1182,7 @@ class KTPWP_Shortcodes {
                     'filterPlaceholder' => __( 'カテゴリを入力または選択…', 'ktpwp' ),
                     'filterAll'    => __( 'すべて表示', 'ktpwp' ),
                     'filterEmpty'  => __( '該当する商品がありません。', 'ktpwp' ),
+                    'enlargeImage' => __( '画像を拡大', 'ktpwp' ),
                 ),
             )
         );
@@ -1298,6 +1299,7 @@ class KTPWP_Shortcodes {
             . '<p class="ktpwp-public-products-filter__empty" hidden>' . esc_html__( '該当する商品がありません。', 'ktpwp' ) . '</p>'
             . '</div>'
             . $this->render_public_product_detail_shell()
+            . $this->render_public_product_image_lightbox_shell()
             . '</div>';
     }
 
@@ -1404,6 +1406,55 @@ class KTPWP_Shortcodes {
             . ' role="button" tabindex="0"'
             . ' data-category="' . esc_attr( $category ) . '"'
             . ' data-product="' . esc_attr( wp_json_encode( $payload ) ) . '"';
+    }
+
+    /**
+     * 一覧ブロック内の商品画像 HTML（クリックで拡大表示）。
+     *
+     * @param string $image_url  画像 URL。
+     * @param string $name       商品名（alt・aria-label 用）。
+     * @param string $image_class 画像要素の CSS クラス。
+     * @param string $wrap_class  ラップ要素の CSS クラス（空なら省略）。
+     * @param string $extra_attrs img 要素の追加属性（例: width/height）。
+     * @return string
+     */
+    private function render_public_product_image_html( $image_url, $name, $image_class, $wrap_class = '', $extra_attrs = '' ) {
+        $label = sprintf(
+            /* translators: %s: product name */
+            __( '%s の画像を拡大', 'ktpwp' ),
+            $name
+        );
+
+        $image_markup = '<button type="button" class="ktpwp-public-product-item__image-btn" aria-label="' . esc_attr( $label ) . '">'
+            . '<img src="' . esc_url( $image_url ) . '" alt="' . esc_attr( $name ) . '" class="' . esc_attr( trim( $image_class . ' ktpwp-public-product-item__image' ) ) . '" loading="lazy" decoding="async"'
+            . ( $extra_attrs !== '' ? ' ' . $extra_attrs : '' )
+            . ' /></button>';
+
+        if ( $wrap_class === '' ) {
+            return $image_markup;
+        }
+
+        return '<div class="' . esc_attr( $wrap_class ) . '">' . $image_markup . '</div>';
+    }
+
+    /**
+     * 画像拡大表示用ライトボックスの HTML を返す。
+     *
+     * @return string
+     */
+    private function render_public_product_image_lightbox_shell() {
+        ob_start();
+        ?>
+        <div class="ktpwp-public-product-image-lightbox" id="ktpwp-public-product-image-lightbox" hidden>
+            <button type="button" class="ktpwp-public-product-image-lightbox__backdrop" aria-label="<?php echo esc_attr__( '閉じる', 'ktpwp' ); ?>"></button>
+            <figure class="ktpwp-public-product-image-lightbox__figure">
+                <img class="ktpwp-public-product-image-lightbox__image" alt="" decoding="async" />
+                <figcaption class="ktpwp-public-product-image-lightbox__caption"></figcaption>
+            </figure>
+            <button type="button" class="ktpwp-public-product-image-lightbox__close" aria-label="<?php echo esc_attr__( '閉じる', 'ktpwp' ); ?>">&times;</button>
+        </div>
+        <?php
+        return (string) ob_get_clean();
     }
 
     /**
@@ -1541,7 +1592,13 @@ class KTPWP_Shortcodes {
             $cells   = array();
 
             if ( $display['image'] ) {
-                $cells[] = '<td><img src="' . esc_url( $row['image'] ) . '" alt="' . esc_attr( $row['name'] ) . '" class="ktpwp-public-products-thumb" loading="lazy" decoding="async" width="48" height="48" /></td>';
+                $cells[] = '<td>' . $this->render_public_product_image_html(
+                    $row['image'],
+                    $row['name'],
+                    'ktpwp-public-products-thumb',
+                    '',
+                    'width="48" height="48"'
+                ) . '</td>';
             }
             $cells[] = '<td>' . esc_html( $row['name'] ) . '</td>';
             if ( $display['category'] ) {
@@ -1582,7 +1639,12 @@ class KTPWP_Shortcodes {
             $payload = $row;
             $image_html = '';
             if ( $display['image'] ) {
-                $image_html = '<div class="ktpwp-public-products-grid__image-wrap"><img src="' . esc_url( $row['image'] ) . '" alt="' . esc_attr( $row['name'] ) . '" class="ktpwp-public-products-grid__image" loading="lazy" decoding="async" /></div>';
+                $image_html = $this->render_public_product_image_html(
+                    $row['image'],
+                    $row['name'],
+                    'ktpwp-public-products-grid__image',
+                    'ktpwp-public-products-grid__image-wrap'
+                );
             }
 
             $category_html = ( $display['category'] && $row['category'] !== '' )
@@ -1638,7 +1700,12 @@ class KTPWP_Shortcodes {
             $payload = $row;
             $image_html = '';
             if ( $display['image'] ) {
-                $image_html = '<div class="ktpwp-public-products-card__image-wrap"><img src="' . esc_url( $row['image'] ) . '" alt="' . esc_attr( $row['name'] ) . '" class="ktpwp-public-products-card__image" loading="lazy" decoding="async" /></div>';
+                $image_html = $this->render_public_product_image_html(
+                    $row['image'],
+                    $row['name'],
+                    'ktpwp-public-products-card__image',
+                    'ktpwp-public-products-card__image-wrap'
+                );
             }
 
             $category_html = ( $display['category'] && $row['category'] !== '' )

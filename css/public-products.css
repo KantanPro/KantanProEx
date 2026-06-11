@@ -296,6 +296,104 @@
 	object-fit: contain;
 }
 
+.ktpwp-public-product-item__image-btn {
+	appearance: none;
+	background: transparent;
+	border: 0;
+	cursor: zoom-in;
+	display: block;
+	line-height: 0;
+	margin: 0;
+	padding: 0;
+	width: 100%;
+}
+
+.ktpwp-public-product-item__image-btn--thumb,
+.ktpwp-public-products-table .ktpwp-public-product-item__image-btn {
+	display: inline-block;
+	width: auto;
+}
+
+.ktpwp-public-product-item__image-btn:hover .ktpwp-public-product-item__image,
+.ktpwp-public-product-item__image-btn:focus-visible .ktpwp-public-product-item__image {
+	opacity: 0.92;
+}
+
+.ktpwp-public-product-item__image-btn:focus-visible {
+	outline: 2px solid #6366f1;
+	outline-offset: 2px;
+}
+
+/* 画像拡大ライトボックス */
+.ktpwp-public-product-image-lightbox {
+	align-items: center;
+	display: flex;
+	inset: 0;
+	justify-content: center;
+	padding: 1.5rem;
+	position: fixed;
+	z-index: 100001;
+}
+
+.ktpwp-public-product-image-lightbox[hidden] {
+	display: none !important;
+}
+
+.ktpwp-public-product-image-lightbox.is-open {
+	display: flex;
+}
+
+.ktpwp-public-product-image-lightbox__backdrop {
+	background: rgba(15, 23, 42, 0.82);
+	border: 0;
+	cursor: zoom-out;
+	inset: 0;
+	margin: 0;
+	padding: 0;
+	position: absolute;
+}
+
+.ktpwp-public-product-image-lightbox__figure {
+	margin: 0;
+	max-height: calc(100vh - 4rem);
+	max-width: min(96vw, 1200px);
+	position: relative;
+	z-index: 1;
+}
+
+.ktpwp-public-product-image-lightbox__image {
+	display: block;
+	height: auto;
+	margin: 0 auto;
+	max-height: calc(100vh - 6rem);
+	max-width: 100%;
+	object-fit: contain;
+	width: auto;
+}
+
+.ktpwp-public-product-image-lightbox__caption {
+	color: #f8fafc;
+	font-size: 0.95rem;
+	margin-top: 0.75rem;
+	text-align: center;
+}
+
+.ktpwp-public-product-image-lightbox__close {
+	background: rgba(15, 23, 42, 0.65);
+	border: 0;
+	border-radius: 999px;
+	color: #fff;
+	cursor: pointer;
+	font-size: 1.75rem;
+	height: 2.5rem;
+	line-height: 1;
+	position: absolute;
+	right: 1rem;
+	top: 1rem;
+	width: 2.5rem;
+	z-index: 2;
+}
+
 /* クリック可能な商品 */
 .ktpwp-public-product-item {
 	cursor: pointer;
