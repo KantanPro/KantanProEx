@@ -1157,7 +1157,7 @@ class KTPWP_Shortcodes {
             'ktpwp-public-products',
             'ktpwpPublicProducts',
             array(
-                'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+                'ajaxUrl' => admin_url( 'admin-ajax.php', 'relative' ),
                 'nonce'   => wp_create_nonce( $nonce_action ),
                 'i18n'    => array(
                     'orderTitle'   => __( 'お問い合わせ', 'ktpwp' ),
@@ -1177,6 +1177,7 @@ class KTPWP_Shortcodes {
                     'message'      => __( 'ご要望・備考', 'ktpwp' ),
                     'requiredMark' => __( '必須', 'ktpwp' ),
                     'networkError' => __( '通信エラーが発生しました。時間をおいて再度お試しください。', 'ktpwp' ),
+                    'sessionExpired' => __( 'セッションの有効期限が切れました。ページを再読み込みして再度お試しください。', 'ktpwp' ),
                     'filterLabel'  => __( 'カテゴリで絞り込み', 'ktpwp' ),
                     'filterPlaceholder' => __( 'カテゴリを入力または選択…', 'ktpwp' ),
                     'filterAll'    => __( 'すべて表示', 'ktpwp' ),

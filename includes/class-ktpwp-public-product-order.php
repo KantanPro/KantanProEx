@@ -125,15 +125,7 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				)
 				: __( 'Webお申込み', 'ktpwp' );
 
-			$memo_parts = array();
-			if ( $message !== '' ) {
-				$memo_parts[] = __( 'ご要望:', 'ktpwp' ) . ' ' . $message;
-			}
-			if ( $phone !== '' ) {
-				$memo_parts[] = __( '電話:', 'ktpwp' ) . ' ' . $phone;
-			}
-			$memo_parts[] = __( '公開商品ID:', 'ktpwp' ) . ' ' . (int) $service->id;
-			$memo = implode( "\n", $memo_parts );
+			$memo = $this->build_order_memo( $message, (int) $service->id, $service_name );
 
 			$search_field = trim( implode( ' ', array_filter( array( $customer_name, $contact_name, $service_name, $email ) ) ) );
 
@@ -159,47 +151,51 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 
 			$this->save_external_source( $order_id, (int) $service->id );
 
-			if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
-				require_once dirname( __FILE__ ) . '/class-ktpwp-order-items.php';
-			}
-
-			$order_items = KTPWP_Order_Items::get_instance();
-			$price       = isset( $service->price ) ? floatval( $service->price ) : 0;
-			$unit        = isset( $service->unit ) ? sanitize_text_field( (string) $service->unit ) : '';
-			$tax_rate    = null;
-			if ( isset( $service->tax_rate ) && $service->tax_rate !== null && $service->tax_rate !== '' && is_numeric( $service->tax_rate ) ) {
-				$tax_rate = floatval( $service->tax_rate );
-			}
-
-			$invoice_saved = $order_items->save_invoice_items(
-				$order_id,
-				array(
-					array(
-						'id'           => 0,
-						'product_name' => $service_name,
-						'price'        => $price,
-						'quantity'     => $quantity,
-						'unit'         => $unit !== '' ? $unit : __( '式', 'ktpwp' ),
-						'amount'       => $price * $quantity,
-						'tax_rate'     => $tax_rate,
-						'remarks'      => '',
-					),
-				)
-			);
-
-			if ( ! $invoice_saved ) {
-				error_log( 'KTPWP Public Product: Failed to save invoice items for order ' . $order_id );
-			}
-
-			if ( method_exists( $order_items, 'create_initial_cost_item' ) ) {
-				$order_items->create_initial_cost_item( $order_id );
-			}
-
-			if ( class_exists( 'KTPWP_Staff_Chat' ) ) {
-				$staff_chat = KTPWP_Staff_Chat::get_instance();
-				if ( method_exists( $staff_chat, 'create_initial_chat' ) ) {
-					$staff_chat->create_initial_chat( $order_id, null );
+			try {
+				if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
+					require_once dirname( __FILE__ ) . '/class-ktpwp-order-items.php';
 				}
+
+				$order_items = KTPWP_Order_Items::get_instance();
+				$price       = isset( $service->price ) ? floatval( $service->price ) : 0;
+				$unit        = isset( $service->unit ) ? sanitize_text_field( (string) $service->unit ) : '';
+				$tax_rate    = null;
+				if ( isset( $service->tax_rate ) && $service->tax_rate !== null && $service->tax_rate !== '' && is_numeric( $service->tax_rate ) ) {
+					$tax_rate = floatval( $service->tax_rate );
+				}
+
+				$invoice_saved = $order_items->save_invoice_items(
+					$order_id,
+					array(
+						array(
+							'id'           => 0,
+							'product_name' => $service_name,
+							'price'        => $price,
+							'quantity'     => $quantity,
+							'unit'         => $unit !== '' ? $unit : __( '式', 'ktpwp' ),
+							'amount'       => $price * $quantity,
+							'tax_rate'     => $tax_rate,
+							'remarks'      => '',
+						),
+					)
+				);
+
+				if ( ! $invoice_saved ) {
+					error_log( 'KTPWP Public Product: Failed to save invoice items for order ' . $order_id );
+				}
+
+				if ( method_exists( $order_items, 'create_initial_cost_item' ) ) {
+					$order_items->create_initial_cost_item( $order_id );
+				}
+
+				if ( class_exists( 'KTPWP_Staff_Chat' ) ) {
+					$staff_chat = KTPWP_Staff_Chat::get_instance();
+					if ( method_exists( $staff_chat, 'create_initial_chat' ) ) {
+						$staff_chat->create_initial_chat( $order_id, null );
+					}
+				}
+			} catch ( Throwable $e ) {
+				error_log( 'KTPWP Public Product: Post-order setup failed for order ' . $order_id . ' - ' . $e->getMessage() );
 			}
 
 			$this->increment_rate_limit();
@@ -217,10 +213,12 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 		 * @return void
 		 */
 		public function ajax_submit_order() {
+			$this->prepare_ajax_json_response();
+
 			check_ajax_referer( self::get_nonce_action(), 'nonce' );
 
 			if ( ! empty( $_POST['company_url'] ) ) {
-				wp_send_json_error(
+				$this->send_ajax_json_error(
 					array( 'message' => __( '送信に失敗しました。', 'ktpwp' ) ),
 					400
 				);
@@ -239,18 +237,86 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 			$result = $this->submit_order( $service_id, $form );
 
 			if ( empty( $result['success'] ) ) {
-				wp_send_json_error(
+				$this->send_ajax_json_error(
 					array( 'message' => $result['message'] ),
 					400
 				);
 			}
 
-			wp_send_json_success(
+			$this->send_ajax_json_success(
 				array(
 					'message'  => $result['message'],
 					'order_id' => isset( $result['order_id'] ) ? (int) $result['order_id'] : 0,
 				)
 			);
+		}
+
+		/**
+		 * AJAX 応答前に出力バッファをクリアする（JSON 破損防止）。
+		 *
+		 * @return void
+		 */
+		private function prepare_ajax_json_response() {
+			nocache_headers();
+
+			while ( ob_get_level() > 0 ) {
+				ob_end_clean();
+			}
+		}
+
+		/**
+		 * @param array<string, mixed> $data レスポンス data。
+		 * @return void
+		 */
+		private function send_ajax_json_success( array $data ) {
+			while ( ob_get_level() > 0 ) {
+				ob_end_clean();
+			}
+
+			wp_send_json_success( $data );
+		}
+
+		/**
+		 * @param array<string, mixed> $data   エラー data。
+		 * @param int                  $status HTTP ステータス。
+		 * @return void
+		 */
+		private function send_ajax_json_error( array $data, $status = 400 ) {
+			while ( ob_get_level() > 0 ) {
+				ob_end_clean();
+			}
+
+			wp_send_json_error( $data, $status );
+		}
+
+		/**
+		 * 受注書メモ欄用テキストを組み立てる。
+		 *
+		 * 形式: {メモ} 商品ID: {ID} {商品名}
+		 *
+		 * @param string $message      フォームのご要望・備考。
+		 * @param int    $service_id   公開商品 ID。
+		 * @param string $service_name 商品名。
+		 * @return string
+		 */
+		private function build_order_memo( $message, $service_id, $service_name ) {
+			$message      = trim( (string) $message );
+			$service_name = trim( (string) $service_name );
+			$service_id   = (int) $service_id;
+
+			$suffix = sprintf(
+				/* translators: 1: product ID, 2: product name */
+				__( '商品ID: %1$d %2$s', 'ktpwp' ),
+				$service_id,
+				$service_name
+			);
+			$suffix = trim( $suffix );
+
+			if ( $message === '' ) {
+				return $suffix;
+			}
+
+			return $message . ' ' . $suffix;
 		}
 
 		/**

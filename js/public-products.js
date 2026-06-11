@@ -35,6 +35,36 @@
 		return div.innerHTML;
 	}
 
+	function parseAjaxJsonResponse(response) {
+		return response.text().then(function (text) {
+			var trimmed = (text == null ? '' : String(text)).trim();
+
+			if (trimmed === '-1' || trimmed === '0') {
+				return {
+					success: false,
+					data: {
+						message: i18n.sessionExpired || i18n.networkError || '送信に失敗しました',
+					},
+				};
+			}
+
+			if (trimmed === '') {
+				throw new Error('empty_response');
+			}
+
+			try {
+				return JSON.parse(trimmed);
+			} catch (error) {
+				var start = trimmed.indexOf('{');
+				var end = trimmed.lastIndexOf('}');
+				if (start !== -1 && end > start) {
+					return JSON.parse(trimmed.slice(start, end + 1));
+				}
+				throw error;
+			}
+		});
+	}
+
 	function lockBodyScroll() {
 		openModalCount += 1;
 		if (openModalCount === 1) {
@@ -309,9 +339,7 @@
 					body: formData,
 					credentials: 'same-origin',
 				})
-					.then(function (response) {
-						return response.json();
-					})
+					.then(parseAjaxJsonResponse)
 					.then(function (json) {
 						if (json && json.success) {
 							showMessage((json.data && json.data.message) || i18n.submit || '送信しました', 'success');

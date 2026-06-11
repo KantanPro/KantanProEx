@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.18
+Stable tag: 1.3.19
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,11 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.19 - 2026年06月11日 =
+* 公開商品お問い合わせフォーム送信後に「通信エラー」と表示される問題を修正（AJAX 出力バッファのクリア・JSON 解析の改善・ajaxUrl を相対パスに変更）
+* 公開商品フォームから作成する受注書メモの形式を「{メモ} 商品ID: {ID} {商品名}」に変更
+* 案件作成後の明細・コスト・チャット初期化処理を try/catch で保護し、案件作成済みなら成功レスポンスを返すよう改善
 
 = 1.3.18 - 2026年06月11日 =
 * 公開商品ポップアップフォームの見出しを「お申し込み」から「お問い合わせ」に変更
