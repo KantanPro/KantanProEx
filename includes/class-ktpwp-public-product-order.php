@@ -114,13 +114,7 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 			}
 
 			$service_name = isset( $service->service_name ) ? sanitize_text_field( (string) $service->service_name ) : '';
-			$project_name = $service_name !== ''
-				? sprintf(
-					/* translators: %s: service name */
-					__( '%s（Webお申込み）', 'ktpwp' ),
-					$service_name
-				)
-				: __( 'Webお申込み', 'ktpwp' );
+			$project_name = $service_name;
 
 			$memo = $this->build_order_memo( $message, (int) $service->id, $service_name );
 
@@ -271,7 +265,7 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 		/**
 		 * 受注書メモ欄用テキストを組み立てる。
 		 *
-		 * 形式: {メモ} 商品ID: {ID} {商品名}
+		 * 形式: {メモ} 商品ID: {ID} {商品名}（Webお申込み）
 		 *
 		 * @param string $message      フォームのご要望・備考。
 		 * @param int    $service_id   公開商品 ID。
@@ -283,19 +277,18 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 			$service_name = trim( (string) $service_name );
 			$service_id   = (int) $service_id;
 
-			$suffix = sprintf(
+			$product_suffix = sprintf(
 				/* translators: 1: product ID, 2: product name */
 				__( '商品ID: %1$d %2$s', 'ktpwp' ),
 				$service_id,
 				$service_name
 			);
-			$suffix = trim( $suffix );
+			$product_suffix = trim( $product_suffix );
+			$web_suffix     = __( '（Webお申込み）', 'ktpwp' );
 
-			if ( $message === '' ) {
-				return $suffix;
-			}
+			$memo = $message === '' ? $product_suffix : $message . ' ' . $product_suffix;
 
-			return $message . ' ' . $suffix;
+			return trim( $memo . ' ' . $web_suffix );
 		}
 
 		/**
@@ -476,20 +469,35 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 		 * @param array $order_data 受注データ。
 		 * @return int|false
 		 */
+		/**
+		 * 日次連番の受注番号を採番する（欠番がある場合は最大値+1）。
+		 *
+		 * @param int $timestamp Unix タイムスタンプ。
+		 * @return string
+		 */
+		private function generate_order_number( $timestamp ) {
+			global $wpdb;
+
+			$table_name = $wpdb->prefix . 'ktp_order';
+			$timestamp  = (int) $timestamp;
+			$prefix     = date( 'Y-md', $timestamp ) . '-';
+			$max_suffix = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT MAX(CAST(SUBSTRING(order_number, %d) AS UNSIGNED)) FROM `{$table_name}` WHERE order_number LIKE %s",
+					strlen( $prefix ) + 1,
+					$prefix . '%'
+				)
+			);
+
+			return $prefix . str_pad( (string) ( (int) $max_suffix + 1 ), 3, '0', STR_PAD_LEFT );
+		}
+
 		private function insert_order( array $order_data ) {
 			global $wpdb;
 
 			$table_name = $wpdb->prefix . 'ktp_order';
 			$timestamp  = isset( $order_data['time'] ) ? (int) $order_data['time'] : time();
-			$today      = date( 'Y-md', $timestamp );
-			$prefix     = $today . '-';
-			$today_count = $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT COUNT(*) FROM `{$table_name}` WHERE order_number LIKE %s",
-					$prefix . '%'
-				)
-			);
-			$order_number = $prefix . str_pad( (string) ( (int) $today_count + 1 ), 3, '0', STR_PAD_LEFT );
+			$order_number = $this->generate_order_number( $timestamp );
 
 			$insert_data = array(
 				'order_number'  => $order_number,

@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.20
+Stable tag: 1.3.21
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,11 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.21 - 2026年06月11日 =
+* 公開商品フォームからの受注で「（Webお申込み）」を案件名ではなくメモ欄末尾に記録するよう変更
+* 公開商品フォームの受注番号採番を当日最大連番+1に修正し、欠番がある場合の「案件の作成に失敗しました」を解消
+* 計1ファイル・54行変更（v1.3.20…HEAD）
 
 = 1.3.20 - 2026年06月11日 =
 * 受注ごとに依頼元部署（`client_department_id`）を保持し、問い合わせごとの部署変更が他の受注に影響しないよう修正
