@@ -206,7 +206,7 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 
 			return array(
 				'success'  => true,
-				'message'  => __( 'お申し込みを受け付けました。担当者よりご連絡いたします。', 'ktpwp' ),
+				'message'  => __( 'お問い合わせを受け付けました。担当者よりご連絡いたします。', 'ktpwp' ),
 				'order_id' => (int) $order_id,
 			);
 		}

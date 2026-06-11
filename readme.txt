@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.17
+Stable tag: 1.3.18
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,10 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.18 - 2026年06月11日 =
+* 公開商品ポップアップフォームの見出しを「お申し込み」から「お問い合わせ」に変更
+* 送信完了メッセージを「お問い合わせを受け付けました…」に変更
 
 = 1.3.17 - 2026年06月11日 =
 * 公開商品ショートコード `[ktpwp_public_products]` でサービスのメモを表示（詳細モーダル・グリッド・カード・テーブル、`show_memo` 属性対応）

@@ -1160,7 +1160,7 @@ class KTPWP_Shortcodes {
                 'ajaxUrl' => admin_url( 'admin-ajax.php' ),
                 'nonce'   => wp_create_nonce( $nonce_action ),
                 'i18n'    => array(
-                    'orderTitle'   => __( 'お申し込み', 'ktpwp' ),
+                    'orderTitle'   => __( 'お問い合わせ', 'ktpwp' ),
                     'submit'       => __( '送信する', 'ktpwp' ),
                     'submitting'   => __( '送信中…', 'ktpwp' ),
                     'close'        => __( '閉じる', 'ktpwp' ),
@@ -1449,7 +1449,7 @@ class KTPWP_Shortcodes {
     }
 
     /**
-     * 商品詳細・お申し込みフォームのシェルを返す。
+     * 商品詳細・お問い合わせフォームのシェルを返す。
      *
      * @return string
      */
@@ -1462,7 +1462,7 @@ class KTPWP_Shortcodes {
                 <button type="button" class="ktpwp-public-product-detail__close" aria-label="<?php echo esc_attr__( '閉じる', 'ktpwp' ); ?>">&times;</button>
                 <div class="ktpwp-public-product-detail__content"></div>
                 <form class="ktpwp-public-product-order-form" novalidate>
-                    <h4 class="ktpwp-public-product-order-form__title" id="ktpwp-public-product-detail-title"><?php echo esc_html__( 'お申し込み', 'ktpwp' ); ?></h4>
+                    <h4 class="ktpwp-public-product-order-form__title" id="ktpwp-public-product-detail-title"><?php echo esc_html__( 'お問い合わせ', 'ktpwp' ); ?></h4>
                     <input type="hidden" name="service_id" value="" />
                     <p class="ktpwp-public-product-order-form__field">
                         <label for="ktpwp-pp-company"><?php echo esc_html__( '会社名', 'ktpwp' ); ?></label>
