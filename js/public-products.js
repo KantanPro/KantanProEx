@@ -83,6 +83,7 @@
 		var parts = [];
 		parts.push('<div class="ktpwp-public-product-detail__hero">');
 		if (product.image) {
+			parts.push('<div class="ktpwp-public-product-detail__image-wrap">');
 			parts.push(
 				'<img src="' +
 					escapeHtml(product.image) +
@@ -90,6 +91,7 @@
 					escapeHtml(product.name) +
 					'" class="ktpwp-public-product-detail__image" loading="lazy" decoding="async" />'
 			);
+			parts.push('</div>');
 		}
 		parts.push('<div class="ktpwp-public-product-detail__meta">');
 		parts.push('<h3 class="ktpwp-public-product-detail__name">' + escapeHtml(product.name) + '</h3>');
