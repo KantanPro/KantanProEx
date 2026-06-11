@@ -72,9 +72,22 @@
 	width: 100%;
 }
 
+.ktpwp-public-products-table thead {
+	display: table-header-group;
+}
+
+.ktpwp-public-products-table tbody {
+	display: table-row-group;
+}
+
+.ktpwp-public-products-table tr {
+	display: table-row;
+}
+
 .ktpwp-public-products-table th,
 .ktpwp-public-products-table td {
 	border: 1px solid #ddd;
+	display: table-cell;
 	padding: 8px 12px;
 	text-align: left;
 	vertical-align: middle;
@@ -82,6 +95,14 @@
 
 .ktpwp-public-products-table th {
 	background: #f6f7f7;
+}
+
+.ktpwp-public-products-table thead th {
+	padding-bottom: 10px;
+}
+
+.ktpwp-public-products-table tbody tr:first-child td {
+	padding-top: 10px;
 }
 
 /* グリッド */
@@ -114,35 +135,65 @@
 }
 
 .ktpwp-public-products-grid__image-wrap {
-	aspect-ratio: 4 / 3;
 	background: #f6f7f7;
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	padding: 12px 8px 4px;
+}
+
+.ktpwp-public-products-grid__image-wrap .ktpwp-public-product-item__image-btn {
+	align-items: center;
+	display: flex;
+	justify-content: center;
+	width: 100%;
 }
 
 .ktpwp-public-products-grid__image {
 	display: block;
-	height: 100%;
-	max-height: 200px;
+	height: auto;
+	max-height: 140px;
+	max-width: 88%;
 	object-fit: contain;
-	width: 100%;
+	width: auto;
 }
 
 .ktpwp-public-products-grid__body {
-	padding: 12px 14px;
+	padding: 8px 14px 4px;
 }
 
 .ktpwp-public-products-grid__name {
-	font-size: 1rem;
+	font-size: 0.9rem;
 	font-weight: 600;
-	margin: 0 0 6px;
+	line-height: 1.25;
+	margin: 0;
+	padding: 0;
+}
+
+.ktpwp-public-products-grid__name:first-child {
+	margin-block-start: 0;
+	margin-block-end: 0;
+	padding-block-start: 0;
+	padding-block-end: 0;
+}
+
+.ktpwp-public-products-grid__name + .ktpwp-public-products-grid__category {
+	margin-block-start: 6px;
+	margin-top: 6px;
+}
+
+.ktpwp-public-products-grid__name span {
+	display: inline;
+	line-height: inherit;
+	margin: 0;
+	padding: 0;
 }
 
 .ktpwp-public-products-grid__category {
 	color: #646970;
 	font-size: 0.85rem;
-	margin: 0 0 8px;
+	line-height: 1.2;
+	margin: 0 0 4px;
 }
 
 .ktpwp-public-products-grid__price-block,
@@ -189,6 +240,16 @@
 	margin: 8px 0 0;
 	white-space: pre-wrap;
 	word-break: break-word;
+}
+
+.ktpwp-public-products-grid__memo {
+	line-height: 1.2;
+	margin: 6px 0 0;
+	margin-block-end: 0;
+}
+
+.ktpwp-public-products-grid__body:has(.ktpwp-public-products-grid__memo:last-child) {
+	padding-bottom: 2px;
 }
 
 .ktpwp-public-products-table__memo {
@@ -412,6 +473,12 @@
 
 .ktpwp-public-products-table .ktpwp-public-product-item:hover {
 	background: #f8fafc;
+}
+
+.ktpwp-public-products-table .ktpwp-public-product-item:hover,
+.ktpwp-public-products-table .ktpwp-public-product-item:focus {
+	box-shadow: inset 0 0 0 2px #6366f1;
+	outline: none;
 }
 
 /* 詳細・お申し込み（モーダル） */
