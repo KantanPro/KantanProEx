@@ -502,9 +502,8 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 						$selected_department_email = '';
 
 						// 選択された部署のメールアドレスを取得
-						if ( class_exists( 'KTPWP_Department_Manager' ) && ! empty( $order->client_id ) ) {
-							// 選択された部署のメールアドレスを取得（新しい方式）
-							$selected_department_email = KTPWP_Department_Manager::get_selected_department_email_new( $order->client_id );
+						if ( class_exists( 'KTPWP_Department_Manager' ) ) {
+							$selected_department_email = KTPWP_Department_Manager::get_department_email_for_order( $order );
 						}
 
 						// 選択された部署のメールアドレスを優先使用
@@ -1356,22 +1355,61 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 						'memo' => '', // 初期値は空
 						'search_field' => sanitize_text_field( implode( ', ', array( $customer_name, $user_name ) ) ), // 検索用フィールド
 					);
+					$insert_formats = array(
+						'%s', // order_number
+						'%d', // time
+						'%d', // client_id
+						'%s', // customer_name
+						'%s', // user_name
+						'%s', // project_name
+						'%s', // invoice_items
+						'%s', // cost_items
+						'%s', // memo
+						'%s',  // search_field
+					);
+					$client_department_id = null;
+					if ( $client_id > 0 && class_exists( 'KTPWP_Department_Manager' ) ) {
+						$order_cols = $wpdb->get_col( "SHOW COLUMNS FROM `{$table_name}`", 0 );
+						if ( is_array( $order_cols ) && in_array( 'client_department_id', $order_cols, true ) ) {
+							$selected_department = KTPWP_Department_Manager::get_selected_department_by_client( $client_id );
+							if ( $selected_department ) {
+								$client_department_id = (int) $selected_department->id;
+							}
+						}
+					}
+					if ( $client_department_id ) {
+						$insert_data = array(
+							'order_number'         => $insert_data['order_number'],
+							'time'                 => $insert_data['time'],
+							'client_id'            => $insert_data['client_id'],
+							'client_department_id' => $client_department_id,
+							'customer_name'        => $insert_data['customer_name'],
+							'user_name'            => $insert_data['user_name'],
+							'project_name'         => $insert_data['project_name'],
+							'invoice_items'        => $insert_data['invoice_items'],
+							'cost_items'           => $insert_data['cost_items'],
+							'memo'                 => $insert_data['memo'],
+							'search_field'         => $insert_data['search_field'],
+						);
+						$insert_formats = array(
+							'%s',
+							'%d',
+							'%d',
+							'%d',
+							'%s',
+							'%s',
+							'%s',
+							'%s',
+							'%s',
+							'%s',
+							'%s',
+						);
+					}
 
 					$inserted = $wpdb->insert(
                         $table_name,
                         $insert_data,
-                        array(
-							'%s', // order_number
-							'%d', // time
-							'%d', // client_id
-							'%s', // customer_name
-							'%s', // user_name
-							'%s', // project_name
-							'%s', // invoice_items
-							'%s', // cost_items
-							'%s', // memo
-							'%s',  // search_field
-                        )
+                        $insert_formats
                     );
 
 					if ( $inserted ) {
@@ -1771,7 +1809,7 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					}
 
 					$client_url = '';
-					if ( ! empty( $order_data->client_id ) && $client_data && isset( $client_data->category ) && $client_data->category !== '対象外' ) {
+					if ( ! empty( $order_data->client_id ) && $client_data && $client_data->category !== '対象外' ) {
 						$client_url = add_query_arg(
 							array(
 								'tab_name' => 'client',
@@ -1781,7 +1819,6 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 						);
 					}
 
-					$dept_label = '';
 					$contact_name_raw = '';
 					if ( ! empty( $order_data->user_name ) ) {
 						$contact_name_raw = $order_data->user_name;
@@ -1797,21 +1834,43 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 						}
 					}
 					$selected_department = null;
-					if ( class_exists( 'KTPWP_Department_Manager' ) && ! empty( $order_data->client_id ) ) {
-						$selected_department = KTPWP_Department_Manager::get_selected_department_by_client( $order_data->client_id );
-						if ( $selected_department ) {
-							$dept_label = $selected_department->department_name;
+					if ( class_exists( 'KTPWP_Department_Manager' ) ) {
+						$selected_department = KTPWP_Department_Manager::resolve_department_for_order( $order_data );
+						if ( $selected_department && trim( (string) $selected_department->contact_person ) !== '' ) {
 							$contact_name_raw = $selected_department->contact_person;
 						}
 					}
-					$contact_display_html = esc_html( $contact_name_raw );
+
+					$parent_company_name = $display_customer_name;
+					if ( $client && ! empty( $client->company_name ) ) {
+						$parent_company_name = sanitize_text_field( $client->company_name );
+					}
+
+					$client_id_display_for_header = $client_id_display;
+					if ( $client_url !== '' && ! empty( $order_data->client_id ) ) {
+						$client_id_display_for_header = '（' . esc_html__( '顧客ID', 'ktpwp' ) . ': ' . esc_html( $order_data->client_id ) . '）';
+					}
+
+					$order_header_source_inner = esc_html( $parent_company_name );
+					$order_header_source_inner .= '<span class="client-id ktp-order-summary-client-meta">' . $client_id_display_for_header . '</span>';
+					if ( $selected_department ) {
+						$dept_display_name = class_exists( 'KTPWP_Department_Manager' )
+							? KTPWP_Department_Manager::department_name_for_mail_addressee( $selected_department->department_name )
+							: sanitize_text_field( $selected_department->department_name );
+						$dept_contact_name = trim( (string) $selected_department->contact_person );
+						if ( $dept_contact_name === '' ) {
+							$dept_contact_name = $contact_name_raw;
+						}
+						$order_header_source_inner .= esc_html( $dept_display_name ) . ': ' . esc_html( $dept_contact_name ) . esc_html__( ' 様より', 'ktpwp' );
+					} else {
+						$order_header_source_inner .= esc_html( $contact_name_raw ) . esc_html__( ' 様より', 'ktpwp' );
+					}
 
 					if ( $client_url !== '' ) {
-						$customer_cell_inner = '<a class="ktp-order-summary-client-link" href="' . esc_url( $client_url ) . '">' . esc_html( $display_customer_name ) . '</a>';
+						$order_header_source_html = '<a class="ktp-order-summary-client-link ktp-order-summary-client-link--full" href="' . esc_url( $client_url ) . '">' . $order_header_source_inner . '</a>';
 					} else {
-						$customer_cell_inner = '<span class="ktp-order-summary-client-text">' . esc_html( $display_customer_name ) . '</span>';
+						$order_header_source_html = '<span class="ktp-order-summary-client-text">' . $order_header_source_inner . '</span>';
 					}
-					$customer_cell_inner .= ' <span class="client-id ktp-order-summary-client-meta">' . $client_id_display . '</span>';
 
 					$order_payment_timing = 'postpay';
 					if ( property_exists( $order_data, 'payment_timing' ) && $order_data->payment_timing !== null && $order_data->payment_timing !== '' ) {
@@ -1835,15 +1894,9 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					$content .= '<span class="ktp-order-summary-field-label">' . esc_html__( '案件名', 'ktpwp' ) . '：</span>';
 					$content .= '<input type="text" class="order_project_name_inline order-header-projectname ktp-order-summary-project-input" name="order_project_name_inline" value="' . esc_attr( isset( $order_data->project_name ) ? $order_data->project_name : '' ) . '" data-order-id="' . esc_attr( $order_data->id ) . '" placeholder="' . esc_attr__( '案件名', 'ktpwp' ) . '" autocomplete="off" />';
 					$content .= '</div>';
-					$content .= '<div class="ktp-order-summary-field">';
-					$content .= '<div class="ktp-order-summary-field-value" id="order_customer_name">' . $customer_cell_inner . '</div>';
-					$content .= '</div>';
-					$content .= '<div class="ktp-order-summary-field">';
-					$content .= '<div class="ktp-order-summary-field-value">' . ( $dept_label !== '' ? esc_html( $dept_label ) : '<span class="ktp-order-summary-placeholder">—</span>' ) . '</div>';
-					$content .= '</div>';
-					$content .= '<div class="ktp-order-summary-field ktp-order-summary-field--contact">';
-					$content .= '<div class="ktp-order-summary-field-value ktp-order-summary-contact-row">';
-					$content .= '<span id="order_user_name">' . $contact_display_html . '</span>';
+					$content .= '<div class="ktp-order-summary-field ktp-order-summary-field--client-source">';
+					$content .= '<div class="ktp-order-summary-field-value ktp-order-summary-contact-row" id="order_customer_name">';
+					$content .= $order_header_source_html;
 					if ( $client && ! empty( $client->email ) ) {
 						$content .= '<a href="mailto:' . esc_attr( $client->email ) . '" class="ktp-order-summary-mail" title="' . esc_attr__( 'メール送信', 'ktpwp' ) . '"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;color:#2196f3;">mail</span></a>';
 					}
@@ -2471,53 +2524,56 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 			// 顧客の住所情報を取得（顧客テーブルから）
 			$customer_address = $this->Get_Customer_Address( $display_customer_name );
 
-			// 選択された部署情報を取得
+			// 受注に紐づく部署情報を取得
 			$selected_department = null;
-			if ( class_exists( 'KTPWP_Department_Manager' ) && ! empty( $order_data->client_id ) ) {
-				global $wpdb;
-				$client_table = $wpdb->prefix . 'ktp_client';
-				$selected_department_id = $wpdb->get_var(
-                    $wpdb->prepare(
-                        "SELECT selected_department_id FROM `{$client_table}` WHERE id = %d",
-                        $order_data->client_id
-                    )
-                );
+			if ( class_exists( 'KTPWP_Department_Manager' ) ) {
+				$selected_department = KTPWP_Department_Manager::resolve_department_for_order( $order_data );
+			}
 
-				if ( ! empty( $selected_department_id ) ) {
-					$selected_department = KTPWP_Department_Manager::get_selected_department( $order_data->client_id, $selected_department_id );
+			$parent_company_name = $display_customer_name;
+			if ( ! empty( $order_data->client_id ) ) {
+				global $wpdb;
+				$client_table        = $wpdb->prefix . 'ktp_client';
+				$client_company_name = $wpdb->get_var(
+					$wpdb->prepare(
+						"SELECT company_name FROM `{$client_table}` WHERE id = %d",
+						$order_data->client_id
+					)
+				);
+				if ( ! empty( $client_company_name ) ) {
+					$parent_company_name = $client_company_name;
 				}
 			}
 
+			$addressee_parent_line      = $display_customer_name;
+			$addressee_department_line  = '';
+			$addressee_name_line        = sprintf( __( '%s 様', 'ktpwp' ), $order_data->user_name );
+			if ( $selected_department ) {
+				$addressee_parent_line = $parent_company_name;
+				$addressee_department_line = class_exists( 'KTPWP_Department_Manager' )
+					? KTPWP_Department_Manager::department_name_for_mail_addressee( $selected_department->department_name )
+					: sanitize_text_field( $selected_department->department_name );
+				$contact_person = trim( (string) $selected_department->contact_person );
+				$addressee_name_line = sprintf(
+					__( '%s 様', 'ktpwp' ),
+					$contact_person !== '' ? $contact_person : $order_data->user_name
+				);
+			}
+
 			if ( ! empty( $customer_address ) && is_array( $customer_address ) ) {
-				// 住所がある場合：住所 → 会社名 → 選択された部署情報 → 名前 様
+				// 住所がある場合：住所 → 親会社名 → 部署名 → 担当者名 様
 				$html .= '<div class="customer-address" style="font-size: 14px; margin-bottom: 4px;">';
 				foreach ( $customer_address as $address_line ) {
 					$html .= '<div>' . esc_html( $address_line ) . '</div>';
 				}
 				$html .= '</div>';
-				$html .= '<div class="company-name" style="font-size: 16px; font-weight: bold; margin-bottom: 4px;">' . esc_html( $display_customer_name ) . '</div>';
-
-				// 選択された部署情報を表示
-				if ( $selected_department ) {
-					$html .= '<div class="department-info" style="font-size: 12px; margin-bottom: 4px; color: #666;">';
-					$html .= '<div>' . esc_html( sprintf( __( '%1$s %2$s 様', 'ktpwp' ), $selected_department->department_name, $selected_department->contact_person ) ) . '</div>';
-					$html .= '</div>';
-				}
-
-				$html .= '<div class="customer-name" style="font-size: 14px; margin-bottom: 100px;">' . esc_html( sprintf( __( '%s 様', 'ktpwp' ), $order_data->user_name ) ) . '</div>';
-			} else {			
-				// 住所がない場合：会社名 → 選択された部署情報 → 名前 様
-				$html .= '<div class="company-name" style="font-size: 16px; font-weight: bold; margin-bottom: 4px;">' . esc_html( $display_customer_name ) . '</div>';
-
-				// 選択された部署情報を表示
-				if ( $selected_department ) {
-					$html .= '<div class="department-info" style="font-size: 12px; margin-bottom: 4px; color: #666;">';
-					$html .= '<div>' . esc_html( sprintf( __( '%1$s %2$s 様', 'ktpwp' ), $selected_department->department_name, $selected_department->contact_person ) ) . '</div>';
-					$html .= '</div>';
-				}
-
-				$html .= '<div class="customer-name" style="font-size: 14px; margin-bottom: 100px;">' . esc_html( sprintf( __( '%s 様', 'ktpwp' ), $order_data->user_name ) ) . '</div>';
 			}
+
+			$html .= '<div class="company-name" style="font-size: 16px; font-weight: bold; margin-bottom: 4px;">' . esc_html( $addressee_parent_line ) . '</div>';
+			if ( $addressee_department_line !== '' ) {
+				$html .= '<div class="department-name" style="font-size: 14px; margin-bottom: 4px;">' . esc_html( $addressee_department_line ) . '</div>';
+			}
+			$html .= '<div class="customer-name" style="font-size: 14px; margin-bottom: 100px;">' . esc_html( $addressee_name_line ) . '</div>';
 
 			$html .= '</div>';
 

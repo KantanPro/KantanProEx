@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.3.19
+ * Version: 1.3.20
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -1573,6 +1573,7 @@ function ktpwp_initialize_new_installation() {
         ktpwp_safe_create_department_table();
         ktpwp_safe_add_department_selection_column();
         ktpwp_safe_add_client_selected_department_column();
+        ktpwp_safe_add_order_client_department_column();
 
         ktpwp_ensure_order_auxiliary_tables();
 
@@ -1612,6 +1613,7 @@ function ktpwp_run_staged_migrations( $from_version, $to_version ) {
         ktpwp_safe_create_department_table();
         ktpwp_safe_add_department_selection_column();
         ktpwp_safe_add_client_selected_department_column();
+        ktpwp_safe_add_order_client_department_column();
 
         ktpwp_ensure_order_auxiliary_tables();
 
@@ -1861,6 +1863,21 @@ function ktpwp_safe_add_client_selected_department_column() {
     } catch ( Exception $e ) {
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
             error_log( 'KTPWP Safe Client Department Column Error: ' . $e->getMessage() );
+        }
+    }
+}
+
+/**
+ * 安全な受注部署カラム追加
+ */
+function ktpwp_safe_add_order_client_department_column() {
+    try {
+        if ( function_exists( 'ktpwp_add_order_client_department_column' ) ) {
+            ktpwp_add_order_client_department_column();
+        }
+    } catch ( Exception $e ) {
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            error_log( 'KTPWP Safe Order Department Column Error: ' . $e->getMessage() );
         }
     }
 }
@@ -3125,6 +3142,37 @@ function ktpwp_add_client_selected_department_column() {
     if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
         error_log( 'KTPWP: 顧客テーブルのselected_department_idカラムは既に存在します。' );
     }
+
+    return true;
+}
+
+/**
+ * 受注テーブルに client_department_id カラムを追加する関数
+ */
+function ktpwp_add_order_client_department_column() {
+    global $wpdb;
+
+    $order_table = $wpdb->prefix . 'ktp_order';
+    $table_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $order_table ) );
+
+    if ( $table_exists !== $order_table ) {
+        return false;
+    }
+
+    $column_exists = $wpdb->get_results( $wpdb->prepare( "SHOW COLUMNS FROM `{$order_table}` LIKE %s", 'client_department_id' ) );
+    if ( ! empty( $column_exists ) ) {
+        return true;
+    }
+
+    $result = $wpdb->query( "ALTER TABLE {$order_table} ADD COLUMN client_department_id INT NULL DEFAULT NULL COMMENT '依頼元部署ID' AFTER client_id" );
+    if ( $result === false ) {
+        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            error_log( 'KTPWP: 受注テーブルへの client_department_id カラム追加に失敗しました。エラー: ' . $wpdb->last_error );
+        }
+        return false;
+    }
+
+    $wpdb->query( "ALTER TABLE {$order_table} ADD INDEX client_department_id (client_department_id)" );
 
     return true;
 }

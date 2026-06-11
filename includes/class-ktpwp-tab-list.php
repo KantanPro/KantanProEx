@@ -530,35 +530,16 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 				$content .= '<ul>';
 				foreach ( $order_list as $order ) {
 					$order_id = esc_html( $order->id );
-					$customer_name = esc_html( $order->customer_name );
-					$user_name = esc_html( $order->user_name );
 					$project_name = isset( $order->project_name ) ? esc_html( $order->project_name ) : '';
-
-					// 会社名と担当者名のフォールバック処理
-					if ( empty( $customer_name ) || empty( $user_name ) ) {
-						global $wpdb;
-						$client_table = $wpdb->prefix . 'ktp_client';
-						
-						// 顧客IDがある場合は顧客テーブルから情報を取得
-						if ( ! empty( $order->client_id ) ) {
-							$client_info = $wpdb->get_row(
-								$wpdb->prepare(
-									"SELECT company_name, name FROM `{$client_table}` WHERE id = %d",
-									$order->client_id
-								)
-							);
-							if ( $client_info ) {
-								if ( empty( $customer_name ) ) {
-									$customer_name = esc_html( $client_info->company_name );
-								}
-								if ( empty( $user_name ) ) {
-									$user_name = esc_html( $client_info->name );
-								}
-							}
-						}
+					$list_client_label = '';
+					if ( class_exists( 'KTPWP_Department_Manager' ) ) {
+						$list_client_label = esc_html(
+							KTPWP_Department_Manager::format_work_list_client_label_for_order( $order )
+						);
+					} else {
+						$list_client_label = esc_html( trim( (string) $order->customer_name . ' ' . (string) $order->user_name ) );
 					}
 
-					// 顧客リンク用の顧客ID（仕事リスト行で会社名を顧客タブへリンクするために使用）
 					$client_id = isset( $order->client_id ) ? (int) $order->client_id : 0;
 
 					// 納期フィールドの値を取得（希望納期は削除、納品予定日のみ）
@@ -807,7 +788,10 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 					// 左寄せブロック（ID・顧客名・担当者・プロジェクト・日時を一まとまりで左寄せ）
 					$content .= '<span class="ktp_work_list_item_text">';
 					// 行全体を受注書詳細へのリンクに統一し、顧客詳細リンクは廃止
-					$content .= "ID: {$order_id} - {$customer_name} ({$user_name})";
+					$content .= 'ID: ' . $order_id;
+					if ( $list_client_label !== '' ) {
+						$content .= ' ' . $list_client_label;
+					}
 					if ( $project_name !== '' ) {
 						$content .= " - <span class='project_name'>{$project_name}</span>";
 					}
@@ -942,11 +926,20 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 			}
 			$order_where .= ') ';
 			$order_args[] = 50;
-			$order_sql = "SELECT id, customer_name, user_name, project_name FROM `{$order_table}` WHERE " . $order_where . " ORDER BY time DESC LIMIT %d";
+			$order_sql = "SELECT id, client_id, customer_name, user_name, project_name FROM `{$order_table}` WHERE " . $order_where . " ORDER BY time DESC LIMIT %d";
 			$orders = $wpdb->get_results( $wpdb->prepare( $order_sql, $order_args ) );
 			if ( $orders ) {
 				foreach ( $orders as $row ) {
-					$label = 'ID:' . (int) $row->id . ' - ' . ( $row->customer_name ?: '' ) . ' (' . ( $row->user_name ?: '' ) . ')' . ( $row->project_name ? ' - ' . $row->project_name : '' );
+					$client_label = class_exists( 'KTPWP_Department_Manager' )
+						? KTPWP_Department_Manager::format_work_list_client_label_for_order( $row )
+						: trim( (string) ( $row->customer_name ?: '' ) . ' ' . (string) ( $row->user_name ?: '' ) );
+					$label = 'ID: ' . (int) $row->id;
+					if ( $client_label !== '' ) {
+						$label .= ' ' . $client_label;
+					}
+					if ( $row->project_name ) {
+						$label .= ' - ' . $row->project_name;
+					}
 					$url = add_query_arg( array( 'tab_name' => 'order', 'order_id' => (int) $row->id ) );
 					$results[] = array(
 						'page_label' => __( '受注書', 'ktpwp' ),

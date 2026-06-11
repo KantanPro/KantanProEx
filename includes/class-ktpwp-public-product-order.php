@@ -64,13 +64,6 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				);
 			}
 
-			if ( ! $this->check_rate_limit() ) {
-				return array(
-					'success' => false,
-					'message' => __( '送信回数が上限に達しました。しばらくしてから再度お試しください。', 'ktpwp' ),
-				);
-			}
-
 			$company_name = isset( $form['company_name'] ) ? sanitize_text_field( $form['company_name'] ) : '';
 			$contact_name = isset( $form['contact_name'] ) ? sanitize_text_field( $form['contact_name'] ) : '';
 			$email        = isset( $form['email'] ) ? sanitize_email( $form['email'] ) : '';
@@ -98,7 +91,7 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 
 			$customer_name = $company_name !== '' ? $company_name : $contact_name;
 
-			$client_id = $this->find_or_create_client(
+			$resolved = $this->find_or_create_client(
 				array(
 					'company_name' => $company_name !== '' ? $company_name : $customer_name,
 					'name'         => $contact_name,
@@ -109,7 +102,11 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				)
 			);
 
-			if ( ! $client_id ) {
+			$client_id     = is_array( $resolved ) ? (int) ( $resolved['client_id'] ?? 0 ) : 0;
+			$department_id = is_array( $resolved ) ? ( $resolved['department_id'] ?? null ) : null;
+			$department_id = $department_id ? (int) $department_id : null;
+
+			if ( $client_id <= 0 ) {
 				return array(
 					'success' => false,
 					'message' => __( 'お客様情報の保存に失敗しました。', 'ktpwp' ),
@@ -131,14 +128,15 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 
 			$order_id = $this->insert_order(
 				array(
-					'client_id'     => $client_id,
-					'customer_name' => $customer_name,
-					'user_name'     => $contact_name,
-					'project_name'  => $project_name,
-					'progress'      => 1,
-					'memo'          => $memo,
-					'search_field'  => $search_field,
-					'time'          => time(),
+					'client_id'            => $client_id,
+					'client_department_id' => $department_id,
+					'customer_name'        => $customer_name,
+					'user_name'            => $contact_name,
+					'project_name'         => $project_name,
+					'progress'             => 1,
+					'memo'                 => $memo,
+					'search_field'         => $search_field,
+					'time'                 => time(),
 				)
 			);
 
@@ -157,28 +155,11 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				}
 
 				$order_items = KTPWP_Order_Items::get_instance();
-				$price       = isset( $service->price ) ? floatval( $service->price ) : 0;
-				$unit        = isset( $service->unit ) ? sanitize_text_field( (string) $service->unit ) : '';
-				$tax_rate    = null;
-				if ( isset( $service->tax_rate ) && $service->tax_rate !== null && $service->tax_rate !== '' && is_numeric( $service->tax_rate ) ) {
-					$tax_rate = floatval( $service->tax_rate );
-				}
 
-				$invoice_saved = $order_items->save_invoice_items(
-					$order_id,
-					array(
-						array(
-							'id'           => 0,
-							'product_name' => $service_name,
-							'price'        => $price,
-							'quantity'     => $quantity,
-							'unit'         => $unit !== '' ? $unit : __( '式', 'ktpwp' ),
-							'amount'       => $price * $quantity,
-							'tax_rate'     => $tax_rate,
-							'remarks'      => '',
-						),
-					)
-				);
+				$invoice_saved = false;
+				if ( method_exists( $order_items, 'insert_invoice_item_from_public_product' ) ) {
+					$invoice_saved = $order_items->insert_invoice_item_from_public_product( $order_id, $service, $quantity );
+				}
 
 				if ( ! $invoice_saved ) {
 					error_log( 'KTPWP Public Product: Failed to save invoice items for order ' . $order_id );
@@ -197,8 +178,6 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 			} catch ( Throwable $e ) {
 				error_log( 'KTPWP Public Product: Post-order setup failed for order ' . $order_id . ' - ' . $e->getMessage() );
 			}
-
-			$this->increment_rate_limit();
 
 			return array(
 				'success'  => true,
@@ -337,23 +316,36 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 		 * 顧客を検索または新規作成する。
 		 *
 		 * @param array $data 顧客データ。
-		 * @return int|false
+		 * @return array{client_id: int, department_id: int|null}|false
 		 */
 		private function find_or_create_client( array $data ) {
 			global $wpdb;
 
 			$table_name = $wpdb->prefix . 'ktp_client';
 			$email      = isset( $data['email'] ) ? sanitize_email( $data['email'] ) : '';
+			$company_name = isset( $data['company_name'] ) ? sanitize_text_field( $data['company_name'] ) : '';
+			$contact_name = isset( $data['name'] ) ? sanitize_text_field( $data['name'] ) : '';
+			$department_id = null;
 
 			if ( $email !== '' ) {
-				$existing_id = $wpdb->get_var(
+				$existing = $wpdb->get_row(
 					$wpdb->prepare(
-						"SELECT id FROM {$table_name} WHERE email = %s ORDER BY id DESC LIMIT 1",
+						"SELECT * FROM {$table_name} WHERE email = %s ORDER BY id DESC LIMIT 1",
 						$email
 					)
 				);
-				if ( $existing_id ) {
-					return (int) $existing_id;
+				if ( $existing ) {
+					$client_id = (int) $existing->id;
+
+					if ( ! $this->identity_matches_client( $existing, $company_name, $contact_name ) ) {
+						$department_id = $this->find_or_create_department_for_client( $client_id, $company_name, $contact_name, $email );
+						$department_id = $department_id ? (int) $department_id : null;
+					}
+
+					return array(
+						'client_id'     => $client_id,
+						'department_id' => $department_id,
+					);
 				}
 			}
 
@@ -388,7 +380,94 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				return false;
 			}
 
-			return (int) $wpdb->insert_id;
+			return array(
+				'client_id'     => (int) $wpdb->insert_id,
+				'department_id' => null,
+			);
+		}
+
+		/**
+		 * 既存顧客とフォーム入力の会社名・担当者名が一致するか。
+		 *
+		 * @param object $client       ktp_client 行。
+		 * @param string $company_name 会社名。
+		 * @param string $contact_name 担当者名。
+		 * @return bool
+		 */
+		private function identity_matches_client( $client, $company_name, $contact_name ) {
+			$existing_company = isset( $client->company_name ) ? (string) $client->company_name : '';
+			$existing_contact = '';
+			if ( isset( $client->representative_name ) && trim( (string) $client->representative_name ) !== '' ) {
+				$existing_contact = (string) $client->representative_name;
+			} elseif ( isset( $client->name ) ) {
+				$existing_contact = (string) $client->name;
+			}
+
+			return $this->normalized_equal( $company_name, $existing_company )
+				&& $this->normalized_equal( $contact_name, $existing_contact );
+		}
+
+		/**
+		 * @param string $a 比較文字列 A。
+		 * @param string $b 比較文字列 B。
+		 * @return bool
+		 */
+		private function normalized_equal( $a, $b ) {
+			return mb_strtolower( trim( (string) $a ) ) === mb_strtolower( trim( (string) $b ) );
+		}
+
+		/**
+		 * 同一メール・別名義の問い合わせ用に部署を登録し、受注の宛先部署として選択する。
+		 *
+		 * @param int    $client_id    顧客 ID。
+		 * @param string $company_name フォームの会社名。
+		 * @param string $contact_name 担当者名。
+		 * @param string $email        メールアドレス。
+		 * @return int|false 部署 ID。失敗時 false。
+		 */
+		private function find_or_create_department_for_client( $client_id, $company_name, $contact_name, $email ) {
+			$client_id    = (int) $client_id;
+			$company_name = sanitize_text_field( (string) $company_name );
+			$contact_name = sanitize_text_field( (string) $contact_name );
+			$email        = sanitize_email( (string) $email );
+
+			if ( $client_id <= 0 || $contact_name === '' || $email === '' ) {
+				return false;
+			}
+
+			if ( ! class_exists( 'KTPWP_Department_Manager' ) ) {
+				require_once dirname( __FILE__ ) . '/class-ktpwp-department-manager.php';
+			}
+
+			if ( ! KTPWP_Department_Manager::table_exists() && function_exists( 'ktpwp_create_department_table' ) ) {
+				ktpwp_create_department_table();
+			}
+
+			$department_name = KTPWP_Department_Manager::build_inquiry_department_name( $company_name, $contact_name );
+
+			$departments = KTPWP_Department_Manager::get_departments_by_client( $client_id );
+			foreach ( $departments as $department ) {
+				if (
+					$this->normalized_equal( (string) ( $department->department_name ?? '' ), $department_name )
+					&& $this->normalized_equal( (string) ( $department->contact_person ?? '' ), $contact_name )
+				) {
+					return (int) $department->id;
+				}
+			}
+
+			$department_id = KTPWP_Department_Manager::add_department(
+				$client_id,
+				$department_name,
+				$contact_name,
+				$email
+			);
+
+			if ( ! $department_id ) {
+				error_log( 'KTPWP Public Product: Failed to create department for client ' . $client_id );
+				return false;
+			}
+
+			return (int) $department_id;
 		}
 
 		/**
@@ -430,10 +509,16 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 			if ( isset( $order_data['search_field'] ) ) {
 				$insert_data['search_field'] = sanitize_textarea_field( $order_data['search_field'] );
 			}
+			if ( ! empty( $order_data['client_department_id'] ) ) {
+				$cols = $wpdb->get_col( "SHOW COLUMNS FROM `{$table_name}`", 0 );
+				if ( is_array( $cols ) && in_array( 'client_department_id', $cols, true ) ) {
+					$insert_data['client_department_id'] = (int) $order_data['client_department_id'];
+				}
+			}
 
 			$format = array();
 			foreach ( array_keys( $insert_data ) as $key ) {
-				if ( in_array( $key, array( 'client_id', 'progress', 'time' ), true ) ) {
+				if ( in_array( $key, array( 'client_id', 'client_department_id', 'progress', 'time' ), true ) ) {
 					$format[] = '%d';
 				} else {
 					$format[] = '%s';
@@ -484,36 +569,5 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 			);
 		}
 
-		/**
-		 * 同一 IP の送信回数制限（1時間あたり 10 件）。
-		 *
-		 * @return bool
-		 */
-		private function check_rate_limit() {
-			$key   = $this->get_rate_limit_key();
-			$count = (int) get_transient( $key );
-			return $count < 10;
-		}
-
-		/**
-		 * 送信回数を加算する。
-		 *
-		 * @return void
-		 */
-		private function increment_rate_limit() {
-			$key   = $this->get_rate_limit_key();
-			$count = (int) get_transient( $key );
-			set_transient( $key, $count + 1, HOUR_IN_SECONDS );
-		}
-
-		/**
-		 * レート制限用 transient キー。
-		 *
-		 * @return string
-		 */
-		private function get_rate_limit_key() {
-			$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : 'unknown';
-			return 'ktpwp_pp_order_' . md5( $ip );
-		}
 	}
 }

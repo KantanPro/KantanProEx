@@ -5611,6 +5611,15 @@ body.ktpwp-modal-open {
 .ktp-order-summary-client-link:hover {
   text-decoration: underline;
 }
+.ktp-order-summary-client-link--full {
+  display: inline;
+  color: #1a73e8;
+  font-weight: 500;
+  text-decoration: none;
+}
+.ktp-order-summary-client-link--full:hover {
+  text-decoration: underline;
+}
 .ktp-order-summary-client-meta {
   font-size: 14px;
 }

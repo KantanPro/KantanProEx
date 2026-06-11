@@ -469,4 +469,183 @@ class KTPWP_Department_Manager {
 
         return '';
     }
+
+    /**
+     * Webフォーム等で作成する部署名（{フォームの会社名}: {担当者名}）。
+     *
+     * @param string $company_name フォームの会社名。
+     * @param string $contact_name 担当者名。
+     * @return string
+     */
+    public static function build_inquiry_department_name( $company_name, $contact_name ) {
+        $company_name = trim( sanitize_text_field( (string) $company_name ) );
+        $contact_name = trim( sanitize_text_field( (string) $contact_name ) );
+
+        if ( $company_name === '' ) {
+            $company_name = $contact_name;
+        }
+        if ( $contact_name === '' ) {
+            return mb_substr( $company_name, 0, 255 );
+        }
+
+        return mb_substr( $company_name . ': ' . $contact_name, 0, 255 );
+    }
+
+    /**
+     * メール宛先2行目用の部署表示名。「会社名: 担当者名」形式のとき会社名部分のみ返す。
+     *
+     * @param string $department_name 部署名。
+     * @return string
+     */
+    public static function department_name_for_mail_addressee( $department_name ) {
+        $department_name = trim( (string) $department_name );
+        if ( $department_name === '' ) {
+            return '';
+        }
+
+        $pos = mb_strpos( $department_name, ': ' );
+        if ( $pos !== false ) {
+            return trim( mb_substr( $department_name, 0, $pos ) );
+        }
+
+        return $department_name;
+    }
+
+    /**
+     * 受注に紐づく部署を解決する（受注の client_department_id を優先。顧客の選択部署は使わない）。
+     *
+     * @param object|null $order ktp_order 行。
+     * @return object|null
+     */
+    public static function resolve_department_for_order( $order ) {
+        if ( ! $order || empty( $order->client_id ) ) {
+            return null;
+        }
+
+        $client_id = (int) $order->client_id;
+
+        if ( isset( $order->client_department_id ) && (int) $order->client_department_id > 0 ) {
+            $dept = self::get_selected_department( $client_id, (int) $order->client_department_id );
+            if ( $dept ) {
+                return $dept;
+            }
+        }
+
+        $customer_name = trim( (string) ( $order->customer_name ?? '' ) );
+        $user_name     = trim( (string) ( $order->user_name ?? '' ) );
+        if ( $customer_name === '' || $user_name === '' ) {
+            return null;
+        }
+
+        global $wpdb;
+        $client_table = $wpdb->prefix . 'ktp_client';
+        $client       = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT company_name, name, representative_name FROM {$client_table} WHERE id = %d",
+                $client_id
+            )
+        );
+        if ( $client ) {
+            $rep_company = trim( (string) ( $client->company_name ?? '' ) );
+            $rep_contact = trim( (string) ( $client->representative_name ?? $client->name ?? '' ) );
+            if (
+                mb_strtolower( $customer_name ) === mb_strtolower( $rep_company )
+                && mb_strtolower( $user_name ) === mb_strtolower( $rep_contact )
+            ) {
+                return null;
+            }
+        }
+
+        $expected_name = self::build_inquiry_department_name( $customer_name, $user_name );
+        foreach ( self::get_departments_by_client( $client_id ) as $dept ) {
+            if (
+                mb_strtolower( trim( (string) ( $dept->department_name ?? '' ) ) ) === mb_strtolower( trim( $expected_name ) )
+                && mb_strtolower( trim( (string) ( $dept->contact_person ?? '' ) ) ) === mb_strtolower( $user_name )
+            ) {
+                return $dept;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 受注に紐づく部署メールアドレス（なければ空文字）。
+     *
+     * @param object|null $order ktp_order 行。
+     * @return string
+     */
+    public static function get_department_email_for_order( $order ) {
+        $dept = self::resolve_department_for_order( $order );
+        if ( ! $dept || empty( $dept->email ) ) {
+            return '';
+        }
+        $email = trim( str_replace( array( "\0", "\r", "\n", "\t" ), '', (string) $dept->email ) );
+        if ( $email === '' || ! filter_var( $email, FILTER_VALIDATE_EMAIL ) ) {
+            return '';
+        }
+        return sanitize_email( $email );
+    }
+
+    /**
+     * 仕事リスト等の顧客表示用（親会社・部署・担当者）。
+     *
+     * @param object|null $order ktp_order 行。
+     * @return array{parent: string, department: string, contact: string}
+     */
+    public static function work_list_client_parts_for_order( $order ) {
+        $fallback_company = isset( $order->customer_name ) ? (string) $order->customer_name : '';
+        $fallback_contact = isset( $order->user_name ) ? (string) $order->user_name : '';
+        $client_id        = isset( $order->client_id ) ? (int) $order->client_id : 0;
+
+        $parent     = trim( sanitize_text_field( $fallback_company ) );
+        $department = '';
+        $contact    = trim( sanitize_text_field( $fallback_contact ) );
+
+        if ( $client_id > 0 ) {
+            global $wpdb;
+            $client_table = $wpdb->prefix . 'ktp_client';
+            $client       = $wpdb->get_row(
+                $wpdb->prepare(
+                    "SELECT company_name FROM {$client_table} WHERE id = %d",
+                    $client_id
+                )
+            );
+            if ( $client && trim( (string) $client->company_name ) !== '' ) {
+                $parent = trim( sanitize_text_field( (string) $client->company_name ) );
+            }
+        }
+
+        $selected = self::resolve_department_for_order( $order );
+        if ( $selected ) {
+            $department   = self::department_name_for_mail_addressee( $selected->department_name );
+            $dept_contact = trim( sanitize_text_field( (string) $selected->contact_person ) );
+            if ( $dept_contact !== '' ) {
+                $contact = $dept_contact;
+            }
+        }
+
+        return array(
+            'parent'     => $parent,
+            'department' => $department,
+            'contact'    => $contact,
+        );
+    }
+
+    /**
+     * 仕事リスト行の顧客ラベル（空白区切り）。
+     *
+     * @param object|null $order ktp_order 行。
+     * @return string
+     */
+    public static function format_work_list_client_label_for_order( $order ) {
+        $parts    = self::work_list_client_parts_for_order( $order );
+        $segments = array();
+        foreach ( array( 'parent', 'department', 'contact' ) as $key ) {
+            if ( $parts[ $key ] !== '' ) {
+                $segments[] = $parts[ $key ];
+            }
+        }
+        return implode( ' ', $segments );
+    }
 }

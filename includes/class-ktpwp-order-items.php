@@ -132,6 +132,119 @@ if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
 		}
 
 		/**
+		 * 請求項目テーブルが無ければ作成する。
+		 *
+		 * @return bool テーブルが利用可能なら true。
+		 */
+		public function ensure_invoice_items_table() {
+			global $wpdb;
+
+			$table_name = $wpdb->prefix . 'ktp_order_invoice_items';
+			$exists     = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) );
+
+			if ( $exists !== $table_name ) {
+				$this->create_invoice_items_table();
+				$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) );
+			}
+
+			return $exists === $table_name;
+		}
+
+		/**
+		 * 公開商品の Web お申込み用に請求項目を 1 行追加する（KantanBiz 公開商品 inbound と同仕様）。
+		 *
+		 * @param int    $order_id 案件 ID。
+		 * @param object $service  ktp_service 行（service_name, price, unit, tax_rate）。
+		 * @param float  $quantity 数量。
+		 * @return bool
+		 */
+		public function insert_invoice_item_from_public_product( $order_id, $service, $quantity = 1.0 ) {
+			$order_id = (int) $order_id;
+			if ( $order_id <= 0 || ! is_object( $service ) ) {
+				return false;
+			}
+
+			if ( ! $this->ensure_invoice_items_table() ) {
+				error_log( 'KTPWP Public Product: Invoice items table is not available' );
+				return false;
+			}
+
+			$quantity = max( 1.0, (float) $quantity );
+			$price    = isset( $service->price ) ? (float) $service->price : 0.0;
+			$unit     = isset( $service->unit ) ? sanitize_text_field( (string) $service->unit ) : '';
+			if ( $unit === '' ) {
+				$unit = __( '式', 'ktpwp' );
+			}
+
+			$tax_rate = null;
+			if ( isset( $service->tax_rate ) && $service->tax_rate !== null && $service->tax_rate !== '' && is_numeric( $service->tax_rate ) ) {
+				$tax_rate = (float) $service->tax_rate;
+			}
+
+			$product_name = isset( $service->service_name ) ? sanitize_text_field( (string) $service->service_name ) : '';
+			if ( $product_name === '' ) {
+				return false;
+			}
+
+			global $wpdb;
+			$table_name = $wpdb->prefix . 'ktp_order_invoice_items';
+
+			$data = array(
+				'order_id'     => $order_id,
+				'product_name' => $product_name,
+				'price'        => $price,
+				'quantity'     => $quantity,
+				'unit'         => $unit,
+				'amount'       => (int) round( $price * $quantity ),
+				'remarks'      => '',
+				'sort_order'   => 0,
+				'created_at'   => current_time( 'mysql' ),
+				'updated_at'   => current_time( 'mysql' ),
+			);
+
+			$format = array( '%d', '%s', '%f', '%f', '%s', '%d', '%s', '%d', '%s', '%s' );
+
+			if ( $tax_rate !== null ) {
+				$data['tax_rate'] = $tax_rate;
+				$format[]         = '%f';
+			}
+
+			$result = $wpdb->insert( $table_name, $data, $format );
+			if ( $result === false ) {
+				error_log( 'KTPWP Public Product: Failed to insert invoice item - ' . $wpdb->last_error );
+				return false;
+			}
+
+			return true;
+		}
+
+		/**
+		 * 請求項目テーブルに指定カラムがあるか。
+		 *
+		 * @param string $column カラム名。
+		 * @return bool
+		 */
+		private function invoice_table_has_column( $column ) {
+			global $wpdb;
+
+			$column     = sanitize_key( (string) $column );
+			$table_name = $wpdb->prefix . 'ktp_order_invoice_items';
+
+			if ( $column === '' ) {
+				return false;
+			}
+
+			$found = $wpdb->get_var(
+				$wpdb->prepare(
+					"SHOW COLUMNS FROM `{$table_name}` LIKE %s",
+					$column
+				)
+			);
+
+			return is_string( $found ) && $found === $column;
+		}
+
+		/**
 		 * Create or update the cost items table.
 		 */
 		public function create_cost_items_table() {
@@ -220,6 +333,12 @@ if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
 			global $wpdb;
 			$table_name = $wpdb->prefix . 'ktp_order_invoice_items';
 
+			if ( ! $this->ensure_invoice_items_table() ) {
+				return false;
+			}
+
+			$has_is_provisional = $this->invoice_table_has_column( 'is_provisional' );
+
 			// Start transaction
 			$wpdb->query( 'START TRANSACTION' );
 
@@ -260,32 +379,32 @@ if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
 					// 商品名が空でも既存行(id>0)の場合は、product_nameを空で更新するために処理を続ける
 
 					$data = array(
-						'order_id' => $order_id,
+						'order_id'     => $order_id,
 						'product_name' => $product_name,
-						'price' => $price,
-						'quantity' => $quantity,
-						'unit' => $unit,
-						'amount' => $amount,
-						'tax_rate' => $tax_rate,
-						'remarks' => $remarks,
-						'is_provisional' => $is_provisional,
-						'sort_order' => $sort_order,
-						'updated_at' => current_time( 'mysql' ),
+						'price'        => $price,
+						'quantity'     => $quantity,
+						'unit'         => $unit,
+						'amount'       => $amount,
 					);
+					$format = array( '%d', '%s', '%f', '%f', '%s', '%f' );
 
-					$format = array(
-						'%d', // order_id
-						'%s', // product_name
-						'%f', // price
-						'%f', // quantity
-						'%s', // unit
-						'%f', // amount
-						( $tax_rate !== null ? '%f' : null ), // tax_rate
-						'%s', // remarks
-						'%d', // is_provisional
-						'%d', // sort_order
-						'%s',  // updated_at
-					);
+					if ( $tax_rate !== null ) {
+						$data['tax_rate'] = $tax_rate;
+						$format[]         = '%f';
+					}
+
+					$data['remarks'] = $remarks;
+					$format[]        = '%s';
+
+					if ( $has_is_provisional ) {
+						$data['is_provisional'] = $is_provisional;
+						$format[]               = '%d';
+					}
+
+					$data['sort_order'] = $sort_order;
+					$data['updated_at'] = current_time( 'mysql' );
+					$format[]           = '%d';
+					$format[]           = '%s';
 
 					$used_id = 0;
 					if ( $item_id > 0 ) {

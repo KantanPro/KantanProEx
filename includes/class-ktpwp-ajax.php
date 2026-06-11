@@ -1592,17 +1592,17 @@ class KTPWP_Ajax {
 	 * 既定の To（選択部署メール優先、なければ代表メール）。
 	 *
 	 * @param object|null $client ktp_client 行。
+	 * @param object|null $order  ktp_order 行。
 	 * @return string
 	 */
-	private function ktpwp_order_mail_default_to_email( $client ) {
+	private function ktpwp_order_mail_default_to_email( $client, $order = null ) {
 		if ( ! $client ) {
 			return '';
 		}
-		if ( class_exists( 'KTPWP_Department_Manager' ) && KTPWP_Department_Manager::table_exists() && ! empty( $client->id ) ) {
-			$dept_mail = KTPWP_Department_Manager::get_selected_department_email_new( (int) $client->id );
-			$dept_mail = trim( str_replace( array( "\0", "\r", "\n", "\t" ), '', (string) $dept_mail ) );
-			if ( $dept_mail !== '' && filter_var( $dept_mail, FILTER_VALIDATE_EMAIL ) ) {
-				return sanitize_email( $dept_mail );
+		if ( $order && class_exists( 'KTPWP_Department_Manager' ) && KTPWP_Department_Manager::table_exists() ) {
+			$dept_mail = KTPWP_Department_Manager::get_department_email_for_order( $order );
+			if ( $dept_mail !== '' && is_email( $dept_mail ) ) {
+				return $dept_mail;
 			}
 		}
 		$all = $this->ktpwp_order_mail_contact_email_candidates( $client );
@@ -1719,7 +1719,7 @@ class KTPWP_Ajax {
 			}
 
 			// 宛先・CC（KantanBiz: 部署選択を To に、他の代表・部署メールを CC 初期値に）
-			$to = $this->ktpwp_order_mail_default_to_email( $client );
+			$to = $this->ktpwp_order_mail_default_to_email( $client, $order );
 			if ( $to === '' || ! is_email( $to ) ) {
 				wp_send_json_error(
 					array(
@@ -2016,17 +2016,26 @@ class KTPWP_Ajax {
 			// 日付フォーマット
 			$order_date = wp_date( __( 'Y年m月d日', 'ktpwp' ), $order->time );
 
-			// 部署情報を取得
-			$department_info = '';
+			// 宛先表示（部署選択時: {親会社名} / {部署名} / {部署担当者名} 様）
 			$customer_display = $customer_name;
-			$user_display = sprintf( __( '%s 様', 'ktpwp' ), $user_name );
+			$user_display     = sprintf( __( '%s 様', 'ktpwp' ), $user_name );
 
 			if ( class_exists( 'KTPWP_Department_Manager' ) ) {
-				$selected_department = KTPWP_Department_Manager::get_selected_department_by_client( $client->id );
+				$selected_department = KTPWP_Department_Manager::resolve_department_for_order( $order );
 				if ( $selected_department ) {
-					// 部署選択がある場合：会社名、部署名、担当者名を別々に表示
-					$customer_display = $customer_name;
-					$user_display = $selected_department->department_name . "\n" . sprintf( __( '%s 様', 'ktpwp' ), $selected_department->contact_person );
+					$parent_company_name = ( ! empty( $client->company_name ) )
+						? sanitize_text_field( $client->company_name )
+						: $customer_name;
+					$department_mail_line = KTPWP_Department_Manager::department_name_for_mail_addressee(
+						$selected_department->department_name
+					);
+					$contact_person = sanitize_text_field( $selected_department->contact_person );
+
+					$customer_display = $parent_company_name . "\n" . $department_mail_line;
+					$user_display     = sprintf(
+						__( '%s 様', 'ktpwp' ),
+						$contact_person !== '' ? $contact_person : $user_name
+					);
 				}
 			}
 

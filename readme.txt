@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.19
+Stable tag: 1.3.20
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,16 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.20 - 2026年06月11日 =
+* 受注ごとに依頼元部署（`client_department_id`）を保持し、問い合わせごとの部署変更が他の受注に影響しないよう修正
+* 公開商品お問い合わせで同一メール・別名義時に部署を「{フォームの会社名}: {担当者名}」形式で登録し、受注に紐づけ
+* 公開商品からの受注作成時に選択商品を請求項目へ自動追加（KantanBiz 公開商品 inbound と同仕様）
+* 公開商品フォームの IP レート制限（10件/時）を削除
+* 受注書メール・ヘッダ・仕事リストの宛先表示を部署対応に改善（親会社名 / 部署名 / 担当者名）
+* 受注書ヘッダの顧客表示全体を顧客詳細ページへのリンクに変更
+* 顧客 category が NULL でも顧客リンクが表示されない問題を修正
+* 計9ファイル・679行増・212行減（v1.3.19…HEAD）
 
 = 1.3.19 - 2026年06月11日 =
 * 公開商品お問い合わせフォーム送信後に「通信エラー」と表示される問題を修正（AJAX 出力バッファのクリア・JSON 解析の改善・ajaxUrl を相対パスに変更）
