@@ -527,6 +527,44 @@ class KTPWP_Assets {
                     },
                 ),
             ),
+            'ktp-client-contract' => array(
+                'src'       => 'js/ktp-client-contract.js',
+                'deps'      => array( 'ktp-svg-icons' ),
+                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-client-contract.js' ),
+                'in_footer' => true,
+                'admin'     => false,
+                'localize'  => array(
+                    'object' => 'ktpClientContract',
+                    'data'   => function () {
+                        $client_id = 0;
+                        if ( isset( $_GET['data_id'] ) ) {
+                            $client_id = absint( $_GET['data_id'] );
+                        } elseif ( isset( $_COOKIE['ktp_client_id'] ) ) {
+                            $client_id = absint( $_COOKIE['ktp_client_id'] );
+                        }
+
+                        return array(
+                            'ajax_url'  => admin_url( 'admin-ajax.php' ),
+                            'nonce'     => wp_create_nonce( 'ktp_contract_nonce' ),
+                            'client_id' => $client_id,
+                        );
+                    },
+                ),
+            ),
+            'ktp-contract-billing' => array(
+                'src'       => 'js/ktp-contract-billing.js',
+                'deps'      => array(),
+                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-contract-billing.js' ),
+                'in_footer' => true,
+                'admin'     => false,
+                'localize'  => array(
+                    'object' => 'ktpContractBilling',
+                    'data'   => array(
+                        'ajax_url' => admin_url( 'admin-ajax.php' ),
+                        'nonce'    => wp_create_nonce( 'ktp_contract_billing_nonce' ),
+                    ),
+                ),
+            ),
             // 'ktp-skills-list-effects' => array(
             // 'src'       => 'js/skills-list-effects.js',
             // 'deps'      => array( 'jquery' ),
@@ -693,7 +731,10 @@ class KTPWP_Assets {
         );
 
         // 顧客タブ専用（顧客以外のタブでは不要な MutationObserver を避ける）
-        $client_only_scripts = array( 'ktp-client-delete-popup', 'ktp-client-invoice' );
+        $client_only_scripts = array( 'ktp-client-delete-popup', 'ktp-client-invoice', 'ktp-client-contract' );
+
+        // 仕事リストタブ専用
+        $list_only_scripts = array( 'ktp-contract-billing' );
 
         // 宛名印刷（顧客・協力会社タブ）
         $atena_print_tabs         = array( 'client', 'supplier' );
@@ -713,6 +754,11 @@ class KTPWP_Assets {
                 // 顧客タブ以外では顧客専用JSをスキップ
                 if ( ! $is_admin && $current_tab_name !== '' && $current_tab_name !== 'client'
                     && in_array( $handle, $client_only_scripts, true ) ) {
+                    continue;
+                }
+                // 仕事リスト以外では定期請求JSをスキップ
+                if ( ! $is_admin && $current_tab_name !== '' && $current_tab_name !== 'list'
+                    && in_array( $handle, $list_only_scripts, true ) ) {
                     continue;
                 }
                 // 宛名印刷は顧客・協力会社タブのみ

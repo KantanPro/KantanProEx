@@ -370,6 +370,134 @@ jQuery(document).ready(function($) {
                                     return num.toFixed(6).replace(/\.?0+$/, '');
                                 }
 
+                                function renderInvoiceItemsTable(items, res, taxCategory, tableOptions) {
+                                    var html = '';
+                                    var subtotal = 0;
+                                    if (!items || !items.length) {
+                                        return { html: html, subtotal: subtotal, items: [] };
+                                    }
+
+                                    html += "<div style=\"overflow-x:auto;\">";
+                                    html += "<table class=\"ktp-biz-items-table\" style=\"width:100%;border-collapse:collapse;font-size:14px;\">";
+                                    html += "<thead class=\"ktp-bulk-items-table-head\"><tr style=\"color:#4b5563;border-bottom:1px solid #fecdd3;background-color:#ffeef1;\">";
+                                    html += "<th style=\"text-align:left;padding:8px 12px;width:3.5rem;\">No.</th>";
+                                    html += "<th style=\"text-align:left;padding:8px 12px;\">" + t("サービス") + "</th>";
+                                    html += "<th style=\"text-align:right;padding:8px 12px;white-space:nowrap;\">" + t("単価") + "</th>";
+                                    html += "<th style=\"text-align:right;padding:8px 12px;white-space:nowrap;\">" + t("数量/単位") + "</th>";
+                                    html += "<th style=\"text-align:right;padding:8px 12px;\">" + t("金額") + "</th>";
+                                    if (!tableOptions.hideTaxCols) {
+                                        html += "<th class=\"ktp-bulk-tax-amount-col\" style=\"text-align:right;padding:8px 12px;\">" + t("税額") + "</th>";
+                                    }
+                                    if (tableOptions.showTaxRateCol) {
+                                        html += "<th style=\"text-align:right;padding:8px 12px;\">" + t("税率") + "</th>";
+                                    }
+                                    html += "<th style=\"text-align:left;padding:8px 12px;white-space:nowrap;\">" + t("備考") + "</th>";
+                                    html += "</tr></thead><tbody>";
+
+                                    items.forEach(function(item, index) {
+                                        var unitPrice = item.price ? ktpwpFormatMoney(item.price) : "—";
+                                        var quantity = item.quantity ? formatDecimalDisplay(item.quantity) : "—";
+                                        var amount = item.amount ? parseFloat(item.amount) : 0;
+                                        var totalPrice = amount > 0 ? ktpwpFormatMoney(amount) : "—";
+                                        var itemTaxRateRaw = item.tax_rate;
+                                        var itemTaxRate = null;
+                                        if (window.ktp_tax_policy) {
+                                            if (window.ktp_tax_policy.mode === 'abolished') {
+                                                itemTaxRate = 0;
+                                            } else if (window.ktp_tax_policy.mode === 'unified') {
+                                                itemTaxRate = parseFloat(window.ktp_tax_policy.unified_tax_rate || 0);
+                                            } else if (itemTaxRateRaw !== null && itemTaxRateRaw !== '' && !isNaN(parseFloat(itemTaxRateRaw))) {
+                                                itemTaxRate = parseFloat(itemTaxRateRaw);
+                                            }
+                                        } else if (itemTaxRateRaw !== null && itemTaxRateRaw !== '' && !isNaN(parseFloat(itemTaxRateRaw))) {
+                                            itemTaxRate = parseFloat(itemTaxRateRaw);
+                                        }
+                                        var taxRateDisplay = "-";
+                                        if (itemTaxRate !== null && !isNaN(itemTaxRate) && itemTaxRate >= 0) {
+                                            taxRateDisplay = itemTaxRate + "%";
+                                        }
+                                        var lineTaxAmountDisplay = "";
+                                        if (!tableOptions.hideTaxCols && itemTaxRate !== null && !isNaN(itemTaxRate) && itemTaxRate >= 0 && amount > 0) {
+                                            if (itemTaxRate === 0) {
+                                                lineTaxAmountDisplay = "—";
+                                            } else if (res.data.tax_category === "外税") {
+                                                lineTaxAmountDisplay = ktpwpFormatMoney(Math.ceil(amount * (itemTaxRate / 100)));
+                                            } else {
+                                                lineTaxAmountDisplay = ktpwpFormatMoney(Math.ceil(amount * (itemTaxRate / 100) / (1 + itemTaxRate / 100)));
+                                            }
+                                        }
+                                        if (amount > 0) {
+                                            subtotal += amount;
+                                        }
+                                        var rowBg = (index % 2 === 0) ? tableOptions.evenRowColor : tableOptions.oddRowColor;
+                                        html += "<tr class=\"ktp-biz-inv-row\" style=\"border-bottom:1px solid #f3f4f6;background-color:" + rowBg + ";\">";
+                                        html += "<td style=\"padding:8px 12px;color:#374151;\">" + (index + 1) + "</td>";
+                                        html += "<td style=\"padding:8px 12px;color:#111827;\">" + ktpInvoiceEscapeHtml(item.product_name || "") + "</td>";
+                                        html += "<td style=\"padding:8px 12px;text-align:right;color:#374151;white-space:nowrap;\">" + unitPrice + "</td>";
+                                        html += "<td style=\"padding:8px 12px;text-align:right;color:#374151;white-space:nowrap;\">" + quantity + "/" + ktpInvoiceEscapeHtml(item.unit || t("式")) + "</td>";
+                                        html += "<td style=\"padding:8px 12px;text-align:right;color:#111827;white-space:nowrap;\">" + totalPrice + "</td>";
+                                        if (!tableOptions.hideTaxCols) {
+                                            html += "<td class=\"ktp-bulk-tax-amount-col\" style=\"padding:8px 12px;text-align:right;color:#374151;white-space:nowrap;\">" + lineTaxAmountDisplay + "</td>";
+                                        }
+                                        if (tableOptions.showTaxRateCol) {
+                                            html += "<td style=\"padding:8px 12px;text-align:right;color:#374151;white-space:nowrap;\">" + taxRateDisplay + "</td>";
+                                        }
+                                        var remarksDisplay = item.remarks ? ktpInvoiceEscapeHtml(item.remarks) : "—";
+                                        html += "<td style=\"padding:8px 12px;color:#374151;\">" + remarksDisplay + "</td>";
+                                        html += "</tr>";
+                                    });
+
+                                    html += "</tbody></table></div>";
+                                    return { html: html, subtotal: subtotal, items: items };
+                                }
+
+                                function renderOrderBlock(order, res, taxCategory, tableOptions, customerHonorific) {
+                                    var blockHtml = "";
+                                    var deptLine = "";
+                                    if (res.data.selected_department) {
+                                        deptLine = t("部署：") + ktpInvoiceEscapeHtml(res.data.selected_department.department_name || "") + " ／ " + t("ご担当者名：") + ktpInvoiceEscapeHtml(res.data.selected_department.contact_person || "") + customerHonorific;
+                                    } else {
+                                        var cn = (res.data.client_contact || "").trim();
+                                        deptLine = t("部署：") + t("代表窓口") + " ／ " + t("ご担当者名：") + (cn ? cn + customerHonorific : "—");
+                                    }
+                                    var invoicedBadge = parseInt(order.progress, 10) === 5
+                                        ? "<span style=\"margin-left:8px;display:inline-flex;align-items:center;border-radius:9999px;background-color:#fef3c7;padding:2px 8px;font-size:11px;font-weight:700;color:#92400e;\">" + t("請求済（入金予定日超過）") + "</span>"
+                                        : "";
+                                    var recurringBadge = parseInt(order.contract_id, 10) > 0
+                                        ? "<span class=\"ktp-recurring-badge\" style=\"margin-left:8px;\">" + t("定期") + "</span>"
+                                        : "";
+
+                                    blockHtml += "<div style=\"border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;\">";
+                                    blockHtml += "<div style=\"padding:8px 12px;border-bottom:1px solid #e5e7eb;background-color:#fff;font-size:14px;font-weight:600;color:#1f2937;\">";
+                                    blockHtml += "ID: " + order.id + " - " + ktpInvoiceEscapeHtml(order.project_name || "") + t("（完了日：") + formatInvoiceCompletionDate(order.completion_date) + "）" + recurringBadge + invoicedBadge;
+                                    blockHtml += "<div style=\"margin-top:4px;font-size:12px;font-weight:normal;color:#4b5563;\">" + deptLine + "</div>";
+                                    blockHtml += "</div>";
+
+                                    var tableResult = renderInvoiceItemsTable(order.invoice_items || [], res, taxCategory, tableOptions);
+                                    if (tableResult.html) {
+                                        blockHtml += tableResult.html;
+                                        blockHtml += "<div style=\"padding:8px 12px;text-align:right;font-size:14px;font-weight:600;color:#111827;border-top:1px solid #f3f4f6;background-color:#fff;\">";
+                                        blockHtml += t("案件合計：") + ktpwpFormatMoney(tableResult.subtotal) + ktpInvoiceTaxInlineSuffixFromItems(tableResult.items, taxCategory, t);
+                                        blockHtml += "</div>";
+                                    } else {
+                                        blockHtml += "<div style=\"padding:12px;color:#6b7280;font-size:14px;\">" + t("請求項目なし") + "</div>";
+                                    }
+                                    blockHtml += "</div>";
+
+                                    return {
+                                        html: blockHtml,
+                                        subtotal: tableResult.subtotal,
+                                        items: tableResult.items
+                                    };
+                                }
+
+                                var tableOptions = {
+                                    hideTaxCols: hideTaxCols,
+                                    showTaxRateCol: showTaxRateCol,
+                                    oddRowColor: oddRowColor,
+                                    evenRowColor: evenRowColor
+                                };
+
                                 res.data.monthly_groups.forEach(function(group) {
                                     html += "<section style=\"border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;margin-bottom:16px;\">";
                                     html += "<div style=\"padding:8px 16px;background-color:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:14px;font-weight:600;color:#075985;\">";
@@ -379,107 +507,47 @@ jQuery(document).ready(function($) {
 
                                     var monthlyTotal = 0;
                                     var monthGroupItems = [];
+                                    var sections = group.sections && group.sections.length
+                                        ? group.sections
+                                        : [{ key: 'spot', label: '', orders: group.orders || [] }];
 
-                                    group.orders.forEach(function(order) {
-                                        var orderSubtotal = 0;
-                                        var deptLine = "";
-                                        if (res.data.selected_department) {
-                                            deptLine = t("部署：") + ktpInvoiceEscapeHtml(res.data.selected_department.department_name || "") + " ／ " + t("ご担当者名：") + ktpInvoiceEscapeHtml(res.data.selected_department.contact_person || "") + customerHonorific;
-                                        } else {
-                                            var cn = (res.data.client_contact || "").trim();
-                                            deptLine = t("部署：") + t("代表窓口") + " ／ " + t("ご担当者名：") + (cn ? cn + customerHonorific : "—");
+                                    sections.forEach(function(section) {
+                                        if (section.label) {
+                                            html += "<div class=\"ktp-bulk-invoice-section__title\">" + ktpInvoiceEscapeHtml(section.label) + "</div>";
                                         }
-                                        var invoicedBadge = parseInt(order.progress, 10) === 5
-                                            ? "<span style=\"margin-left:8px;display:inline-flex;align-items:center;border-radius:9999px;background-color:#fef3c7;padding:2px 8px;font-size:11px;font-weight:700;color:#92400e;\">" + t("請求済（入金予定日超過）") + "</span>"
-                                            : "";
 
-                                        html += "<div style=\"border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;\">";
-                                        html += "<div style=\"padding:8px 12px;border-bottom:1px solid #e5e7eb;background-color:#fff;font-size:14px;font-weight:600;color:#1f2937;\">";
-                                        html += "ID: " + order.id + " - " + ktpInvoiceEscapeHtml(order.project_name || "") + t("（完了日：") + formatInvoiceCompletionDate(order.completion_date) + "）" + invoicedBadge;
-                                        html += "<div style=\"margin-top:4px;font-size:12px;font-weight:normal;color:#4b5563;\">" + deptLine + "</div>";
-                                        html += "</div>";
-
-                                        if (order.invoice_items && order.invoice_items.length > 0) {
-                                            html += "<div style=\"overflow-x:auto;\">";
-                                            html += "<table class=\"ktp-biz-items-table\" style=\"width:100%;border-collapse:collapse;font-size:14px;\">";
-                                            html += "<thead class=\"ktp-bulk-items-table-head\"><tr style=\"color:#4b5563;border-bottom:1px solid #fecdd3;background-color:#ffeef1;\">";
-                                            html += "<th style=\"text-align:left;padding:8px 12px;width:3.5rem;\">No.</th>";
-                                            html += "<th style=\"text-align:left;padding:8px 12px;\">" + t("サービス") + "</th>";
-                                            html += "<th style=\"text-align:right;padding:8px 12px;white-space:nowrap;\">" + t("単価") + "</th>";
-                                            html += "<th style=\"text-align:right;padding:8px 12px;white-space:nowrap;\">" + t("数量/単位") + "</th>";
-                                            html += "<th style=\"text-align:right;padding:8px 12px;\">" + t("金額") + "</th>";
-                                            if (!hideTaxCols) {
-                                                html += "<th class=\"ktp-bulk-tax-amount-col\" style=\"text-align:right;padding:8px 12px;\">" + t("税額") + "</th>";
-                                            }
-                                            if (showTaxRateCol) {
-                                                html += "<th style=\"text-align:right;padding:8px 12px;\">" + t("税率") + "</th>";
-                                            }
-                                            html += "<th style=\"text-align:left;padding:8px 12px;white-space:nowrap;\">" + t("備考") + "</th>";
-                                            html += "</tr></thead><tbody>";
-
-                                            order.invoice_items.forEach(function(item, index) {
-                                                var unitPrice = item.price ? ktpwpFormatMoney(item.price) : "—";
-                                                var quantity = item.quantity ? formatDecimalDisplay(item.quantity) : "—";
-                                                var amount = item.amount ? parseFloat(item.amount) : 0;
-                                                var totalPrice = amount > 0 ? ktpwpFormatMoney(amount) : "—";
-                                                var itemTaxRateRaw = item.tax_rate;
-                                                var itemTaxRate = null;
-                                                if (window.ktp_tax_policy) {
-                                                    if (window.ktp_tax_policy.mode === 'abolished') {
-                                                        itemTaxRate = 0;
-                                                    } else if (window.ktp_tax_policy.mode === 'unified') {
-                                                        itemTaxRate = parseFloat(window.ktp_tax_policy.unified_tax_rate || 0);
-                                                    } else if (itemTaxRateRaw !== null && itemTaxRateRaw !== '' && !isNaN(parseFloat(itemTaxRateRaw))) {
-                                                        itemTaxRate = parseFloat(itemTaxRateRaw);
-                                                    }
-                                                } else if (itemTaxRateRaw !== null && itemTaxRateRaw !== '' && !isNaN(parseFloat(itemTaxRateRaw))) {
-                                                    itemTaxRate = parseFloat(itemTaxRateRaw);
-                                                }
-                                                var taxRateDisplay = "-";
-                                                if (itemTaxRate !== null && !isNaN(itemTaxRate) && itemTaxRate >= 0) {
-                                                    taxRateDisplay = itemTaxRate + "%";
-                                                }
-                                                var lineTaxAmountDisplay = "";
-                                                if (!hideTaxCols && itemTaxRate !== null && !isNaN(itemTaxRate) && itemTaxRate >= 0 && amount > 0) {
-                                                    if (itemTaxRate === 0) {
-                                                        lineTaxAmountDisplay = "—";
-                                                    } else if (res.data.tax_category === "外税") {
-                                                        lineTaxAmountDisplay = ktpwpFormatMoney(Math.ceil(amount * (itemTaxRate / 100)));
-                                                    } else {
-                                                        lineTaxAmountDisplay = ktpwpFormatMoney(Math.ceil(amount * (itemTaxRate / 100) / (1 + itemTaxRate / 100)));
-                                                    }
-                                                }
-                                                if (amount > 0) {
-                                                    orderSubtotal += amount;
-                                                }
-                                                var rowBg = (index % 2 === 0) ? evenRowColor : oddRowColor;
-                                                html += "<tr class=\"ktp-biz-inv-row\" style=\"border-bottom:1px solid #f3f4f6;background-color:" + rowBg + ";\">";
-                                                html += "<td style=\"padding:8px 12px;color:#374151;\">" + (index + 1) + "</td>";
-                                                html += "<td style=\"padding:8px 12px;color:#111827;\">" + ktpInvoiceEscapeHtml(item.product_name || "") + "</td>";
-                                                html += "<td style=\"padding:8px 12px;text-align:right;color:#374151;white-space:nowrap;\">" + unitPrice + "</td>";
-                                                html += "<td style=\"padding:8px 12px;text-align:right;color:#374151;white-space:nowrap;\">" + quantity + "/" + ktpInvoiceEscapeHtml(item.unit || t("式")) + "</td>";
-                                                html += "<td style=\"padding:8px 12px;text-align:right;color:#111827;white-space:nowrap;\">" + totalPrice + "</td>";
-                                                if (!hideTaxCols) {
-                                                    html += "<td class=\"ktp-bulk-tax-amount-col\" style=\"padding:8px 12px;text-align:right;color:#374151;white-space:nowrap;\">" + lineTaxAmountDisplay + "</td>";
-                                                }
-                                                if (showTaxRateCol) {
-                                                    html += "<td style=\"padding:8px 12px;text-align:right;color:#374151;white-space:nowrap;\">" + taxRateDisplay + "</td>";
-                                                }
-                                                var remarksDisplay = item.remarks ? ktpInvoiceEscapeHtml(item.remarks) : "—";
-                                                html += "<td style=\"padding:8px 12px;color:#374151;\">" + remarksDisplay + "</td>";
-                                                html += "</tr>";
+                                        if (section.key === 'initial' && section.lines && section.lines.length) {
+                                            var initialItems = section.lines.map(function(line) {
+                                                return {
+                                                    product_name: line.product_name,
+                                                    price: line.price,
+                                                    quantity: line.quantity,
+                                                    unit: line.unit,
+                                                    amount: line.amount,
+                                                    tax_rate: line.tax_rate,
+                                                    remarks: line.remarks
+                                                };
                                             });
-
-                                            html += "</tbody></table></div>";
-                                            html += "<div style=\"padding:8px 12px;text-align:right;font-size:14px;font-weight:600;color:#111827;border-top:1px solid #f3f4f6;background-color:#fff;\">";
-                                            html += t("案件合計：") + ktpwpFormatMoney(orderSubtotal) + ktpInvoiceTaxInlineSuffixFromItems(order.invoice_items || [], taxCategory, t);
+                                            html += "<div style=\"border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;\">";
+                                            html += "<div style=\"padding:8px 12px;border-bottom:1px solid #e5e7eb;background-color:#fff;font-size:13px;color:#4b5563;\">";
+                                            html += t("初回請求に含まれる追加費用（保証金・初期設定費など）");
                                             html += "</div>";
-                                        } else {
-                                            html += "<div style=\"padding:12px;color:#6b7280;font-size:14px;\">" + t("請求項目なし") + "</div>";
+                                            var initialTable = renderInvoiceItemsTable(initialItems, res, taxCategory, tableOptions);
+                                            html += initialTable.html;
+                                            html += "<div style=\"padding:8px 12px;text-align:right;font-size:14px;font-weight:600;color:#111827;border-top:1px solid #f3f4f6;background-color:#fff;\">";
+                                            html += t("初回のみ合計：") + ktpwpFormatMoney(initialTable.subtotal) + ktpInvoiceTaxInlineSuffixFromItems(initialTable.items, taxCategory, t);
+                                            html += "</div></div>";
+                                            monthlyTotal += initialTable.subtotal;
+                                            monthGroupItems = monthGroupItems.concat(initialTable.items);
+                                            return;
                                         }
-                                        monthlyTotal += orderSubtotal;
-                                        monthGroupItems = monthGroupItems.concat(order.invoice_items || []);
-                                        html += "</div>";
+
+                                        (section.orders || []).forEach(function(order) {
+                                            var orderBlock = renderOrderBlock(order, res, taxCategory, tableOptions, customerHonorific);
+                                            html += orderBlock.html;
+                                            monthlyTotal += orderBlock.subtotal;
+                                            monthGroupItems = monthGroupItems.concat(orderBlock.items);
+                                        });
                                     });
 
                                     html += "</div>";

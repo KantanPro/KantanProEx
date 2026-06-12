@@ -5299,8 +5299,9 @@ class KTPWP_Ajax {
 			}
 			
 			// 月別グループの合計を更新
-			$monthly_groups[$key]['subtotal'] = $group_subtotal;
-			$monthly_groups[$key]['tax_amount'] = $group_tax_amount;
+			$monthly_groups[ $key ]['subtotal'] = $group_subtotal;
+			$monthly_groups[ $key ]['tax_amount'] = $group_tax_amount;
+			$monthly_groups[ $key ]['sections']   = $this->build_bulk_invoice_sections( $group['orders'] );
 		}
 		
 		// 支払期日を計算
@@ -6513,5 +6514,99 @@ class KTPWP_Ajax {
 		}
 
 		return $where_clause;
+	}
+
+	/**
+	 * 一括請求プレビュー用に月別グループを【定期】【都度】【初回のみ】へ分割
+	 *
+	 * @param array<int, object> $orders 受注書一覧。
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function build_bulk_invoice_sections( $orders ) {
+		$initial_remark = class_exists( 'KTPWP_Contract_Billing' )
+			? KTPWP_Contract_Billing::INITIAL_FEE_REMARKS
+			: '初回のみ';
+
+		$recurring_orders = array();
+		$spot_orders      = array();
+		$initial_lines    = array();
+
+		foreach ( $orders as $order ) {
+			$contract_id     = isset( $order->contract_id ) ? (int) $order->contract_id : 0;
+			$recurring_items = array();
+			$spot_items      = array();
+
+			foreach ( (array) ( $order->invoice_items ?? array() ) as $item ) {
+				$remarks = isset( $item->remarks ) ? trim( (string) $item->remarks ) : '';
+				if ( $remarks === $initial_remark ) {
+					$initial_lines[] = array(
+						'order_id'        => (int) $order->id,
+						'project_name'    => (string) ( $order->project_name ?? '' ),
+						'completion_date' => $order->completion_date ?? '',
+						'progress'        => isset( $order->progress ) ? (int) $order->progress : 0,
+						'product_name'    => (string) ( $item->product_name ?? '' ),
+						'price'           => $item->price ?? 0,
+						'quantity'        => $item->quantity ?? 0,
+						'unit'            => (string) ( $item->unit ?? '' ),
+						'amount'          => $item->amount ?? 0,
+						'tax_rate'        => $item->tax_rate ?? null,
+						'remarks'         => $remarks,
+					);
+					continue;
+				}
+
+				if ( $contract_id > 0 ) {
+					$recurring_items[] = $item;
+				} else {
+					$spot_items[] = $item;
+				}
+			}
+
+			if ( $contract_id > 0 && ! empty( $recurring_items ) ) {
+				$recurring_orders[] = $this->filter_order_invoice_items( $order, $recurring_items );
+			}
+			if ( $contract_id <= 0 && ! empty( $spot_items ) ) {
+				$spot_orders[] = $this->filter_order_invoice_items( $order, $spot_items );
+			}
+		}
+
+		$sections = array();
+		if ( ! empty( $recurring_orders ) ) {
+			$sections[] = array(
+				'key'    => 'recurring',
+				'label'  => '【' . __( '定期', 'ktpwp' ) . '】',
+				'orders' => $recurring_orders,
+			);
+		}
+		if ( ! empty( $spot_orders ) ) {
+			$sections[] = array(
+				'key'    => 'spot',
+				'label'  => '【' . __( '都度', 'ktpwp' ) . '】',
+				'orders' => $spot_orders,
+			);
+		}
+		if ( ! empty( $initial_lines ) ) {
+			$sections[] = array(
+				'key'   => 'initial',
+				'label' => '【' . __( '初回のみ', 'ktpwp' ) . '】',
+				'lines' => $initial_lines,
+			);
+		}
+
+		return $sections;
+	}
+
+	/**
+	 * 受注書の請求行を部分集合に差し替え
+	 *
+	 * @param object             $order 受注書。
+	 * @param array<int, object> $items 請求行。
+	 * @return object
+	 */
+	private function filter_order_invoice_items( $order, $items ) {
+		$filtered                  = clone $order;
+		$filtered->invoice_items   = array_values( $items );
+
+		return $filtered;
 	}
 }

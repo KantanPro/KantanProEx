@@ -2171,6 +2171,10 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
         }
         </script>';
 
+				if ( class_exists( 'KTPWP_Contract_UI' ) && ! empty( $data_id ) && is_numeric( $data_id ) ) {
+					$data_forms .= KTPWP_Contract_UI::get_instance()->render_client_section( (int) $data_id );
+				}
+
 				// ボタン群は既にタイトル内に配置済み
 
 				// data_detail_box を閉じる

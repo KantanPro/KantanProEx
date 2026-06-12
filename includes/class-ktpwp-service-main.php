@@ -237,7 +237,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			if ( isset( $_GET['sort_by'] ) ) {
 				$sort_by = sanitize_text_field( $_GET['sort_by'] );
 				// 安全なカラム名のみ許可（SQLインジェクション対策）
-				$allowed_columns = array( 'id', 'service_name', 'price', 'unit', 'frequency', 'time', 'category', 'tax_rate', 'is_public' );
+				$allowed_columns = array( 'id', 'service_name', 'price', 'unit', 'frequency', 'time', 'category', 'tax_rate', 'is_public', 'contract_billing_cycle' );
 				if ( ! in_array( $sort_by, $allowed_columns ) ) {
 					$sort_by = 'id'; // 不正な値の場合はデフォルトに戻す
 				}
@@ -424,6 +424,12 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
                     $tax_display = $tax_rate !== null ? intval( $tax_rate ) . '%' : esc_html__( '非課税', 'ktpwp' );
                     $formatted_price = number_format( $price, 0, '.', ',' );
 					$is_public = isset( $row->is_public ) ? (int) $row->is_public : 0;
+					$contract_cycle_value = class_exists( 'KTPWP_Contract_Billing_Cycle' ) && isset( $row->contract_billing_cycle )
+						? KTPWP_Contract_Billing_Cycle::sanitize( $row->contract_billing_cycle )
+						: ( class_exists( 'KTPWP_Contract_Billing_Cycle' ) ? KTPWP_Contract_Billing_Cycle::NONE : 'none' );
+					$contract_cycle_cell = class_exists( 'KTPWP_Contract_Billing_Cycle' )
+						? '<td class="col-contract">' . KTPWP_Contract_Billing_Cycle::render_badge( $contract_cycle_value ) . '</td>'
+						: '';
 					$thumb_url   = $this->db_helper->resolve_image_url(
 						(int) $row->id,
 						isset( $row->image_url ) ? (string) $row->image_url : ''
@@ -437,6 +443,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					'<td class="col-image"><span class="ktp-service-list-thumb-wrap"><img src="' . esc_url( $thumb_url ) . '" alt="' . esc_attr( $service_name_raw ) . '" class="ktp-service-list-thumb" loading="lazy" decoding="async" width="40" height="40" onerror="this.src=\'' . esc_url( $default_thumb_url ) . '\'" /></span></td>' .
 					'<td class="col-name">' . $service_name . '</td>' .
 					'<td class="col-public">' . $this->render_service_public_badge( $is_public ) . '</td>' .
+					$contract_cycle_cell .
 					$price_unit_cell .
 					$tax_cell .
 					'<td class="col-category">' . $category . '</td>' .
@@ -488,6 +495,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			$category = '';
 			$image_url = '';
 			$is_public = 0;
+			$contract_billing_cycle = class_exists( 'KTPWP_Contract_Billing_Cycle' ) ? KTPWP_Contract_Billing_Cycle::NONE : 'none';
 			$query_id = 0;
 
 			// 追加モード以外の場合のみデータを取得
@@ -552,6 +560,9 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					$category = esc_html( $row->category );
 					$image_url = esc_html( $row->image_url );
 					$is_public = isset( $row->is_public ) ? (int) $row->is_public : 0;
+					$contract_billing_cycle = class_exists( 'KTPWP_Contract_Billing_Cycle' ) && isset( $row->contract_billing_cycle )
+						? KTPWP_Contract_Billing_Cycle::sanitize( $row->contract_billing_cycle )
+						: ( class_exists( 'KTPWP_Contract_Billing_Cycle' ) ? KTPWP_Contract_Billing_Cycle::NONE : 'none' );
 				}
 			}
 			  			// 表示するフォーム要素を定義
@@ -734,6 +745,9 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				}
 
 				$data_forms .= $this->render_is_public_checkbox_field( 0 );
+				$data_forms .= $this->render_contract_billing_cycle_field(
+					class_exists( 'KTPWP_Contract_Billing_Cycle' ) ? KTPWP_Contract_Billing_Cycle::NONE : 'none'
+				);
 
 				$data_forms .= "<div class='button'>";
 				// 追加実行ボタン
@@ -942,6 +956,11 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					}
 				}
 				$data_forms .= $this->render_is_public_checkbox_field( (int) $is_public );
+				$data_forms .= $this->render_contract_billing_cycle_field(
+					class_exists( 'KTPWP_Contract_Billing_Cycle' )
+						? KTPWP_Contract_Billing_Cycle::sanitize( $contract_billing_cycle )
+						: 'none'
+				);
 				$data_forms .= '<input type="hidden" name="query_post" value="update">';
 				$data_forms .= "<input type=\"hidden\" name=\"data_id\" value=\"{$data_id}\">";
 				$data_forms .= "<div class='button'>";
@@ -1372,6 +1391,11 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					'sort_key' => 'is_public',
 				),
 				array(
+					'class'    => 'col-contract',
+					'label'    => __( '契約', 'ktpwp' ),
+					'sort_key' => 'contract_billing_cycle',
+				),
+				array(
 					'class'    => 'col-price-unit',
 					'label'    => __( '価格/単位', 'ktpwp' ),
 					'sort_key' => 'price',
@@ -1415,6 +1439,32 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				. esc_html__( 'サイトに公開', 'ktpwp' )
 				. '</label>'
 				. '</div>';
+		}
+
+		/**
+		 * 契約（請求サイクル）セレクトの HTML を返す。
+		 *
+		 * @param string $selected 選択中のサイクル値。
+		 * @return string
+		 */
+		private function render_contract_billing_cycle_field( $selected ) {
+			if ( ! class_exists( 'KTPWP_Contract_Billing_Cycle' ) ) {
+				return '';
+			}
+
+			$selected = KTPWP_Contract_Billing_Cycle::sanitize( $selected );
+			$html     = '<div class="form-group ktpwp-service-contract-field">';
+			$html    .= '<label for="contract_billing_cycle">' . esc_html__( '契約（請求サイクル）', 'ktpwp' ) . '</label>';
+			$html    .= '<select id="contract_billing_cycle" name="contract_billing_cycle">';
+			foreach ( KTPWP_Contract_Billing_Cycle::get_options() as $value => $label ) {
+				$is_selected = $selected === $value ? ' selected' : '';
+				$html       .= '<option value="' . esc_attr( $value ) . '"' . $is_selected . '>' . esc_html( $label ) . '</option>';
+			}
+			$html .= '</select>';
+			$html .= '<p class="description">' . esc_html__( '定期契約で請求する場合にサイクルを選びます。都度請求のサービスは「都度請求」のままにしてください。', 'ktpwp' ) . '</p>';
+			$html .= '</div>';
+
+			return $html;
 		}
 
 		/**

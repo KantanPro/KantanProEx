@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.3.30
+ * Version: 1.3.31
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -976,6 +976,7 @@ if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
         'KTPWP_Update_Checker'  => 'includes/class-ktpwp-update-checker.php',
         'KTPWP_SVG_Icons'       => 'includes/class-ktpwp-svg-icons.php',
         'KTPWP_FM_Import'       => 'includes/class-ktpwp-fm-import.php',
+        'KTPWP_Contract_Reminder_Mail' => 'includes/class-ktpwp-contract-reminder-mail.php',
         'KTPWP_Settings'        => 'includes/class-ktpwp-settings.php',
         'KTPWP_Pdf_Document_Kind' => 'includes/class-ktpwp-pdf-document-kind.php',
         'KTPWP_Pdf_Document_Settings' => 'includes/class-ktpwp-pdf-document-settings.php',
@@ -984,6 +985,11 @@ if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
         'KTPWP_Pdf_Branding_Admin' => 'includes/class-ktpwp-pdf-branding-admin.php',
         'KTPWP_Payment_Timing'  => 'includes/class-ktpwp-payment-timing.php',
         'KTPWP_External_Url'    => 'includes/class-ktpwp-external-url.php',
+        'KTPWP_Contract_Billing_Cycle' => 'includes/class-ktpwp-contract-billing-cycle.php',
+        'KTPWP_Contract_DB'     => 'includes/class-ktpwp-contract-db.php',
+        'KTPWP_Contract_UI'     => 'includes/class-ktpwp-contract-ui.php',
+        'KTPWP_Contract_Billing'    => 'includes/class-ktpwp-contract-billing.php',
+        'KTPWP_Contract_Billing_UI' => 'includes/class-ktpwp-contract-billing-ui.php',
     );
 
     foreach ( $classes as $class_name => $file_path ) {
@@ -1010,6 +1016,10 @@ require_once __DIR__ . '/includes/ajax-supplier-cost.php';
 
 // --- 部署管理AJAXハンドラを読み込む ---
 require_once __DIR__ . '/includes/ajax-department.php';
+
+// --- 定期契約AJAXハンドラを読み込む ---
+require_once __DIR__ . '/includes/ajax-contract.php';
+require_once __DIR__ . '/includes/ajax-contract-billing.php';
 
 // --- 売上台帳PDF生成AJAXハンドラを読み込む ---
 require_once __DIR__ . '/includes/ajax-sales-ledger-pdf.php';
@@ -1058,6 +1068,17 @@ function ktpwp_init_update_checker() {
             // エラーログに初期化完了を記録
             error_log( 'KantanPro: 更新チェッカーが管理画面で初期化されました' );
         }
+    }
+}
+
+
+
+/**
+ * 定期契約の請求予定メール Cron を初期化
+ */
+function ktpwp_init_contract_reminder_mail() {
+    if ( class_exists( 'KTPWP_Contract_Reminder_Mail' ) ) {
+        KTPWP_Contract_Reminder_Mail::boot();
     }
 }
 
@@ -1117,6 +1138,7 @@ function ktpwp_init_image_optimizer() {
 // プラグインが完全に読み込まれた後に実行（最初に実行してフック最適化を行う）
 add_action( 'plugins_loaded', 'ktpwp_init_hook_manager', 0 );
 add_action( 'plugins_loaded', 'ktpwp_init_update_checker' );
+add_action( 'plugins_loaded', 'ktpwp_init_contract_reminder_mail' );
 add_action( 'plugins_loaded', 'ktpwp_init_cache' );
 add_action( 'plugins_loaded', 'ktpwp_init_image_optimizer' );
 add_action(
@@ -2822,6 +2844,10 @@ function ktpwp_plugin_deactivation() {
         // 一時ファイルのクリーンアップをスケジュール
         if ( function_exists('ktpwp_unschedule_temp_file_cleanup') ) {
             ktpwp_unschedule_temp_file_cleanup();
+        }
+
+        if ( class_exists( 'KTPWP_Contract_Reminder_Mail' ) ) {
+            KTPWP_Contract_Reminder_Mail::unschedule();
         }
         
         // セッション関連のクリーンアップ

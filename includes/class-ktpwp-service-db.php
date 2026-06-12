@@ -66,6 +66,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				frequency INT NOT NULL DEFAULT 0,
 				category VARCHAR(100) NOT NULL DEFAULT '" . esc_sql( __( 'General', 'ktpwp' ) ) . "',
 				is_public TINYINT(1) NOT NULL DEFAULT 0,
+				contract_billing_cycle VARCHAR(20) NOT NULL DEFAULT 'none',
 				PRIMARY KEY  (id)
 			) {$charset_collate};";
 
@@ -126,6 +127,9 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			$memo = isset( $_POST['memo'] ) ? sanitize_textarea_field( $_POST['memo'] ) : '';
 			$category = isset( $_POST['category'] ) ? sanitize_text_field( $_POST['category'] ) : '';
 			$is_public = isset( $_POST['is_public'] ) && '1' === (string) $_POST['is_public'] ? 1 : 0;
+			$contract_billing_cycle = class_exists( 'KTPWP_Contract_Billing_Cycle' )
+				? KTPWP_Contract_Billing_Cycle::sanitize( isset( $_POST['contract_billing_cycle'] ) ? wp_unslash( $_POST['contract_billing_cycle'] ) : '' )
+				: 'none';
 
 			// Create search field value
 			$search_field_value = implode(
@@ -164,11 +168,20 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 							'search_field' => $search_field_value,
 						);
 
+						if ( $this->service_table_has_contract_billing_cycle_column( $table_name ) ) {
+							$data['contract_billing_cycle'] = $contract_billing_cycle;
+						}
+
+						$format = array( '%s', '%f', '%f', '%s', '%s', '%s', '%d', '%s' );
+						if ( isset( $data['contract_billing_cycle'] ) ) {
+							$format[] = '%s';
+						}
+
 						$wpdb->update(
                             $table_name,
                             $data,
                             array( 'id' => $data_id ),
-                            array( '%s', '%f', '%f', '%s', '%s', '%s', '%d', '%s' ),
+                            $format,
                             array( '%d' )
 						);
 					}
@@ -235,6 +248,9 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			$memo = isset( $_POST['memo'] ) ? sanitize_textarea_field( $_POST['memo'] ) : '';
 			$category = isset( $_POST['category'] ) ? sanitize_text_field( $_POST['category'] ) : '';
 			$is_public = isset( $_POST['is_public'] ) && '1' === (string) $_POST['is_public'] ? 1 : 0;
+			$contract_billing_cycle = class_exists( 'KTPWP_Contract_Billing_Cycle' )
+				? KTPWP_Contract_Billing_Cycle::sanitize( isset( $_POST['contract_billing_cycle'] ) ? wp_unslash( $_POST['contract_billing_cycle'] ) : '' )
+				: 'none';
 
 			// 検索フィールド値を作成
 			$search_field_value = implode(
@@ -251,9 +267,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
             );
 
 			// 新規データを挿入
-			$insert_result = $wpdb->insert(
-                $table_name,
-                array(
+			$insert_data = array(
 					'id' => $new_id,
 					'time' => current_time( 'mysql' ),
 					'service_name' => $service_name,
@@ -266,8 +280,18 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 					'image_url' => '',
 					'frequency' => 0,
 					'search_field' => $search_field_value,
-                ),
-                array( '%d', '%s', '%s', '%f', '%f', '%s', '%s', '%s', '%d', '%s', '%d', '%s' )
+			);
+			$insert_format = array( '%d', '%s', '%s', '%f', '%f', '%s', '%s', '%s', '%d', '%s', '%d', '%s' );
+
+			if ( $this->service_table_has_contract_billing_cycle_column( $table_name ) ) {
+				$insert_data['contract_billing_cycle'] = $contract_billing_cycle;
+				$insert_format[] = '%s';
+			}
+
+			$insert_result = $wpdb->insert(
+                $table_name,
+                $insert_data,
+                $insert_format
 			);
 
 			if ( $insert_result === false ) {
@@ -380,9 +404,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 					$new_id = $new_id_result && isset( $new_id_result->new_id ) ? intval( $new_id_result->new_id ) : 1;
 
 					// データを複製して挿入
-					$insert_result = $wpdb->insert(
-                        $table_name,
-                        array(
+					$duplicate_data = array(
 							'id' => $new_id,
 							'time' => current_time( 'mysql' ),
 							'service_name' => $original_data->service_name . esc_html__( ' (複製)', 'ktpwp' ),
@@ -395,8 +417,21 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 							'image_url' => $original_data->image_url,
 							'frequency' => $original_data->frequency,
 							'search_field' => $original_data->service_name . esc_html__( ' (複製)', 'ktpwp' ) . ', ' . $original_data->price . ', ' . ( $original_data->tax_rate ?? '' ) . ', ' . $original_data->unit . ', ' . $original_data->category,
-                        ),
-                        array( '%d', '%s', '%s', '%f', '%f', '%s', '%s', '%s', '%d', '%s', '%d', '%s' )
+					);
+					$duplicate_format = array( '%d', '%s', '%s', '%f', '%f', '%s', '%s', '%s', '%d', '%s', '%d', '%s' );
+
+					if ( $this->service_table_has_contract_billing_cycle_column( $table_name ) ) {
+						$cycle_value = isset( $original_data->contract_billing_cycle ) ? $original_data->contract_billing_cycle : 'none';
+						$duplicate_data['contract_billing_cycle'] = class_exists( 'KTPWP_Contract_Billing_Cycle' )
+							? KTPWP_Contract_Billing_Cycle::sanitize( $cycle_value )
+							: 'none';
+						$duplicate_format[] = '%s';
+					}
+
+					$insert_result = $wpdb->insert(
+                        $table_name,
+                        $duplicate_data,
+                        $duplicate_format
 					);
 
 					if ( $insert_result === false ) {
@@ -1174,6 +1209,27 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 
 			$columns = $wpdb->get_col( "SHOW COLUMNS FROM `{$table_name}`" );
 			$cache[ $table_name ] = is_array( $columns ) && in_array( 'is_public', $columns, true );
+
+			return $cache[ $table_name ];
+		}
+
+		/**
+		 * サービステーブルに contract_billing_cycle カラムがあるか確認する。
+		 *
+		 * @param string $table_name テーブル名。
+		 * @return bool
+		 */
+		private function service_table_has_contract_billing_cycle_column( $table_name ) {
+			global $wpdb;
+
+			static $cache = array();
+
+			if ( isset( $cache[ $table_name ] ) ) {
+				return $cache[ $table_name ];
+			}
+
+			$columns = $wpdb->get_col( "SHOW COLUMNS FROM `{$table_name}`" );
+			$cache[ $table_name ] = is_array( $columns ) && in_array( 'contract_billing_cycle', $columns, true );
 
 			return $cache[ $table_name ];
 		}

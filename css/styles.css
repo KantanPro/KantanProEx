@@ -1740,6 +1740,590 @@ form > .create-order-btn {
   color: #6b7280;
 }
 
+.ktp-contract-cycle-badge {
+  border-radius: 4px;
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.ktp-contract-cycle-badge--recurring {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.ktp-contract-cycle-badge--none {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* 定期契約（顧客タブ） */
+.ktp-contract-section {
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin: 24px 0 0;
+  padding: 16px 18px;
+}
+
+.ktp-contract-section__title {
+  color: #333;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+.ktp-contract-section__hint,
+.ktp-contract-section__empty {
+  color: #666;
+  font-size: 12px;
+  margin: 0 0 12px;
+}
+
+.ktp-contract-section__toolbar {
+  margin-bottom: 12px;
+}
+
+.ktp-contract-list-table {
+  border-collapse: collapse;
+  font-size: 12px;
+  width: 100%;
+}
+
+.ktp-contract-list-table th,
+.ktp-contract-list-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.ktp-contract-list-table th {
+  background: #f5f5f5;
+}
+
+.ktp-contract-list-table__amount {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ktp-contract-list-table__actions {
+  white-space: nowrap;
+}
+
+.ktp-contract-list-table__actions .ktp-contract-action-btn {
+  margin-right: 4px;
+}
+
+.ktp-contract-list-table__actions .ktp-contract-action-btn:last-child {
+  margin-right: 0;
+}
+
+.ktp-contract-status {
+  border-radius: 4px;
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+}
+
+.ktp-contract-status--active {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.ktp-contract-status--paused {
+  background: #fff3e0;
+  color: #ef6c00;
+}
+
+.ktp-contract-status--cancelled {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.ktp-contract-form-wrap {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin-top: 16px;
+  padding: 16px;
+}
+
+.ktp-contract-form__heading {
+  font-size: 14px;
+  margin: 0 0 14px;
+}
+
+.ktp-contract-form__grid {
+  display: grid;
+  gap: 12px 16px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  margin-bottom: 12px;
+}
+
+.ktp-contract-form__field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.ktp-contract-form__field input[type="text"],
+.ktp-contract-form__field input[type="number"],
+.ktp-contract-form__field input[type="date"],
+.ktp-contract-form__field select,
+.ktp-contract-form__field textarea {
+  box-sizing: border-box;
+  max-width: 100%;
+  width: 100%;
+}
+
+.ktp-contract-form__field--checkbox label {
+  font-weight: normal;
+}
+
+.ktp-contract-form__actions {
+  border-top: 1px solid #eee;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+/* 定期契約ボタン（顧客タブの請求書発行・更新ボタンと同系統） */
+.ktp-contract-section .ktp-contract-action-btn {
+  align-items: center;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 500;
+  gap: 8px;
+  line-height: 1.2;
+  padding: 8px 18px;
+  transition: all 0.2s ease;
+}
+
+.ktp-contract-section .ktp-contract-action-btn:hover {
+  background: #f0f0f0;
+  border-color: #0073aa;
+}
+
+.ktp-contract-section .ktp-contract-action-btn .material-symbols-outlined,
+.ktp-contract-section .ktp-contract-action-btn .ktp-svg-icon {
+  display: inline-flex !important;
+  align-items: center;
+  font-size: 18px;
+  justify-content: center;
+  line-height: 1;
+}
+
+.ktp-contract-section .ktp-contract-action-btn--primary {
+  background: #28a745;
+  border-color: #1e7e34;
+  color: #fff;
+}
+
+.ktp-contract-section .ktp-contract-action-btn--primary:hover {
+  background: #1e7e34;
+  border-color: #155724;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.ktp-contract-section .ktp-contract-action-btn--secondary {
+  background: #666;
+  border-color: #555;
+  color: #fff;
+}
+
+.ktp-contract-section .ktp-contract-action-btn--secondary:hover {
+  background: #555;
+  border-color: #444;
+  color: #fff;
+}
+
+.ktp-contract-section .ktp-contract-action-btn--danger {
+  background: #fff;
+  border-color: #dc3545;
+  color: #dc3545;
+}
+
+.ktp-contract-section .ktp-contract-action-btn--danger:hover {
+  background: #dc3545;
+  border-color: #dc3545;
+  color: #fff;
+}
+
+.ktp-contract-section .ktp-contract-action-btn--icon {
+  justify-content: center;
+  min-height: 36px;
+  min-width: 36px;
+  padding: 8px 12px;
+}
+
+.ktp-contract-section .ktp-contract-action-btn--sm {
+  font-size: 12px;
+  padding: 6px 14px;
+}
+
+.ktp-contract-section .button .ktp-contract-action-btn {
+  margin-left: 0;
+}
+
+.ktp-contract-section .button .ktp-contract-action-btn + .ktp-contract-action-btn {
+  margin-left: 10px;
+}
+
+.ktp-contract-initial-fees {
+  border-top: 1px solid #eee;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.ktp-contract-initial-fees__title {
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+
+.ktp-contract-initial-fees__presets {
+  margin-bottom: 10px;
+}
+
+.ktp-contract-initial-fees__table {
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: 10px;
+  width: 100%;
+}
+
+.ktp-contract-initial-fees__table th,
+.ktp-contract-initial-fees__table td {
+  border: 1px solid #ddd;
+  padding: 6px;
+}
+
+.ktp-contract-initial-fees--locked .ktp-contract-initial-fees__table input,
+.ktp-contract-initial-fees--locked .ktp-contract-initial-fees__presets {
+  opacity: 0.7;
+}
+
+.ktp-contract-initial-fees__table .ktp-contract-initial-fees__actions {
+  text-align: center;
+  vertical-align: middle;
+  width: 44px;
+}
+
+.ktp-contract-initial-fees__table .ktp-contract-action-btn--icon {
+  min-height: 28px;
+  min-width: 28px;
+  padding: 4px 6px;
+}
+
+.ktp-contract-initial-fees--locked .ktp-contract-remove-fee-row {
+  display: none;
+}
+
+/* 定期請求（仕事リスト） */
+.ktp-list-view-switcher {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.ktp-list-view-switcher__btn {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  color: #333;
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  text-decoration: none;
+}
+
+.ktp-list-view-switcher__btn:hover {
+  background: #f5f5f5;
+  color: #333;
+}
+
+.ktp-list-view-switcher__btn.is-active {
+  background: #1976d2;
+  border-color: #1976d2;
+  color: #fff;
+  pointer-events: none;
+}
+
+.ktp-list-view-switcher__btn.is-active:hover {
+  background: #1976d2;
+  color: #fff;
+}
+
+.ktp-list-type-filter {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.ktp-list-type-filter__label {
+  color: #666;
+  font-size: 12px;
+}
+
+.ktp-list-type-filter__btn {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  color: #333;
+  font-size: 12px;
+  padding: 4px 10px;
+  text-decoration: none;
+}
+
+.ktp-list-type-filter__btn.is-active {
+  background: #1976d2;
+  border-color: #1976d2;
+  color: #fff;
+}
+
+.ktp-recurring-badge {
+  background: #fff3e0;
+  border-radius: 4px;
+  color: #e65100;
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 6px;
+  padding: 2px 8px;
+}
+
+.ktp-contract-billing-panel {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin: 16px 0;
+  padding: 16px;
+}
+
+.ktp-contract-billing-panel .ktp-contract-action-btn,
+.ktp-contract-billing-table .ktp-contract-action-btn {
+  align-items: center;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 500;
+  gap: 8px;
+  line-height: 1.2;
+  padding: 8px 18px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.ktp-contract-billing-panel .ktp-contract-action-btn--primary {
+  background: #28a745;
+  border-color: #1e7e34;
+  color: #fff;
+}
+
+.ktp-contract-billing-panel .ktp-contract-action-btn--primary:hover {
+  background: #1e7e34;
+  color: #fff;
+}
+
+.ktp-contract-billing-panel .ktp-contract-action-btn--secondary {
+  background: #666;
+  border-color: #555;
+  color: #fff;
+}
+
+.ktp-contract-billing-panel .ktp-contract-action-btn--secondary:hover {
+  background: #555;
+  color: #fff;
+}
+
+.ktp-contract-reminder-status {
+  border-radius: 4px;
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+}
+
+.ktp-contract-reminder-status--sent {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.ktp-contract-reminder-status--pending {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.ktp-contract-reminder-status--off {
+  background: #f5f5f5;
+  color: #757575;
+}
+
+.ktp-contract-billing-table .ktp-contract-billing-send-reminder-one {
+  font-size: 11px;
+  margin-left: 6px;
+  padding: 4px 10px;
+}
+
+.ktp-bulk-invoice-section__title {
+  color: #1e40af;
+  font-size: 14px;
+  font-weight: 700;
+  margin: 4px 0 8px;
+}
+
+.ktp-contract-billing-panel__header {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.ktp-contract-billing-panel__title {
+  font-size: 18px;
+  margin: 0 0 4px;
+}
+
+.ktp-contract-billing-panel__summary {
+  color: #666;
+  font-size: 13px;
+  margin: 0;
+}
+
+.ktp-contract-billing-panel__hint {
+  color: #888;
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+.ktp-contract-billing-panel__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ktp-contract-billing-panel__empty,
+.ktp-contract-billing-panel__hint {
+  color: #666;
+  font-size: 13px;
+}
+
+.ktp-contract-billing-table-wrap {
+  overflow-x: auto;
+}
+
+.ktp-contract-billing-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  width: 100%;
+}
+
+.ktp-contract-billing-table th,
+.ktp-contract-billing-table td {
+  border-bottom: 1px solid #eee;
+  padding: 10px 8px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.ktp-contract-billing-table th {
+  background: #f5f5f5;
+  font-weight: 600;
+}
+
+.ktp-contract-billing-table__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ktp-contract-billing-table__cycle {
+  white-space: nowrap;
+}
+
+.ktp-contract-billing-status {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+}
+
+.ktp-contract-billing-status--pending {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.ktp-contract-billing-status--generated {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.ktp-contract-billing-status--invoiced {
+  background: #f3e5f5;
+  color: #6a1b9a;
+}
+
+.ktp-contract-billing-status--paid {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.ktp-contract-billing-panel__message {
+  border-radius: 4px;
+  font-size: 13px;
+  margin-top: 12px;
+  padding: 10px 12px;
+}
+
+.ktp-contract-billing-panel__message.is-success {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.ktp-contract-billing-panel__message.is-error {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.ktp-contract-action-btn--muted {
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  color: #333;
+}
+
+.ktp-contract-action-btn--outline {
+  background: #fff;
+  border: 1px solid #1976d2;
+  color: #1976d2;
+  text-decoration: none;
+}
+
+.ktp-contract-action-btn--outline:hover {
+  background: #e3f2fd;
+}
+
 .ktp-service-list-table .col-id {
   text-align: right;
   white-space: nowrap;

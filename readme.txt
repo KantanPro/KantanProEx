@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.30
+Stable tag: 1.3.31
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,17 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.31 - 2026年06月13日 =
+* 定期契約（継続請求）機能を追加
+* 顧客タブに定期契約セクション（新規・編集・一覧・有効/一時停止/解約）を追加
+* サービスに「契約（請求サイクル）」設定を追加（都度/毎月/2ヶ月/半年/年次）
+* 仕事リストに定期請求ビュー・定期案件フィルターを追加
+* 定期請求の月次パネル（請求予定一覧・一括請求書プレビュー連携）を追加
+* 請求予定日のN日前に自動送信する「定期請求メール」設定を一般設定に追加（WP-Cron）
+* 契約・請求サイクル用 DB マイグレーション4件を追加
+* 請求書プレビュー JS の改善
+* 計26ファイル・約5100行増（v1.3.30…HEAD）
 
 = 1.3.30 - 2026年06月12日 =
 * Web受注時に管理者名義でスタッフチャットの初期メッセージを自動投稿

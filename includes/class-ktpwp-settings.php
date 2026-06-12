@@ -2351,6 +2351,24 @@ class KTPWP_Settings {
                             }
                         }
 
+                        // 定期請求メール
+                        if ( isset( $wp_settings_sections['ktp-general']['contract_reminder_setting_section'] ) ) {
+                            $section = $wp_settings_sections['ktp-general']['contract_reminder_setting_section'];
+                            echo '<h2>' . esc_html( $section['title'] ) . '</h2>';
+                            if ( $section['callback'] ) {
+                                call_user_func( $section['callback'], $section );
+                            }
+                            if ( isset( $wp_settings_fields['ktp-general']['contract_reminder_setting_section'] ) ) {
+                                echo '<table class="form-table">';
+                                foreach ( $wp_settings_fields['ktp-general']['contract_reminder_setting_section'] as $field ) {
+                                    echo '<tr><th scope="row">' . esc_html( $field['title'] ) . '</th><td>';
+                                    call_user_func( $field['callback'], $field['args'] );
+                                    echo '</td></tr>';
+                                }
+                                echo '</table>';
+                            }
+                        }
+
                         // 日本郵便 郵便番号・デジタルアドレスAPI（顧客フォームの住所自動入力）
                         if ( isset( $wp_settings_sections['ktp-general']['japanpost_api_setting_section'] ) ) {
                             $section = $wp_settings_sections['ktp-general']['japanpost_api_setting_section'];
@@ -2842,6 +2860,47 @@ class KTPWP_Settings {
             'ktp-general',
             'bank_transfer_setting_section'
         );
+
+        if ( class_exists( 'KTPWP_Contract_Reminder_Mail' ) ) {
+            add_settings_section(
+                'contract_reminder_setting_section',
+                __( '定期請求メール', 'ktpwp' ),
+                array( 'KTPWP_Contract_Reminder_Mail', 'render_settings_section_info' ),
+                'ktp-general'
+            );
+
+            add_settings_field(
+                'contract_reminder_enabled',
+                __( '自動送信', 'ktpwp' ),
+                array( 'KTPWP_Contract_Reminder_Mail', 'render_enabled_field' ),
+                'ktp-general',
+                'contract_reminder_setting_section'
+            );
+
+            add_settings_field(
+                'contract_reminder_days_before',
+                __( '送信タイミング', 'ktpwp' ),
+                array( 'KTPWP_Contract_Reminder_Mail', 'render_days_before_field' ),
+                'ktp-general',
+                'contract_reminder_setting_section'
+            );
+
+            add_settings_field(
+                'contract_reminder_subject',
+                __( '件名テンプレート', 'ktpwp' ),
+                array( 'KTPWP_Contract_Reminder_Mail', 'render_subject_field' ),
+                'ktp-general',
+                'contract_reminder_setting_section'
+            );
+
+            add_settings_field(
+                'contract_reminder_body',
+                __( '本文テンプレート', 'ktpwp' ),
+                array( 'KTPWP_Contract_Reminder_Mail', 'render_body_field' ),
+                'ktp-general',
+                'contract_reminder_setting_section'
+            );
+        }
 
         // 寄付設定セクション
         add_settings_section(
@@ -3687,6 +3746,24 @@ class KTPWP_Settings {
             $new_input['lock_line_tax_rate'] = (bool) $input['lock_line_tax_rate'];
         } else {
             $new_input['lock_line_tax_rate'] = false;
+        }
+
+        if ( isset( $input['contract_reminder_enabled'] ) ) {
+            $new_input['contract_reminder_enabled'] = (bool) $input['contract_reminder_enabled'];
+        } else {
+            $new_input['contract_reminder_enabled'] = false;
+        }
+
+        if ( isset( $input['contract_reminder_days_before'] ) ) {
+            $new_input['contract_reminder_days_before'] = max( 1, min( 30, absint( $input['contract_reminder_days_before'] ) ) );
+        }
+
+        if ( isset( $input['contract_reminder_subject'] ) ) {
+            $new_input['contract_reminder_subject'] = sanitize_text_field( $input['contract_reminder_subject'] );
+        }
+
+        if ( isset( $input['contract_reminder_body'] ) ) {
+            $new_input['contract_reminder_body'] = sanitize_textarea_field( $input['contract_reminder_body'] );
         }
 
         if ( isset( $input['company_info'] ) ) {
