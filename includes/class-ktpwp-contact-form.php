@@ -539,6 +539,16 @@ class KTPWP_Contact_Form {
             );
         }
 
+        if ( $new_id && class_exists( 'KTPWP_Staff_Chat' ) ) {
+            $staff_chat = KTPWP_Staff_Chat::get_instance();
+            if ( method_exists( $staff_chat, 'create_inbound_initial_chat' ) ) {
+                $staff_chat->create_inbound_initial_chat(
+                    (int) $new_id,
+                    KTPWP_Order_Admin_Notification::SOURCE_CONTACT_FORM7
+                );
+            }
+        }
+
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
             error_log( 'KTPWP Contact Form: Order data saved with ID ' . $new_id );
         }

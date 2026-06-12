@@ -165,8 +165,11 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 
 				if ( class_exists( 'KTPWP_Staff_Chat' ) ) {
 					$staff_chat = KTPWP_Staff_Chat::get_instance();
-					if ( method_exists( $staff_chat, 'create_initial_chat' ) ) {
-						$staff_chat->create_initial_chat( $order_id, null );
+					if ( method_exists( $staff_chat, 'create_inbound_initial_chat' ) ) {
+						$staff_chat->create_inbound_initial_chat(
+							$order_id,
+							KTPWP_Order_Admin_Notification::SOURCE_PUBLIC_PRODUCT
+						);
 					}
 				}
 			} catch ( Throwable $e ) {

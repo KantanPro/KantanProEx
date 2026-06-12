@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.29
+Stable tag: 1.3.30
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,13 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.30 - 2026年06月12日 =
+* Web受注時に管理者名義でスタッフチャットの初期メッセージを自動投稿
+* Contact Form 7・公開商品のお問い合わせ・WooCommerce 連携の3経路に対応
+* `KTPWP_Staff_Chat::create_inbound_initial_chat()` を追加（管理者へ通知があるため責任をチャット上でも明示）
+* 初期メッセージは常に日本語（例: Webからの受注がありました。（公開商品のお問い合わせ））
+* 計4ファイル・163行増・40行減（v1.3.29…HEAD）
 
 = 1.3.29 - 2026年06月12日 =
 * 受注メール送信ポップアップに BCC（任意）入力欄を追加
