@@ -446,7 +446,7 @@ class KTPWP_Assets {
             'ktp-email-popup' => array(
                 'src'       => 'js/ktp-email-popup.js',
                 'deps'      => array( 'jquery' ),
-                'ver'       => KTPWP_PLUGIN_VERSION,
+                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-email-popup.js' ),
                 'in_footer' => true,
                 'admin'     => false,
                 'localize'  => array(

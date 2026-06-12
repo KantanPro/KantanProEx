@@ -1558,18 +1558,27 @@ class KTPWP_Ajax {
 				return;
 			}
 			$s = sanitize_email( $e );
-			if ( $s !== '' && is_email( $s ) ) {
-				$candidates[] = $s;
+			if ( $s === '' || ! filter_var( $s, FILTER_VALIDATE_EMAIL ) ) {
+				$s = $e;
 			}
+			$candidates[] = $s;
 		};
 		$email_raw = $client->email ?? '';
-		$name_raw  = $client->name ?? '';
+		$rep_raw   = trim( str_replace( array( "\0", "\r", "\n", "\t" ), '', (string) ( $client->representative_name ?? '' ) ) );
+		$name_raw  = trim( str_replace( array( "\0", "\r", "\n", "\t" ), '', (string) ( $client->name ?? '' ) ) );
 		if ( (string) $email_raw === '' || trim( (string) $email_raw ) === '' ) {
-			$push( $name_raw );
+			if ( $rep_raw !== '' && filter_var( $rep_raw, FILTER_VALIDATE_EMAIL ) ) {
+				$push( $rep_raw );
+			} elseif ( $name_raw !== '' && filter_var( $name_raw, FILTER_VALIDATE_EMAIL ) ) {
+				$push( $name_raw );
+			}
 		} else {
 			$push( $email_raw );
 		}
-		if ( class_exists( 'KTPWP_Department_Manager' ) && KTPWP_Department_Manager::table_exists() && ! empty( $client->id ) ) {
+		if ( ! empty( $client->id ) && class_exists( 'KTPWP_Department_Manager' ) ) {
+			if ( function_exists( 'ktpwp_safe_create_department_table' ) ) {
+				ktpwp_safe_create_department_table();
+			}
 			foreach ( KTPWP_Department_Manager::get_departments_by_client( (int) $client->id ) as $dept ) {
 				if ( ! empty( $dept->email ) ) {
 					$push( $dept->email );
@@ -1610,22 +1619,235 @@ class KTPWP_Ajax {
 	}
 
 	/**
-	 * KantanBiz の CC 候補と同様、To 以外の登録メールをカンマ区切りで返す。
+	 * カンマ・改行区切りのメール文字列を配列に分解する。
 	 *
-	 * @param object|null $client    ktp_client 行。
-	 * @param string      $to_email  送信 To。
+	 * @param string $raw 入力文字列。
+	 * @return string[]
+	 */
+	private function ktpwp_order_mail_parse_email_list( $raw ) {
+		$parts = preg_split( '/[\s,;、]+/u', trim( (string) $raw ), -1, PREG_SPLIT_NO_EMPTY );
+		if ( ! is_array( $parts ) ) {
+			return array();
+		}
+		$out = array();
+		foreach ( $parts as $part ) {
+			$out[] = trim( (string) $part );
+		}
+		return array_values( array_unique( $out ) );
+	}
+
+	/**
+	 * 部署行からメール宛先ラベルを組み立てる（例: アットサイン 野中-atsign07@gmail.com）。
+	 *
+	 * @param object $department ktp_department 行。
+	 * @param string $email      メールアドレス。
 	 * @return string
 	 */
-	private function ktpwp_order_mail_suggested_cc_string( $client, $to_email ) {
-		$all   = $this->ktpwp_order_mail_contact_email_candidates( $client );
-		$to_lc = strtolower( (string) $to_email );
-		$cc    = array();
-		foreach ( $all as $e ) {
-			if ( strtolower( $e ) !== $to_lc ) {
-				$cc[] = $e;
+	private function ktpwp_order_mail_format_department_label( $department, $email ) {
+		$department_name = '';
+		if ( class_exists( 'KTPWP_Department_Manager' ) ) {
+			$department_name = trim(
+				KTPWP_Department_Manager::department_name_for_mail_addressee( (string) ( $department->department_name ?? '' ) )
+			);
+		}
+		$contact = trim( str_replace( array( "\0", "\r", "\n", "\t" ), '', (string) ( $department->contact_person ?? '' ) ) );
+		if ( $contact === '' || filter_var( $contact, FILTER_VALIDATE_EMAIL ) ) {
+			$contact = 'ご担当者';
+		}
+
+		if ( $department_name !== '' ) {
+			return $department_name . ' ' . $contact . '-' . $email;
+		}
+
+		return $contact . '-' . $email;
+	}
+
+	/**
+	 * 宛先候補の表示ラベル（部署名 担当者-メール 等）。
+	 *
+	 * @param object|null $client ktp_client 行。
+	 * @param string      $email  メールアドレス。
+	 * @param object|null $order  ktp_order 行（受注に紐づく部署を優先）。
+	 * @return string
+	 */
+	private function ktpwp_order_mail_recipient_label_for_email( $client, $email, $order = null ) {
+		$email_lc = strtolower( trim( (string) $email ) );
+		if ( $email_lc === '' || ! $client ) {
+			return (string) $email;
+		}
+
+		if ( $order && class_exists( 'KTPWP_Department_Manager' ) ) {
+			if ( function_exists( 'ktpwp_safe_create_department_table' ) ) {
+				ktpwp_safe_create_department_table();
+			}
+			$order_department = KTPWP_Department_Manager::resolve_department_for_order( $order );
+			if ( $order_department && ! empty( $order_department->email ) ) {
+				$order_dept_email = trim( str_replace( array( "\0", "\r", "\n", "\t" ), '', (string) $order_department->email ) );
+				if ( $order_dept_email !== '' && strtolower( $order_dept_email ) === $email_lc ) {
+					return $this->ktpwp_order_mail_format_department_label( $order_department, $email );
+				}
 			}
 		}
-		return implode( ', ', $cc );
+
+		if ( ! empty( $client->id ) && class_exists( 'KTPWP_Department_Manager' ) ) {
+			if ( function_exists( 'ktpwp_safe_create_department_table' ) ) {
+				ktpwp_safe_create_department_table();
+			}
+			foreach ( KTPWP_Department_Manager::get_departments_by_client( (int) $client->id ) as $dept ) {
+				$dept_email = trim( str_replace( array( "\0", "\r", "\n", "\t" ), '', (string) ( $dept->email ?? '' ) ) );
+				if ( $dept_email === '' || strtolower( $dept_email ) !== $email_lc ) {
+					continue;
+				}
+
+				return $this->ktpwp_order_mail_format_department_label( $dept, $email );
+			}
+		}
+
+		$client_email = trim( str_replace( array( "\0", "\r", "\n", "\t" ), '', (string) ( $client->email ?? '' ) ) );
+		$name_raw     = trim( str_replace( array( "\0", "\r", "\n", "\t" ), '', (string) ( $client->name ?? '' ) ) );
+		if ( ( $client_email === '' || ! filter_var( $client_email, FILTER_VALIDATE_EMAIL ) )
+			&& filter_var( $name_raw, FILTER_VALIDATE_EMAIL )
+			&& strtolower( $name_raw ) === $email_lc ) {
+			$contact = trim( str_replace( array( "\0", "\r", "\n", "\t" ), '', (string) ( $client->representative_name ?? $client->name ?? '' ) ) );
+			if ( $contact === '' || filter_var( $contact, FILTER_VALIDATE_EMAIL ) ) {
+				$contact = 'ご担当者';
+			}
+
+			return $contact . '-' . $email;
+		}
+		if ( $client_email !== '' && strtolower( $client_email ) === $email_lc ) {
+			$contact = trim( str_replace( array( "\0", "\r", "\n", "\t" ), '', (string) ( $client->representative_name ?? $client->name ?? '' ) ) );
+			if ( $contact === '' || filter_var( $contact, FILTER_VALIDATE_EMAIL ) ) {
+				$contact = 'ご担当者';
+			}
+
+			return $contact . '-' . $email;
+		}
+
+		return (string) $email;
+	}
+
+	/**
+	 * 宛先候補一覧（email + label）。
+	 *
+	 * @param object|null $client ktp_client 行。
+	 * @param object|null $order  ktp_order 行。
+	 * @return array<int, array{email: string, label: string}>
+	 */
+	private function ktpwp_order_mail_build_recipient_options( $client, $order = null ) {
+		$options = array();
+		foreach ( $this->ktpwp_order_mail_contact_email_candidates( $client ) as $email ) {
+			$options[] = array(
+				'email' => $email,
+				'label' => $this->ktpwp_order_mail_recipient_label_for_email( $client, $email, $order ),
+			);
+		}
+
+		return $options;
+	}
+
+	/**
+	 * CC 宛先を解決（部署チェックボックス + その他の CC）。
+	 *
+	 * @param string   $to_email  To。
+	 * @param string[] $allowed   顧客・部署の許可メール一覧。
+	 * @return string[]
+	 */
+	private function ktpwp_order_mail_resolve_cc_recipients( $to_email, array $allowed ) {
+		$to_lower = strtolower( trim( (string) $to_email ) );
+		$allowed_lc = array();
+		foreach ( $allowed as $email ) {
+			$allowed_lc[ strtolower( (string) $email ) ] = sanitize_email( (string) $email );
+		}
+
+		$contact_cc = array();
+		$cc_raw     = isset( $_POST['cc_emails'] ) ? wp_unslash( $_POST['cc_emails'] ) : array();
+		if ( is_array( $cc_raw ) ) {
+			foreach ( $cc_raw as $raw_email ) {
+				$email = sanitize_email( trim( (string) $raw_email ) );
+				if ( $email === '' || ! is_email( $email ) ) {
+					continue;
+				}
+				if ( ! isset( $allowed_lc[ strtolower( $email ) ] ) ) {
+					throw new Exception( 'CCに許可されていないメールアドレスが含まれています。' );
+				}
+				$contact_cc[] = $email;
+			}
+		}
+
+		$extra_raw = isset( $_POST['cc_emails_extra'] ) ? (string) wp_unslash( $_POST['cc_emails_extra'] ) : '';
+		if ( $extra_raw === '' && isset( $_POST['cc'] ) ) {
+			$extra_raw = (string) wp_unslash( $_POST['cc'] );
+		}
+		$extra_cc = $this->ktpwp_order_mail_parse_email_list( $extra_raw );
+		foreach ( $extra_cc as $email ) {
+			$clean = sanitize_email( $email );
+			if ( $clean === '' || ! is_email( $clean ) ) {
+				throw new Exception( 'その他のCCに無効なメールアドレスが含まれています。' );
+			}
+		}
+		$extra_cc = array_map( 'sanitize_email', $extra_cc );
+
+		if ( $to_lower !== '' ) {
+			foreach ( $extra_cc as $email ) {
+				if ( strtolower( $email ) === $to_lower ) {
+					throw new Exception( 'その他のCCに宛先と同じメールアドレスは指定できません。' );
+				}
+			}
+		}
+
+		$cc_list = array_values(
+			array_unique(
+				array_filter(
+					array_merge( $contact_cc, $extra_cc ),
+					static function ( $email ) use ( $to_lower ) {
+						return is_string( $email ) && $email !== '' && strtolower( $email ) !== $to_lower;
+					}
+				)
+			)
+		);
+
+		if ( count( $cc_list ) > 20 ) {
+			throw new Exception( 'CCは最大20件までです。' );
+		}
+
+		return $cc_list;
+	}
+
+	/**
+	 * BCC 宛先を解決（自由入力のみ）。
+	 *
+	 * @param string $to_email To。
+	 * @return string[]
+	 */
+	private function ktpwp_order_mail_resolve_bcc_recipients( $to_email ) {
+		$to_lower  = strtolower( trim( (string) $to_email ) );
+		$extra_raw = isset( $_POST['bcc_emails_extra'] ) ? (string) wp_unslash( $_POST['bcc_emails_extra'] ) : '';
+		$bcc_list  = $this->ktpwp_order_mail_parse_email_list( $extra_raw );
+
+		foreach ( $bcc_list as $email ) {
+			$clean = sanitize_email( $email );
+			if ( $clean === '' || ! is_email( $clean ) ) {
+				throw new Exception( 'BCCに無効なメールアドレスが含まれています。' );
+			}
+		}
+		$bcc_list = array_map( 'sanitize_email', $bcc_list );
+
+		if ( $to_lower !== '' ) {
+			foreach ( $bcc_list as $email ) {
+				if ( strtolower( $email ) === $to_lower ) {
+					throw new Exception( 'BCCに宛先と同じメールアドレスは指定できません。' );
+				}
+			}
+		}
+
+		$bcc_list = array_values( array_unique( array_filter( $bcc_list ) ) );
+
+		if ( count( $bcc_list ) > 20 ) {
+			throw new Exception( 'BCCは最大20件までです。' );
+		}
+
+		return $bcc_list;
 	}
 
 	/**
@@ -1686,9 +1908,18 @@ class KTPWP_Ajax {
 			if ( ! $client && ! empty( $order->customer_name ) && ! empty( $order->user_name ) ) {
 				$client = $wpdb->get_row(
 					$wpdb->prepare(
-						"SELECT * FROM `{$client_table}` WHERE company_name = %s AND name = %s",
+						"SELECT * FROM `{$client_table}` WHERE company_name = %s AND (name = %s OR representative_name = %s) LIMIT 1",
 						$order->customer_name,
+						$order->user_name,
 						$order->user_name
+					)
+				);
+			}
+			if ( ! $client && ! empty( $order->customer_name ) ) {
+				$client = $wpdb->get_row(
+					$wpdb->prepare(
+						"SELECT * FROM `{$client_table}` WHERE company_name = %s ORDER BY id DESC LIMIT 1",
+						$order->customer_name
 					)
 				);
 			}
@@ -1731,7 +1962,25 @@ class KTPWP_Ajax {
 				);
 				return;
 			}
-			$cc_default = $this->ktpwp_order_mail_suggested_cc_string( $client, $to );
+			$recipient_options = $this->ktpwp_order_mail_build_recipient_options( $client, $order );
+			$to_label          = $this->ktpwp_order_mail_recipient_label_for_email( $client, $to, $order );
+			$to_lc             = strtolower( (string) $to );
+			$cc_options        = array();
+			foreach ( $recipient_options as $option ) {
+				if ( strtolower( (string) $option['email'] ) !== $to_lc ) {
+					$cc_options[] = $option;
+				}
+			}
+			$cc_options = array_values( $cc_options );
+			$cc_default = implode(
+				', ',
+				array_map(
+					static function ( array $option ): string {
+						return (string) $option['email'];
+					},
+					$cc_options
+				)
+			);
 
 			// 自社情報取得
 			$smtp_settings = get_option( 'ktp_smtp_settings', array() );
@@ -2078,6 +2327,8 @@ class KTPWP_Ajax {
 			wp_send_json_success(
 				array(
 					'to'           => $to,
+					'to_label'     => $to_label,
+					'cc_options'   => $cc_options,
 					'cc'           => $cc_default,
 					'subject'      => $subject,
 					'body'         => $body,
@@ -2247,29 +2498,32 @@ class KTPWP_Ajax {
 				$headers[] = 'From: ' . $my_email;
 			}
 
-			$cc_list = array();
-			$cc_raw  = isset( $_POST['cc'] ) ? wp_unslash( $_POST['cc'] ) : '';
-			if ( is_array( $cc_raw ) ) {
-				$parts = $cc_raw;
-			} elseif ( is_string( $cc_raw ) && $cc_raw !== '' ) {
-				$parts = preg_split( '/[\s,;]+/', $cc_raw, -1, PREG_SPLIT_NO_EMPTY );
-			} else {
-				$parts = array();
+			global $wpdb;
+			$order_table  = $wpdb->prefix . 'ktp_order';
+			$client_table = $wpdb->prefix . 'ktp_client';
+			$order_row    = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT * FROM `{$order_table}` WHERE id = %d",
+					$order_id
+				)
+			);
+			$client_row = null;
+			if ( $order_row && ! empty( $order_row->client_id ) ) {
+				$client_row = $wpdb->get_row(
+					$wpdb->prepare(
+						"SELECT * FROM `{$client_table}` WHERE id = %d",
+						$order_row->client_id
+					)
+				);
 			}
-			$to_lower = strtolower( $to );
-			foreach ( (array) $parts as $p ) {
-				$e = sanitize_email( trim( (string) $p ) );
-				if ( $e === '' || ! is_email( $e ) ) {
-					continue;
-				}
-				if ( strtolower( $e ) === $to_lower ) {
-					continue;
-				}
-				$cc_list[] = $e;
-			}
-			$cc_list = array_values( array_unique( $cc_list ) );
+			$allowed  = $this->ktpwp_order_mail_contact_email_candidates( $client_row );
+			$cc_list  = $this->ktpwp_order_mail_resolve_cc_recipients( $to, $allowed );
+			$bcc_list = $this->ktpwp_order_mail_resolve_bcc_recipients( $to );
 			if ( $cc_list !== array() ) {
 				$headers[] = 'Cc: ' . implode( ', ', $cc_list );
+			}
+			if ( $bcc_list !== array() ) {
+				$headers[] = 'Bcc: ' . implode( ', ', $bcc_list );
 			}
 
 			// ファイル添付処理
@@ -2419,7 +2673,10 @@ class KTPWP_Ajax {
 						null,
 						'to',
 						$to,
-						$cc_list !== array() ? $cc_list : null
+						$cc_list !== array() ? $cc_list : null,
+						'customer',
+						null,
+						$bcc_list !== array() ? $bcc_list : null
 					);
 				}
 
@@ -2475,7 +2732,10 @@ class KTPWP_Ajax {
 						$mail_outcome['error_message'],
 						'to',
 						$to,
-						$cc_list !== array() ? $cc_list : null
+						$cc_list !== array() ? $cc_list : null,
+						'customer',
+						null,
+						$bcc_list !== array() ? $bcc_list : null
 					);
 				}
 				throw new Exception( 'メール送信に失敗しました。サーバー設定を確認してください。' );

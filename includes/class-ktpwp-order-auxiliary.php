@@ -54,6 +54,7 @@ class KTPWP_Order_Auxiliary {
 			to_email varchar(255) NOT NULL,
 			primary_to_email varchar(255) DEFAULT NULL,
 			cc_emails longtext DEFAULT NULL,
+			bcc_emails longtext DEFAULT NULL,
 			subject varchar(500) NOT NULL,
 			body longtext DEFAULT NULL,
 			send_status varchar(20) NOT NULL DEFAULT 'sent',
@@ -118,6 +119,17 @@ class KTPWP_Order_Auxiliary {
 		if ( ! in_array( 'context_note', $names, true ) ) {
 			$wpdb->query( "ALTER TABLE `{$table}` ADD COLUMN context_note varchar(500) DEFAULT NULL AFTER mail_kind" );
 		}
+
+		$columns = $wpdb->get_results( "SHOW COLUMNS FROM `{$table}`" );
+		$names   = array();
+		foreach ( (array) $columns as $col ) {
+			if ( isset( $col->Field ) ) {
+				$names[] = $col->Field;
+			}
+		}
+		if ( ! in_array( 'bcc_emails', $names, true ) ) {
+			$wpdb->query( "ALTER TABLE `{$table}` ADD COLUMN bcc_emails longtext DEFAULT NULL AFTER cc_emails" );
+		}
 	}
 
 	/**
@@ -172,6 +184,7 @@ class KTPWP_Order_Auxiliary {
 	 * @param array|null  $cc_emails CC アドレスの配列。
 	 * @param string      $mail_kind customer | purchase_order など。
 	 * @param string|null $context_note 発注先協力会社名など補足。
+	 * @param array|null  $bcc_emails BCC アドレスの配列。
 	 */
 	public static function record_customer_mail(
 		int $order_id,
@@ -184,7 +197,8 @@ class KTPWP_Order_Auxiliary {
 		?string $primary_to_email = null,
 		?array $cc_emails = null,
 		string $mail_kind = 'customer',
-		?string $context_note = null
+		?string $context_note = null,
+		?array $bcc_emails = null
 	): void {
 		global $wpdb;
 
@@ -206,6 +220,19 @@ class KTPWP_Order_Auxiliary {
 			$cc_json = $clean !== array() ? wp_json_encode( $clean, JSON_UNESCAPED_UNICODE ) : null;
 		}
 
+		$bcc_json = null;
+		if ( is_array( $bcc_emails ) && $bcc_emails !== array() ) {
+			$clean_bcc = array_values(
+				array_filter(
+					array_map( 'trim', $bcc_emails ),
+					static function ( $v ) {
+						return is_string( $v ) && $v !== '';
+					}
+				)
+			);
+			$bcc_json = $clean_bcc !== array() ? wp_json_encode( $clean_bcc, JSON_UNESCAPED_UNICODE ) : null;
+		}
+
 		$note = $context_note !== null && $context_note !== '' ? mb_substr( $context_note, 0, 500 ) : null;
 		$kind = $mail_kind !== '' ? $mail_kind : 'customer';
 
@@ -220,6 +247,7 @@ class KTPWP_Order_Auxiliary {
 				'to_email'           => $to,
 				'primary_to_email'   => $primary_to_email !== null && $primary_to_email !== '' ? $primary_to_email : $to,
 				'cc_emails'          => $cc_json,
+				'bcc_emails'         => $bcc_json,
 				'subject'            => mb_substr( $subject, 0, 500 ),
 				'body'               => $body,
 				'send_status'        => $success ? 'sent' : 'failed',
@@ -227,7 +255,7 @@ class KTPWP_Order_Auxiliary {
 				'sent_at'            => current_time( 'mysql' ),
 				'created_at'         => current_time( 'mysql' ),
 			),
-			array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' )
+			array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' )
 		);
 	}
 
@@ -317,6 +345,14 @@ class KTPWP_Order_Auxiliary {
 					}
 				}
 
+				$bcc_show = '—';
+				if ( ! empty( $log->bcc_emails ) ) {
+					$dec_bcc = json_decode( (string) $log->bcc_emails, true );
+					if ( is_array( $dec_bcc ) && $dec_bcc !== array() ) {
+						$bcc_show = esc_html( implode( ', ', array_map( 'strval', $dec_bcc ) ) );
+					}
+				}
+
 				$ok     = isset( $log->send_status ) && $log->send_status === 'sent';
 				$status = $ok
 					? '<span style="font-size:11px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;">' . esc_html__( '成功', 'ktpwp' ) . '</span>'
@@ -338,6 +374,7 @@ class KTPWP_Order_Auxiliary {
 				}
 				$html .= '<table class="widefat ktp-mail-log-meta-table"><tbody>';
 				$html .= '<tr><th>' . esc_html__( 'CC', 'ktpwp' ) . '</th><td>' . $cc_show . '</td></tr>';
+				$html .= '<tr><th>' . esc_html__( 'BCC', 'ktpwp' ) . '</th><td>' . $bcc_show . '</td></tr>';
 				$html .= '<tr><th>' . esc_html__( '件名', 'ktpwp' ) . '</th><td class="ktp-mail-log-subject-cell">' . esc_html( (string) $log->subject ) . '</td></tr>';
 				if ( ! $ok && ! empty( $log->error_message ) ) {
 					$html .= '<tr><th>' . esc_html__( 'エラー', 'ktpwp' ) . '</th><td class="ktp-mail-log-error-cell">' . esc_html( (string) $log->error_message ) . '</td></tr>';
