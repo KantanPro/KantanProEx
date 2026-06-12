@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.27
+Stable tag: 1.3.28
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,13 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.28 - 2026年06月12日 =
+* 外部経路からの受注作成時に管理者へメール通知する機能を追加（`KTPWP_Order_Admin_Notification`）
+* WooCommerce 連携・Contact Form 7・公開商品のお問い合わせから受注登録時に通知を送信
+* 受注元・受注番号・案件名・進捗・顧客情報・受注書リンク等をメール本文に含む
+* 同一リクエスト内の重複通知を防止
+* 計6ファイル・443行増（v1.3.27…HEAD）
 
 = 1.3.27 - 2026年06月12日 =
 * サービス画像URL解決を強化（旧形式 `{id}.jpeg` と新形式 `{id}-{日付}.{ext}` の両方に対応）
