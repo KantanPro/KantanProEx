@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.28
+Stable tag: 1.3.29
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,14 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.29 - 2026年06月12日 =
+* 受注メール送信ポップアップに BCC（任意）入力欄を追加
+* CC を顧客・部署の連絡先チェックボックス＋「その他のCC」テキスト入力に改善
+* 宛先・CC 候補を部署名・担当者付きラベルで表示（受注紐づけ部署を優先）
+* メール送信ログに BCC を記録・履歴画面に表示
+* メールポップアップ JS のキャッシュバスターを強化
+* 計5ファイル・410行増・78行減（v1.3.28…HEAD）
 
 = 1.3.28 - 2026年06月12日 =
 * 外部経路からの受注作成時に管理者へメール通知する機能を追加（`KTPWP_Order_Admin_Notification`）
