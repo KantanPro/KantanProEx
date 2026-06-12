@@ -690,14 +690,8 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			// デフォルト画像のURLを設定
 			$default_image_url = plugin_dir_url( __DIR__ ) . 'images/default/no-image-icon.jpg';
 
-			// 既存の画像ファイルを削除する処理を追加
-			$upload_dir = __DIR__ . '/../images/upload/';
-			$file_path = $upload_dir . $data_id . '.jpeg';
-
-			// ファイルが存在する場合は削除する
-			if ( file_exists( $file_path ) ) {
-				unlink( $file_path );
-			}
+			// 既存の画像ファイルを削除する（旧形式・新形式の両方）
+			$this->delete_uploaded_image_files( $data_id );
 
 			$wpdb->update(
                 $table_name,
@@ -952,6 +946,124 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 		}
 
 		/**
+		 * サービス画像のアップロード先ディレクトリ（物理パス）を返す。
+		 *
+		 * @return string
+		 */
+		public function get_upload_dir() {
+			return dirname( __DIR__ ) . '/images/upload/';
+		}
+
+		/**
+		 * サービス画像のアップロード先 URL を返す。
+		 *
+		 * @return string
+		 */
+		public function get_upload_url() {
+			return plugin_dir_url( dirname( __DIR__ ) . '/ktpwp.php' ) . 'images/upload/';
+		}
+
+		/**
+		 * デフォルト（ノーイメージ）画像 URL を返す。
+		 *
+		 * @return string
+		 */
+		public function get_default_image_url() {
+			return plugin_dir_url( dirname( __DIR__ ) . '/ktpwp.php' ) . 'images/default/no-image-icon.jpg';
+		}
+
+		/**
+		 * サービス ID に紐づくアップロード画像ファイルを検索する。
+		 *
+		 * 旧形式（{id}.jpeg）と新形式（{id}-{日付}.{ext}）の両方に対応する。
+		 *
+		 * @param int $service_id サービス ID。
+		 * @return string|null 見つかったファイルの物理パス。なければ null。
+		 */
+		public function find_uploaded_image_file( $service_id ) {
+			$service_id = absint( $service_id );
+			if ( $service_id <= 0 ) {
+				return null;
+			}
+
+			$upload_dir = $this->get_upload_dir();
+			if ( ! is_dir( $upload_dir ) ) {
+				return null;
+			}
+
+			foreach ( array( '.jpeg', '.jpg' ) as $ext ) {
+				$legacy_file = $upload_dir . $service_id . $ext;
+				if ( is_file( $legacy_file ) ) {
+					return $legacy_file;
+				}
+			}
+
+			$pattern = $upload_dir . $service_id . '-*.{jpeg,jpg,png,gif}';
+			$files   = glob( $pattern, GLOB_BRACE );
+			if ( empty( $files ) ) {
+				return null;
+			}
+
+			usort(
+				$files,
+				static function ( $a, $b ) {
+					return filemtime( $b ) <=> filemtime( $a );
+				}
+			);
+
+			return $files[0];
+		}
+
+		/**
+		 * サービス ID に紐づくアップロード画像ファイルをすべて削除する。
+		 *
+		 * @param int $service_id サービス ID。
+		 * @return void
+		 */
+		public function delete_uploaded_image_files( $service_id ) {
+			$service_id = absint( $service_id );
+			if ( $service_id <= 0 ) {
+				return;
+			}
+
+			$upload_dir = $this->get_upload_dir();
+			if ( ! is_dir( $upload_dir ) ) {
+				return;
+			}
+
+			foreach ( array( '.jpeg', '.jpg', '.png', '.gif' ) as $ext ) {
+				$legacy_file = $upload_dir . $service_id . $ext;
+				if ( is_file( $legacy_file ) ) {
+					@unlink( $legacy_file );
+				}
+			}
+
+			$files = glob( $upload_dir . $service_id . '-*.{jpeg,jpg,png,gif}', GLOB_BRACE );
+			if ( ! empty( $files ) ) {
+				foreach ( $files as $file ) {
+					if ( is_file( $file ) ) {
+						@unlink( $file );
+					}
+				}
+			}
+		}
+
+		/**
+		 * DB に保存された image_url がデフォルト画像を指しているか判定する。
+		 *
+		 * @param string $image_url DB の image_url。
+		 * @return bool
+		 */
+		private function is_default_image_url( $image_url ) {
+			$image_url = trim( (string) $image_url );
+			if ( $image_url === '' ) {
+				return true;
+			}
+
+			return (bool) preg_match( '/no-image-icon\.jpg$/i', $image_url );
+		}
+
+		/**
 		 * サービス画像 URL を解決する（アップロード画像 → DB の image_url → デフォルト）。
 		 *
 		 * @param int    $service_id サービス ID。
@@ -960,19 +1072,24 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 		 */
 		public function resolve_image_url( $service_id, $image_url = '' ) {
 			$service_id  = absint( $service_id );
-			$plugin_root = dirname( __DIR__ );
-			$plugin_url  = plugin_dir_url( $plugin_root . '/ktpwp.php' );
-			$default_url = $plugin_url . 'images/default/no-image-icon.jpg';
+			$default_url = $this->get_default_image_url();
+			$upload_url  = $this->get_upload_url();
 
-			if ( $service_id > 0 ) {
-				$upload_file = $plugin_root . '/images/upload/' . $service_id . '.jpeg';
-				if ( file_exists( $upload_file ) ) {
-					return $plugin_url . 'images/upload/' . $service_id . '.jpeg';
-				}
+			$uploaded_file = $this->find_uploaded_image_file( $service_id );
+			if ( $uploaded_file ) {
+				return $upload_url . basename( $uploaded_file );
 			}
 
 			$image_url = trim( (string) $image_url );
-			if ( $image_url !== '' ) {
+			if ( $image_url !== '' && ! $this->is_default_image_url( $image_url ) ) {
+				$filename = basename( wp_parse_url( $image_url, PHP_URL_PATH ) );
+				if ( $filename !== '' ) {
+					$local_file = $this->get_upload_dir() . $filename;
+					if ( is_file( $local_file ) ) {
+						return $upload_url . $filename;
+					}
+				}
+
 				return esc_url( $image_url );
 			}
 

@@ -220,8 +220,9 @@ if ( ! class_exists( 'KTPWP_Service_UI' ) ) {
 						(int) $service_id,
 						isset( $service->image_url ) ? (string) $service->image_url : ''
 					);
+					$default_thumb_url = $service_db->get_default_image_url();
 					$html .= '<td class="column-image">';
-					$html .= '<span class="ktp-service-list-thumb-wrap"><img src="' . esc_url( $thumb_url ) . '" alt="' . esc_attr( $service->service_name ) . '" class="ktp-service-list-thumb" loading="lazy" decoding="async" width="40" height="40" /></span>';
+					$html .= '<span class="ktp-service-list-thumb-wrap"><img src="' . esc_url( $thumb_url ) . '" alt="' . esc_attr( $service->service_name ) . '" class="ktp-service-list-thumb" loading="lazy" decoding="async" width="40" height="40" onerror="this.src=\'' . esc_url( $default_thumb_url ) . '\'" /></span>';
 					$html .= '</td>';
 
 					// サービス名列

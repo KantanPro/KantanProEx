@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.26
+Stable tag: 1.3.27
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,14 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.27 - 2026年06月12日 =
+* サービス画像URL解決を強化（旧形式 `{id}.jpeg` と新形式 `{id}-{日付}.{ext}` の両方に対応）
+* 管理リスト・詳細・公開商品の画像表示を `resolve_image_url()` に統一
+* リストサムネに `onerror` フォールバックを追加（壊れ画像アイコンを防止）
+* プラグイン更新時に `images/upload/` をバックアップから自動復元
+* 画像削除時に新形式ファイルも確実に削除
+* 計5ファイル・195行増・49行減（v1.3.26…HEAD）
 
 = 1.3.26 - 2026年06月12日 =
 * 公開商品お問い合わせモーダルの幅を拡大（最大1100px・画面端に余白を確保）

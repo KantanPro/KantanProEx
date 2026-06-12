@@ -428,12 +428,13 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 						(int) $row->id,
 						isset( $row->image_url ) ? (string) $row->image_url : ''
 					);
+					$default_thumb_url = $this->db_helper->get_default_image_url();
 					$row_url = esc_url( add_query_arg( $item_link_args, $base_page_url ) );
 					$tax_cell = $hide_tax ? '' : '<td class="col-tax">' . esc_html( $tax_display ) . '</td>';
 					$price_unit_cell = '<td class="col-price-unit">' . $this->render_service_price_unit_display( $price, $unit ) . '</td>';
 					$results[] = '<tr class="ktp-service-list-data-row" data-href="' . $row_url . '" onclick="window.location.href=this.dataset.href">' .
 					'<td class="col-id">' . $id . '</td>' .
-					'<td class="col-image"><span class="ktp-service-list-thumb-wrap"><img src="' . esc_url( $thumb_url ) . '" alt="' . esc_attr( $service_name_raw ) . '" class="ktp-service-list-thumb" loading="lazy" decoding="async" width="40" height="40" /></span></td>' .
+					'<td class="col-image"><span class="ktp-service-list-thumb-wrap"><img src="' . esc_url( $thumb_url ) . '" alt="' . esc_attr( $service_name_raw ) . '" class="ktp-service-list-thumb" loading="lazy" decoding="async" width="40" height="40" onerror="this.src=\'' . esc_url( $default_thumb_url ) . '\'" /></span></td>' .
 					'<td class="col-name">' . $service_name . '</td>' .
 					'<td class="col-public">' . $this->render_service_public_badge( $is_public ) . '</td>' .
 					$price_unit_cell .
@@ -852,27 +853,17 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				// データを取得
 				$query = "SELECT * FROM {$table_name} WHERE id = %d";
 				$post_row = $wpdb->get_results( $wpdb->prepare( $query, $data_id ) );
-				$image_url = '';
+				$db_image_url = '';
 				foreach ( $post_row as $row ) {
-					$image_url = esc_html( $row->image_url );
+					$db_image_url = isset( $row->image_url ) ? (string) $row->image_url : '';
 				}
 
-				// 画像URLが空または無効な場合、デフォルト画像を使用
-				if ( empty( $image_url ) ) {
-					$image_url = plugin_dir_url( __DIR__ ) . 'images/default/no-image-icon.jpg';
-				}
-
-				// アップロード画像が存在するか確認
-				$upload_dir = __DIR__ . '/../images/upload/';
-				$upload_file = $upload_dir . $data_id . '.jpeg';
-				if ( file_exists( $upload_file ) ) {
-					$plugin_url = plugin_dir_url( __DIR__ );
-					$image_url = $plugin_url . 'images/upload/' . $data_id . '.jpeg';
-				}
+				$image_url   = $this->db_helper->resolve_image_url( (int) $data_id, $db_image_url );
+				$default_url = $this->db_helper->get_default_image_url();
 
 				// 画像とアップロードフォームのHTML
 				$image_section_html = '<div style="margin-top: 10px;">'; // 画像セクション開始
-				$image_section_html .= '<div class="image"><img src="' . $image_url . '" alt="' . esc_attr__( 'サービス画像', 'ktpwp' ) . '" class="product-image" onerror="this.src=\'' . plugin_dir_url( __DIR__ ) . 'images/default/no-image-icon.jpg\'" style="width: 100%; height: auto; max-width: 100%;"></div>';
+				$image_section_html .= '<div class="image"><img src="' . esc_url( $image_url ) . '" alt="' . esc_attr__( 'サービス画像', 'ktpwp' ) . '" class="product-image" onerror="this.src=\'' . esc_url( $default_url ) . '\'" style="width: 100%; height: auto; max-width: 100%;"></div>';
 				$image_section_html .= '<div class="image_upload_form">';
 
 				// サービス画像アップロードフォーム

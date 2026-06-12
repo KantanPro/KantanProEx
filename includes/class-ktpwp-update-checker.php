@@ -1660,6 +1660,16 @@ class KTPWP_Update_Checker {
             $this->recursive_rmdir( $temp_dir );
             return new WP_Error( 'install_failed', 'プラグインの配置に失敗しました。' );
         }
+
+        // バックアップからサービス画像（images/upload/）を復元
+        $backup_upload_dir = $backup_dir . '/images/upload';
+        $plugin_upload_dir = $plugin_dir . '/images/upload';
+        if ( is_dir( $backup_upload_dir ) ) {
+            if ( ! is_dir( $plugin_upload_dir ) ) {
+                wp_mkdir_p( $plugin_upload_dir );
+            }
+            $this->merge_upload_directory( $backup_upload_dir, $plugin_upload_dir );
+        }
         
         // 成功時はバックアップを削除
         if ( is_dir( $backup_dir ) ) {
@@ -1673,6 +1683,41 @@ class KTPWP_Update_Checker {
         return true;
     }
     
+    /**
+     * サービス画像アップロードディレクトリをマージする（既存ファイルは上書きしない）。
+     *
+     * @param string $source_dir コピー元ディレクトリ。
+     * @param string $target_dir コピー先ディレクトリ。
+     * @return void
+     */
+    private function merge_upload_directory( $source_dir, $target_dir ) {
+        if ( ! is_dir( $source_dir ) || ! is_dir( $target_dir ) ) {
+            return;
+        }
+
+        $files = scandir( $source_dir );
+        if ( ! is_array( $files ) ) {
+            return;
+        }
+
+        foreach ( $files as $file ) {
+            if ( $file === '.' || $file === '..' ) {
+                continue;
+            }
+
+            $source_file = $source_dir . '/' . $file;
+            $target_file = $target_dir . '/' . $file;
+
+            if ( ! is_file( $source_file ) ) {
+                continue;
+            }
+
+            if ( ! file_exists( $target_file ) ) {
+                @copy( $source_file, $target_file );
+            }
+        }
+    }
+
     /**
      * ディレクトリを再帰的に削除
      */

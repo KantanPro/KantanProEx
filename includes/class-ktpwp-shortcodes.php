@@ -1340,23 +1340,15 @@ class KTPWP_Shortcodes {
      * @return string
      */
     private function resolve_public_product_image_url( $service ) {
-        $plugin_root = dirname( __DIR__ );
-        $plugin_url  = plugin_dir_url( $plugin_root . '/ktpwp.php' );
-        $service_id  = isset( $service->id ) ? (int) $service->id : 0;
-
-        if ( $service_id > 0 ) {
-            $upload_file = $plugin_root . '/images/upload/' . $service_id . '.jpeg';
-            if ( file_exists( $upload_file ) ) {
-                return $plugin_url . 'images/upload/' . $service_id . '.jpeg';
-            }
+        if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
+            require_once dirname( __DIR__ ) . '/includes/class-ktpwp-service-db.php';
         }
 
-        $image_url = isset( $service->image_url ) ? trim( (string) $service->image_url ) : '';
-        if ( $image_url !== '' ) {
-            return esc_url( $image_url );
-        }
+        $service_db = KTPWP_Service_DB::get_instance();
+        $service_id = isset( $service->id ) ? (int) $service->id : 0;
+        $image_url  = isset( $service->image_url ) ? (string) $service->image_url : '';
 
-        return $plugin_url . 'images/default/no-image-icon.jpg';
+        return $service_db->resolve_image_url( $service_id, $image_url );
     }
 
     /**
