@@ -173,6 +173,17 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				error_log( 'KTPWP Public Product: Post-order setup failed for order ' . $order_id . ' - ' . $e->getMessage() );
 			}
 
+			if ( class_exists( 'KTPWP_Order_Admin_Notification' ) ) {
+				KTPWP_Order_Admin_Notification::get_instance()->notify_new_order(
+					$order_id,
+					KTPWP_Order_Admin_Notification::SOURCE_PUBLIC_PRODUCT,
+					array(
+						'client_email'  => $email,
+						'service_name'  => $service_name,
+					)
+				);
+			}
+
 			return array(
 				'success'  => true,
 				'message'  => __( 'お問い合わせを受け付けました。担当者よりご連絡いたします。', 'ktpwp' ),

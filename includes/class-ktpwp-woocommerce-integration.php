@@ -207,6 +207,16 @@ class KTPWP_WooCommerce_Integration {
 			}
 		}
 
+		if ( class_exists( 'KTPWP_Order_Admin_Notification' ) ) {
+			KTPWP_Order_Admin_Notification::get_instance()->notify_new_order(
+				$ktp_order_id,
+				KTPWP_Order_Admin_Notification::SOURCE_WOOCOMMERCE,
+				array(
+					'wc_order_number' => $order_number,
+				)
+			);
+		}
+
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 			error_log( 'KTPWP WooCommerce: Synced WC order ' . $order_id . ' to KantanPro order ' . $ktp_order_id );
 		}
