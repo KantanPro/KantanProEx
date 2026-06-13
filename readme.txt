@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.33
+Stable tag: 1.3.34
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,13 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.34 - 2026年06月13日 =
+* サービス詳細の在庫欄に枠使用状況（使用中/在庫・契約件数・問い合わせ件数・販売所の表示状態）を追加
+* サービス一覧の公開バッジに「保留中」「完売御礼！」を反映（在庫・契約状態に応じて表示）
+* 在庫枠サマリー取得 API（`get_slot_usage_summary`）を追加
+* 保留中・完売表示用のスタイルを追加
+* 計3ファイル・292行増・7行減（v1.3.33…HEAD）
 
 = 1.3.33 - 2026年06月13日 =
 * サービス画像がプラグイン更新後に消える問題を修正（WordPress 標準更新時に images/upload/ を退避・復元）
