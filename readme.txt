@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.34
+Stable tag: 1.3.35
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,13 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.35 - 2026年06月13日 =
+* サービスタブ左ペインに選択中サービスの契約・案件リストを追加（定期契約・Webお申込み案件を一覧表示）
+* 在庫欄の枠使用状況通知ボックスを廃止し、左ペインの契約・案件リストで代替
+* 契約・案件リストのグループ見出しを表タイトル風の薄いピンク背景に、行はデザイン設定の青/白交互色で表示
+* デザイン設定の奇数行・偶数行カラーを契約・案件リストに反映
+* 計5ファイル・465行増・140行減（v1.3.34…HEAD）
 
 = 1.3.34 - 2026年06月13日 =
 * サービス詳細の在庫欄に枠使用状況（使用中/在庫・契約件数・問い合わせ件数・販売所の表示状態）を追加
