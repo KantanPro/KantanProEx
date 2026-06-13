@@ -1294,12 +1294,13 @@ class KTPWP_Shortcodes {
             $inner = $this->render_public_products_grid( $services, $display, $columns );
         }
 
-        $service_db   = KTPWP_Service_DB::get_instance();
+        $service_db     = KTPWP_Service_DB::get_instance();
         $all_categories = $service_db->get_public_service_categories();
-        $show_filter  = $this->is_shortcode_flag_enabled( $atts['show_filter'] );
+        $show_filter    = $this->is_shortcode_flag_enabled( $atts['show_filter'] );
+        $filter_categories = ! empty( $categories ) ? $categories : $all_categories;
         $filter_initial = count( $categories ) === 1 ? $categories[0] : '';
-        $filter_html  = ( $show_filter && ! empty( $all_categories ) )
-            ? $this->render_public_category_filter( $all_categories, $filter_initial )
+        $filter_html    = ( $show_filter && ! empty( $filter_categories ) )
+            ? $this->render_public_category_filter( $filter_categories, $filter_initial )
             : '';
 
         return '<div class="ktpwp-public-products ktpwp-public-products--' . esc_attr( $layout ) . '">'
