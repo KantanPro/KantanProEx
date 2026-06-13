@@ -151,10 +151,14 @@ if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
 		}
 
 		/**
-		 * 公開商品の Web お申込み用に請求項目を 1 行追加する（KantanBiz 公開商品 inbound と同仕様）。
+		 * 公開商品の Web お申込み用に請求項目を追加する（KantanBiz 公開商品 inbound と同仕様）。
+		 *
+		 * 定期請求項目（ktp_service_recurring_item）を全行コピーし、
+		 * 定期契約サービスなら初回費用（既定）も remarks「初回のみ」で追加する。
+		 * 定期項目が未登録の場合のみ、サービス名 + price の 1 行にフォールバックする。
 		 *
 		 * @param int    $order_id 案件 ID。
-		 * @param object $service  ktp_service 行（service_name, price, unit, tax_rate）。
+		 * @param object $service  ktp_service 行。
 		 * @param float  $quantity 数量。
 		 * @return bool
 		 */
@@ -170,34 +174,138 @@ if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
 			}
 
 			$quantity = max( 1.0, (float) $quantity );
-			$price    = isset( $service->price ) ? (float) $service->price : 0.0;
 			$unit     = isset( $service->unit ) ? sanitize_text_field( (string) $service->unit ) : '';
 			if ( $unit === '' ) {
 				$unit = __( '式', 'ktpwp' );
 			}
 
-			$tax_rate = null;
+			$default_tax_rate = null;
 			if ( isset( $service->tax_rate ) && $service->tax_rate !== null && $service->tax_rate !== '' && is_numeric( $service->tax_rate ) ) {
-				$tax_rate = (float) $service->tax_rate;
+				$default_tax_rate = (float) $service->tax_rate;
 			}
 
-			$product_name = isset( $service->service_name ) ? sanitize_text_field( (string) $service->service_name ) : '';
-			if ( $product_name === '' ) {
+			$service_id = isset( $service->id ) ? (int) $service->id : 0;
+			$resolver   = $this->get_public_product_draft_resolver();
+			$recurring  = $resolver
+				? $resolver->default_recurring_items_for_service( $service_id )
+				: array();
+
+			$sort_order = 0;
+			$saved      = false;
+
+			if ( ! empty( $recurring ) ) {
+				foreach ( $recurring as $item ) {
+					$item_name = isset( $item['item_name'] ) ? sanitize_text_field( (string) $item['item_name'] ) : '';
+					if ( $item_name === '' ) {
+						continue;
+					}
+
+					$price = isset( $item['amount'] ) ? (float) $item['amount'] : 0.0;
+					$tax_rate = isset( $item['tax_rate'] ) && $item['tax_rate'] !== null && $item['tax_rate'] !== ''
+						? (float) $item['tax_rate']
+						: $default_tax_rate;
+
+					if ( $this->insert_public_product_invoice_row(
+						$order_id,
+						$item_name,
+						$price,
+						$unit,
+						$quantity,
+						'',
+						$tax_rate,
+						$sort_order
+					) ) {
+						$saved = true;
+						++$sort_order;
+					}
+				}
+			} else {
+				$product_name = isset( $service->service_name ) ? sanitize_text_field( (string) $service->service_name ) : '';
+				if ( $product_name === '' ) {
+					return false;
+				}
+
+				$price = isset( $service->price ) ? (float) $service->price : 0.0;
+				if ( $this->insert_public_product_invoice_row(
+					$order_id,
+					$product_name,
+					$price,
+					$unit,
+					$quantity,
+					'',
+					$default_tax_rate,
+					$sort_order
+				) ) {
+					$saved = true;
+					++$sort_order;
+				}
+			}
+
+			if ( ! $saved ) {
 				return false;
 			}
 
-			global $wpdb;
-			$table_name = $wpdb->prefix . 'ktp_order_invoice_items';
+			if ( $this->service_is_recurring_contract( $service ) && $resolver ) {
+				$initial_fee_remarks = class_exists( 'KTPWP_Contract_Billing' )
+					? KTPWP_Contract_Billing::INITIAL_FEE_REMARKS
+					: '初回のみ';
+				$initial_fees = $resolver->default_initial_fees_for_service( $service_id );
 
-			$data = array(
-				'order_id'     => $order_id,
-				'product_name' => $product_name,
-				'price'        => $price,
-				'quantity'     => $quantity,
-				'unit'         => $unit,
-				'amount'       => (int) round( $price * $quantity ),
-				'remarks'      => '',
-				'sort_order'   => 0,
+				foreach ( $initial_fees as $fee ) {
+					$fee_name = isset( $fee['fee_name'] ) ? sanitize_text_field( (string) $fee['fee_name'] ) : '';
+					if ( $fee_name === '' ) {
+						continue;
+					}
+
+					$price = isset( $fee['amount'] ) ? (float) $fee['amount'] : 0.0;
+					$tax_rate = isset( $fee['tax_rate'] ) && $fee['tax_rate'] !== null && $fee['tax_rate'] !== ''
+						? (float) $fee['tax_rate']
+						: $default_tax_rate;
+
+					if ( $this->insert_public_product_invoice_row(
+						$order_id,
+						$fee_name,
+						$price,
+						__( '式', 'ktpwp' ),
+						1.0,
+						$initial_fee_remarks,
+						$tax_rate,
+						$sort_order
+					) ) {
+						++$sort_order;
+					}
+				}
+			}
+
+			return true;
+		}
+
+		/**
+		 * 公開商品お申込み用の請求明細 1 行を INSERT する。
+		 *
+		 * @param int         $order_id   案件 ID。
+		 * @param string      $name       品名。
+		 * @param float       $price      単価。
+		 * @param string      $unit       単位。
+		 * @param float       $quantity   数量。
+		 * @param string      $remarks    備考。
+		 * @param float|null  $tax_rate   税率。
+		 * @param int         $sort_order 並び順。
+		 * @return bool
+		 */
+		private function insert_public_product_invoice_row( $order_id, $name, $price, $unit, $quantity, $remarks, $tax_rate, $sort_order ) {
+			global $wpdb;
+
+			$table_name = $wpdb->prefix . 'ktp_order_invoice_items';
+			$data       = array(
+				'order_id'     => (int) $order_id,
+				'product_name' => sanitize_text_field( (string) $name ),
+				'price'        => (float) $price,
+				'quantity'     => (float) $quantity,
+				'unit'         => sanitize_text_field( (string) $unit ),
+				'amount'       => (int) round( (float) $price * (float) $quantity ),
+				'remarks'      => sanitize_text_field( (string) $remarks ),
+				'sort_order'   => (int) $sort_order,
 				'created_at'   => current_time( 'mysql' ),
 				'updated_at'   => current_time( 'mysql' ),
 			);
@@ -205,7 +313,7 @@ if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
 			$format = array( '%d', '%s', '%f', '%f', '%s', '%d', '%s', '%d', '%s', '%s' );
 
 			if ( $tax_rate !== null ) {
-				$data['tax_rate'] = $tax_rate;
+				$data['tax_rate'] = (float) $tax_rate;
 				$format[]         = '%f';
 			}
 
@@ -216,6 +324,47 @@ if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
 			}
 
 			return true;
+		}
+
+		/**
+		 * @return KTPWP_Order_Contract_Draft_Resolver|null
+		 */
+		private function get_public_product_draft_resolver() {
+			if ( ! class_exists( 'KTPWP_Order_Contract_Draft_Resolver' ) ) {
+				$path = dirname( __FILE__ ) . '/class-ktpwp-order-contract-draft-resolver.php';
+				if ( is_readable( $path ) ) {
+					require_once $path;
+				}
+			}
+
+			if ( ! class_exists( 'KTPWP_Order_Contract_Draft_Resolver' ) ) {
+				return null;
+			}
+
+			return KTPWP_Order_Contract_Draft_Resolver::get_instance();
+		}
+
+		/**
+		 * @param object $service ktp_service 行。
+		 * @return bool
+		 */
+		private function service_is_recurring_contract( $service ) {
+			if ( ! is_object( $service ) ) {
+				return false;
+			}
+
+			if ( ! class_exists( 'KTPWP_Contract_Billing_Cycle' ) ) {
+				$path = dirname( __FILE__ ) . '/class-ktpwp-contract-billing-cycle.php';
+				if ( is_readable( $path ) ) {
+					require_once $path;
+				}
+			}
+
+			if ( ! class_exists( 'KTPWP_Contract_Billing_Cycle' ) ) {
+				return false;
+			}
+
+			return KTPWP_Contract_Billing_Cycle::is_recurring( $service->contract_billing_cycle ?? 'none' );
 		}
 
 		/**

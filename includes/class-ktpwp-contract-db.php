@@ -209,9 +209,10 @@ if ( ! class_exists( 'KTPWP_Contract_DB' ) ) {
 		 *
 		 * @param array<string, mixed>       $data         契約データ。
 		 * @param array<int, array<string, mixed>> $initial_fees 初回費用行。
+		 * @param array<int, array<string, mixed>> $recurring_items 定期請求明細行。
 		 * @return int|\WP_Error 契約 ID またはエラー。
 		 */
-		public function save_contract( $data, $initial_fees = array() ) {
+		public function save_contract( $data, $initial_fees = array(), $recurring_items = array() ) {
 			global $wpdb;
 
 			if ( ! $this->tables_exist() ) {
@@ -232,12 +233,15 @@ if ( ! class_exists( 'KTPWP_Contract_DB' ) ) {
 
 			$contract_id = absint( $data['id'] ?? 0 );
 			$existing    = null;
+			$previous_service_id = 0;
 
 			if ( $contract_id > 0 ) {
 				$existing = $this->get_contract_by_id( $contract_id );
 				if ( ! $existing || (int) $existing->client_id !== $client_id ) {
 					return new WP_Error( 'not_found', __( '契約が見つかりません。', 'ktpwp' ) );
 				}
+
+				$previous_service_id = (int) $existing->service_id;
 
 				if ( (int) $existing->first_billed === 1 ) {
 					$service_id = (int) $existing->service_id;
@@ -273,6 +277,33 @@ if ( ! class_exists( 'KTPWP_Contract_DB' ) ) {
 			$start_date = $this->sanitize_date( $data['start_date'] ?? '' );
 			$end_date   = $this->sanitize_date( $data['end_date'] ?? '' );
 			$amount     = isset( $data['amount'] ) ? floatval( $data['amount'] ) : 0.0;
+			$normalized_recurring = class_exists( 'KTPWP_Contract_Recurring_Items' )
+				? KTPWP_Contract_Recurring_Items::normalize_rows( $recurring_items )
+				: array();
+
+			if ( ! $existing || (int) $existing->first_billed === 0 ) {
+				if ( empty( $normalized_recurring ) && class_exists( 'KTPWP_Contract_Recurring_Items' ) ) {
+					$service_items = KTPWP_Contract_Recurring_Items::get_by_service_id( $service_id );
+					foreach ( $service_items as $service_item ) {
+						$normalized_recurring[] = array(
+							'item_name' => (string) $service_item->item_name,
+							'amount'    => (float) $service_item->amount,
+							'tax_rate'  => isset( $service_item->tax_rate ) && $service_item->tax_rate !== null
+								? (float) $service_item->tax_rate
+								: null,
+						);
+					}
+				}
+
+				if ( ! empty( $normalized_recurring ) ) {
+					$amount = class_exists( 'KTPWP_Contract_Recurring_Items' )
+						? KTPWP_Contract_Recurring_Items::total_amount( $normalized_recurring )
+						: $amount;
+				}
+			} elseif ( $existing ) {
+				$amount = (float) $existing->amount;
+			}
+
 			$memo       = sanitize_textarea_field( $data['memo'] ?? '' );
 			$send_reminder = ! empty( $data['send_reminder_mail'] ) ? 1 : 0;
 			$payment_due_mode = self::sanitize_payment_due_mode( $data['payment_due_mode'] ?? 'contract' );
@@ -326,6 +357,19 @@ if ( ! class_exists( 'KTPWP_Contract_DB' ) ) {
 			$existing = $this->get_contract_by_id( $contract_id );
 			if ( $existing && (int) $existing->first_billed === 0 ) {
 				$this->replace_initial_fees( $contract_id, $initial_fees );
+				if ( class_exists( 'KTPWP_Contract_Recurring_Items' ) ) {
+					KTPWP_Contract_Recurring_Items::replace_for_contract( $contract_id, $normalized_recurring );
+				}
+			}
+
+			if ( class_exists( 'KTPWP_Contract_Service_Public_Availability' ) ) {
+				if ( 'active' === $status ) {
+					KTPWP_Contract_Service_Public_Availability::close_stale_public_inquiries_for_service( $service_id );
+				}
+				KTPWP_Contract_Service_Public_Availability::sync_for_service( $service_id );
+				if ( $previous_service_id > 0 && $previous_service_id !== $service_id ) {
+					KTPWP_Contract_Service_Public_Availability::sync_for_service( $previous_service_id );
+				}
 			}
 
 			return $contract_id;
@@ -413,8 +457,18 @@ if ( ! class_exists( 'KTPWP_Contract_DB' ) ) {
 				return new WP_Error( 'not_found', __( '契約が見つかりません。', 'ktpwp' ) );
 			}
 
+			$service_id = (int) $contract->service_id;
+
 			$fee_table = $this->get_initial_fee_table_name();
 			$wpdb->delete( $fee_table, array( 'contract_id' => $contract_id ), array( '%d' ) );
+
+			if ( class_exists( 'KTPWP_Contract_Recurring_Items' ) && KTPWP_Contract_Recurring_Items::tables_exist() ) {
+				$wpdb->delete(
+					KTPWP_Contract_Recurring_Items::contract_table_name(),
+					array( 'contract_id' => $contract_id ),
+					array( '%d' )
+				);
+			}
 
 			$log_table = $this->get_billing_log_table_name();
 			$wpdb->delete( $log_table, array( 'contract_id' => $contract_id ), array( '%d' ) );
@@ -424,6 +478,10 @@ if ( ! class_exists( 'KTPWP_Contract_DB' ) ) {
 
 			if ( false === $result ) {
 				return new WP_Error( 'delete_failed', __( '契約の削除に失敗しました。', 'ktpwp' ) );
+			}
+
+			if ( $service_id > 0 && class_exists( 'KTPWP_Contract_Service_Public_Availability' ) ) {
+				KTPWP_Contract_Service_Public_Availability::sync_for_service( $service_id );
 			}
 
 			return true;
@@ -468,6 +526,11 @@ if ( ! class_exists( 'KTPWP_Contract_DB' ) ) {
 				'memo'               => $contract->memo,
 				'first_billed'       => (int) $contract->first_billed,
 				'initial_fees'       => $fee_rows,
+				'recurring_items'    => class_exists( 'KTPWP_Contract_Recurring_Items' )
+					? KTPWP_Contract_Recurring_Items::rows_to_payload(
+						KTPWP_Contract_Recurring_Items::get_by_contract_id( $contract_id )
+					)
+					: array(),
 			);
 		}
 

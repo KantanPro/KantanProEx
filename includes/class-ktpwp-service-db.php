@@ -67,6 +67,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				category VARCHAR(100) NOT NULL DEFAULT '" . esc_sql( __( 'General', 'ktpwp' ) ) . "',
 				is_public TINYINT(1) NOT NULL DEFAULT 0,
 				contract_billing_cycle VARCHAR(20) NOT NULL DEFAULT 'none',
+				stock INT UNSIGNED NOT NULL DEFAULT 1,
 				PRIMARY KEY  (id)
 			) {$charset_collate};";
 
@@ -130,6 +131,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			$contract_billing_cycle = class_exists( 'KTPWP_Contract_Billing_Cycle' )
 				? KTPWP_Contract_Billing_Cycle::sanitize( isset( $_POST['contract_billing_cycle'] ) ? wp_unslash( $_POST['contract_billing_cycle'] ) : '' )
 				: 'none';
+			$stock = isset( $_POST['stock'] ) ? max( 0, absint( $_POST['stock'] ) ) : 1;
 
 			// Create search field value
 			$search_field_value = implode(
@@ -172,9 +174,16 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 							$data['contract_billing_cycle'] = $contract_billing_cycle;
 						}
 
+						if ( $this->service_table_has_stock_column( $table_name ) ) {
+							$data['stock'] = $stock;
+						}
+
 						$format = array( '%s', '%f', '%f', '%s', '%s', '%s', '%d', '%s' );
 						if ( isset( $data['contract_billing_cycle'] ) ) {
 							$format[] = '%s';
+						}
+						if ( isset( $data['stock'] ) ) {
+							$format[] = '%d';
 						}
 
 						$wpdb->update(
@@ -184,6 +193,9 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
                             $format,
                             array( '%d' )
 						);
+						$this->sync_service_recurring_items_from_post( $data_id );
+						$this->sync_service_initial_fees_from_post( $data_id );
+						$this->sync_service_public_availability( $data_id );
 					}
 					break;
 
@@ -251,6 +263,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			$contract_billing_cycle = class_exists( 'KTPWP_Contract_Billing_Cycle' )
 				? KTPWP_Contract_Billing_Cycle::sanitize( isset( $_POST['contract_billing_cycle'] ) ? wp_unslash( $_POST['contract_billing_cycle'] ) : '' )
 				: 'none';
+			$stock = isset( $_POST['stock'] ) ? max( 0, absint( $_POST['stock'] ) ) : 1;
 
 			// 検索フィールド値を作成
 			$search_field_value = implode(
@@ -288,6 +301,11 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				$insert_format[] = '%s';
 			}
 
+			if ( $this->service_table_has_stock_column( $table_name ) ) {
+				$insert_data['stock'] = $stock;
+				$insert_format[] = '%d';
+			}
+
 			$insert_result = $wpdb->insert(
                 $table_name,
                 $insert_data,
@@ -297,6 +315,9 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			if ( $insert_result === false ) {
 				echo "<script>alert('" . esc_js( esc_html__( '新規追加に失敗しました。', 'ktpwp' ) ) . "');</script>";
 			} else {
+				$this->sync_service_recurring_items_from_post( $new_id );
+				$this->sync_service_initial_fees_from_post( $new_id );
+				$this->sync_service_public_availability( $new_id );
 
 				// 元のページ（ショートコードが配置された固定ページ）にリダイレクト
 				$current_page_url = wp_get_referer();
@@ -428,6 +449,11 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 						$duplicate_format[] = '%s';
 					}
 
+					if ( $this->service_table_has_stock_column( $table_name ) ) {
+						$duplicate_data['stock'] = isset( $original_data->stock ) ? max( 0, absint( $original_data->stock ) ) : 1;
+						$duplicate_format[] = '%d';
+					}
+
 					$insert_result = $wpdb->insert(
                         $table_name,
                         $duplicate_data,
@@ -437,6 +463,22 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 					if ( $insert_result === false ) {
 						// エラー処理は最小限に
 					} else {
+						if ( class_exists( 'KTPWP_Contract_Recurring_Items' ) ) {
+							$recurring_rows = array();
+							foreach ( KTPWP_Contract_Recurring_Items::get_by_service_id( $data_id ) as $item ) {
+								$recurring_rows[] = array(
+									'item_name' => (string) ( $item->item_name ?? '' ),
+									'amount'    => (float) ( $item->amount ?? 0 ),
+									'tax_rate'  => isset( $item->tax_rate ) && $item->tax_rate !== null ? $item->tax_rate : null,
+								);
+							}
+							KTPWP_Contract_Recurring_Items::replace_for_service( $new_id, $recurring_rows );
+						}
+
+						if ( class_exists( 'KTPWP_Service_Initial_Fees' ) ) {
+							KTPWP_Service_Initial_Fees::copy_from_service( $data_id, $new_id );
+						}
+
 						// 成功時は複製されたレコードにリダイレクト
 						$base_page_url = KTPWP_Main::get_current_page_base_url();
 						$redirect_url = add_query_arg(
@@ -1232,6 +1274,106 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			$cache[ $table_name ] = is_array( $columns ) && in_array( 'contract_billing_cycle', $columns, true );
 
 			return $cache[ $table_name ];
+		}
+
+		/**
+		 * サービステーブルに stock カラムがあるか確認する。
+		 *
+		 * @param string $table_name テーブル名。
+		 * @return bool
+		 */
+		private function service_table_has_stock_column( $table_name ) {
+			global $wpdb;
+
+			static $cache = array();
+
+			if ( isset( $cache[ $table_name ] ) ) {
+				return $cache[ $table_name ];
+			}
+
+			$columns = $wpdb->get_col( "SHOW COLUMNS FROM `{$table_name}`" );
+			$cache[ $table_name ] = is_array( $columns ) && in_array( 'stock', $columns, true );
+
+			return $cache[ $table_name ];
+		}
+
+		/**
+		 * 契約状態に応じて is_public を同期する。
+		 *
+		 * @param int $service_id サービス ID。
+		 * @return void
+		 */
+		private function sync_service_public_availability( $service_id ) {
+			$service_id = absint( $service_id );
+			if ( $service_id <= 0 || ! class_exists( 'KTPWP_Contract_Service_Public_Availability' ) ) {
+				return;
+			}
+
+			KTPWP_Contract_Service_Public_Availability::sync_for_service( $service_id );
+		}
+
+		/**
+		 * POST の定期請求項目をサービスに保存する。
+		 *
+		 * @param int $service_id サービス ID。
+		 * @return void
+		 */
+		private function sync_service_recurring_items_from_post( $service_id ) {
+			if ( ! class_exists( 'KTPWP_Contract_Recurring_Items' ) ) {
+				return;
+			}
+
+			$rows = isset( $_POST['recurring_items'] ) ? wp_unslash( $_POST['recurring_items'] ) : array();
+			if ( ! is_array( $rows ) ) {
+				$rows = array();
+			}
+
+			$sanitized = array();
+			foreach ( $rows as $row ) {
+				if ( ! is_array( $row ) ) {
+					continue;
+				}
+
+				$sanitized[] = array(
+					'item_name' => isset( $row['item_name'] ) ? sanitize_text_field( $row['item_name'] ) : '',
+					'amount'    => isset( $row['amount'] ) ? $row['amount'] : 0,
+					'tax_rate'  => isset( $row['tax_rate'] ) && $row['tax_rate'] !== '' ? $row['tax_rate'] : null,
+				);
+			}
+
+			KTPWP_Contract_Recurring_Items::replace_for_service( absint( $service_id ), $sanitized );
+		}
+
+		/**
+		 * POST の初回費用をサービスに保存する。
+		 *
+		 * @param int $service_id サービス ID。
+		 * @return void
+		 */
+		private function sync_service_initial_fees_from_post( $service_id ) {
+			if ( ! class_exists( 'KTPWP_Service_Initial_Fees' ) ) {
+				return;
+			}
+
+			$rows = isset( $_POST['initial_fees'] ) ? wp_unslash( $_POST['initial_fees'] ) : array();
+			if ( ! is_array( $rows ) ) {
+				$rows = array();
+			}
+
+			$sanitized = array();
+			foreach ( $rows as $row ) {
+				if ( ! is_array( $row ) ) {
+					continue;
+				}
+
+				$sanitized[] = array(
+					'fee_name' => isset( $row['fee_name'] ) ? sanitize_text_field( $row['fee_name'] ) : '',
+					'amount'   => isset( $row['amount'] ) ? $row['amount'] : 0,
+					'tax_rate' => isset( $row['tax_rate'] ) && $row['tax_rate'] !== '' ? $row['tax_rate'] : null,
+				);
+			}
+
+			KTPWP_Service_Initial_Fees::replace_for_service( absint( $service_id ), $sanitized );
 		}
 	}
 }

@@ -93,8 +93,114 @@
             paymentDueEl.value = 'contract';
         }
         clearInitialFeeRows();
+        clearRecurringItemRows();
+        ensureRecurringItemRows(3);
         setInitialFeesEditable(true);
+        setRecurringItemsEditable(true);
         setContractCoreFieldsEditable(true);
+    }
+
+    function createRecurringRow(itemName, amount, taxRate) {
+        var tbody = qs('#ktp-contract-recurring-items-body');
+        if (!tbody) {
+            return;
+        }
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td><input type="text" class="ktp-contract-recurring-name" value="' + escapeAttr(itemName || '') + '" maxlength="255"></td>' +
+            '<td><input type="number" class="ktp-contract-recurring-amount" min="0" step="0.01" value="' + escapeAttr(amount || '') + '"></td>' +
+            '<td><input type="number" class="ktp-contract-recurring-tax" min="0" max="100" step="1" value="' + escapeAttr(taxRate !== undefined && taxRate !== null ? taxRate : '') + '" placeholder="' + escapeAttr(t('非課税', '非課税')) + '"></td>' +
+            '<td class="ktp-contract-recurring-items__actions"><button type="button" class="ktp-contract-action-btn ktp-contract-action-btn--danger ktp-contract-action-btn--icon ktp-contract-remove-recurring-row" title="' + escapeAttr(t('削除', '削除')) + '">' + getDeleteIconHtml() + '</button></td>';
+        tbody.appendChild(tr);
+    }
+
+    function clearRecurringItemRows() {
+        var tbody = qs('#ktp-contract-recurring-items-body');
+        if (tbody) {
+            tbody.innerHTML = '';
+        }
+    }
+
+    function ensureRecurringItemRows(count) {
+        var tbody = qs('#ktp-contract-recurring-items-body');
+        if (!tbody) {
+            return;
+        }
+        while (tbody.children.length < count) {
+            createRecurringRow('', '', '');
+        }
+    }
+
+    function setRecurringItemsEditable(editable) {
+        var block = qs('#ktp-contract-recurring-items');
+        var locked = qs('#ktp-contract-recurring-items-locked');
+        var addBtn = qs('#ktp-contract-add-recurring-row');
+        if (block) {
+            block.classList.toggle('ktp-contract-recurring-items--locked', !editable);
+        }
+        if (locked) {
+            locked.style.display = editable ? 'none' : 'block';
+        }
+        if (addBtn) {
+            addBtn.disabled = !editable;
+        }
+        qsa('.ktp-contract-recurring-name, .ktp-contract-recurring-amount, .ktp-contract-recurring-tax').forEach(function (el) {
+            el.readOnly = !editable;
+            el.disabled = !editable;
+        });
+        qsa('.ktp-contract-remove-recurring-row').forEach(function (el) {
+            el.disabled = !editable;
+            el.style.display = editable ? '' : 'none';
+        });
+    }
+
+    function collectRecurringItems() {
+        var rows = qsa('#ktp-contract-recurring-items-body tr');
+        return rows.map(function (row) {
+            return {
+                item_name: (qs('.ktp-contract-recurring-name', row) || {}).value || '',
+                amount: (qs('.ktp-contract-recurring-amount', row) || {}).value || '',
+                tax_rate: (qs('.ktp-contract-recurring-tax', row) || {}).value || ''
+            };
+        }).filter(function (item) {
+            return item.item_name.trim() !== '' && parseFloat(item.amount) > 0;
+        });
+    }
+
+    function updateAmountFromRecurringItems() {
+        var amountEl = qs('#ktp-contract-amount');
+        if (!amountEl) {
+            return;
+        }
+        var total = collectRecurringItems().reduce(function (sum, item) {
+            return sum + (parseFloat(item.amount) || 0);
+        }, 0);
+        if (total > 0) {
+            amountEl.value = String(Math.round(total * 100) / 100);
+        }
+    }
+
+    function applyRecurringItemsFromServiceOption() {
+        var serviceEl = qs('#ktp-contract-service-id');
+        if (!serviceEl || !serviceEl.selectedOptions.length) {
+            return;
+        }
+        var raw = serviceEl.selectedOptions[0].getAttribute('data-recurring-items') || '[]';
+        var items = [];
+        try {
+            items = JSON.parse(raw);
+        } catch (e) {
+            items = [];
+        }
+        clearRecurringItemRows();
+        if (items.length) {
+            items.forEach(function (item) {
+                createRecurringRow(item.item_name, item.amount, item.tax_rate);
+            });
+            updateAmountFromRecurringItems();
+        } else {
+            ensureRecurringItemRows(3);
+        }
     }
 
     function setContractCoreFieldsEditable(editable) {
@@ -122,6 +228,7 @@
         if (cycleEl && cycle) {
             cycleEl.value = cycle;
         }
+        applyRecurringItemsFromServiceOption();
     }
 
     function getDeleteIconHtml() {
@@ -226,7 +333,8 @@
             status: (qs('#ktp-contract-status') || {}).value || 'active',
             send_reminder_mail: (qs('#ktp-contract-send-reminder') || {}).checked ? '1' : '0',
             memo: (qs('#ktp-contract-memo') || {}).value || '',
-            initial_fees: JSON.stringify(collectInitialFees())
+            initial_fees: JSON.stringify(collectInitialFees()),
+            recurring_items: JSON.stringify(collectRecurringItems())
         };
     }
 
@@ -272,8 +380,17 @@
         (contract.initial_fees || []).forEach(function (fee) {
             createFeeRow(fee.fee_name, fee.amount, fee.tax_rate);
         });
-        setInitialFeesEditable(parseInt(contract.first_billed, 10) !== 1);
-        setContractCoreFieldsEditable(parseInt(contract.first_billed, 10) !== 1);
+        clearRecurringItemRows();
+        (contract.recurring_items || []).forEach(function (item) {
+            createRecurringRow(item.item_name, item.amount, item.tax_rate);
+        });
+        if (!(contract.recurring_items || []).length) {
+            ensureRecurringItemRows(3);
+        }
+        var firstBilled = parseInt(contract.first_billed, 10) === 1;
+        setInitialFeesEditable(!firstBilled);
+        setRecurringItemsEditable(!firstBilled);
+        setContractCoreFieldsEditable(!firstBilled);
     }
 
     function saveContract(config) {
@@ -371,6 +488,29 @@
         if (addFeeBtn) {
             addFeeBtn.addEventListener('click', function () {
                 createFeeRow('', '', '');
+            });
+        }
+
+        var addRecurringBtn = qs('#ktp-contract-add-recurring-row');
+        if (addRecurringBtn) {
+            addRecurringBtn.addEventListener('click', function () {
+                createRecurringRow('', '', '');
+            });
+        }
+
+        var recurringBody = qs('#ktp-contract-recurring-items-body');
+        if (recurringBody) {
+            recurringBody.addEventListener('input', updateAmountFromRecurringItems);
+            recurringBody.addEventListener('click', function (event) {
+                var btn = event.target.closest('.ktp-contract-remove-recurring-row');
+                if (!btn) {
+                    return;
+                }
+                var row = btn.closest('tr');
+                if (row) {
+                    row.remove();
+                    updateAmountFromRecurringItems();
+                }
             });
         }
 

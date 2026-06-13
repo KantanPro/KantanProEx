@@ -1183,6 +1183,13 @@ class KTPWP_Shortcodes {
                     'filterAll'    => __( 'すべて表示', 'ktpwp' ),
                     'filterEmpty'  => __( '該当する商品がありません。', 'ktpwp' ),
                     'enlargeImage' => __( '画像を拡大', 'ktpwp' ),
+                    'initialFees'     => __( '初回費用', 'ktpwp' ),
+                    'initialFeesNote' => __( '初回請求時のみ', 'ktpwp' ),
+                    'recurringBadge'  => __( '定期', 'ktpwp' ),
+                    'pendingBadge'    => __( '保留中', 'ktpwp' ),
+                    'soldOutBadge'    => __( '完売御礼！', 'ktpwp' ),
+                    'pendingNotice'   => __( '現在お問い合わせを受け付けておりません。', 'ktpwp' ),
+                    'soldOutNotice'   => __( 'こちらの商品は完売しました。', 'ktpwp' ),
                 ),
             )
         );
@@ -1213,8 +1220,9 @@ class KTPWP_Shortcodes {
                 'show_unit'     => 'yes',
                 'show_category' => 'yes',
                 'show_tax'      => 'no',
-                'show_memo'     => 'yes',
-                'show_filter'   => 'yes',
+                'show_memo'         => 'yes',
+                'show_initial_fees' => 'yes',
+                'show_filter'       => 'yes',
             ),
             $atts,
             'ktpwp_public_products'
@@ -1241,7 +1249,8 @@ class KTPWP_Shortcodes {
             'unit'     => $this->is_shortcode_flag_enabled( $atts['show_unit'] ),
             'category' => $this->is_shortcode_flag_enabled( $atts['show_category'] ),
             'tax'      => $this->is_shortcode_flag_enabled( $atts['show_tax'] ),
-            'memo'     => $this->is_shortcode_flag_enabled( $atts['show_memo'] ),
+            'memo'         => $this->is_shortcode_flag_enabled( $atts['show_memo'] ),
+            'initial_fees' => $this->is_shortcode_flag_enabled( $atts['show_initial_fees'] ),
         );
 
         if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
@@ -1363,25 +1372,306 @@ class KTPWP_Shortcodes {
         $unit = isset( $service->unit ) ? (string) $service->unit : '';
         $category = isset( $service->category ) ? (string) $service->category : '';
         $tax_rate = isset( $service->tax_rate ) && $service->tax_rate !== null && $service->tax_rate !== ''
-            ? (string) $service->tax_rate
+            ? ( class_exists( 'KTPWP_Settings' )
+                ? KTPWP_Settings::format_decimal_trimmed( $service->tax_rate )
+                : (string) $service->tax_rate )
             : '';
 
         $price_display = class_exists( 'KTPWP_Settings' )
-            ? KTPWP_Settings::format_money( $price )
+            ? KTPWP_Settings::format_money_trimmed( $price )
             : number_format( $price );
         $memo = isset( $service->memo ) ? (string) $service->memo : '';
 
-        return array(
-            'id'            => isset( $service->id ) ? (int) $service->id : 0,
-            'name'          => $name,
-            'price'         => $price,
-            'price_display' => $price_display,
-            'unit'          => $unit,
-            'category'      => $category,
-            'tax_rate'      => $tax_rate,
-            'memo'          => $memo,
-            'image'         => $this->resolve_public_product_image_url( $service ),
+        $contract_billing_cycle = class_exists( 'KTPWP_Contract_Billing_Cycle' ) && isset( $service->contract_billing_cycle )
+            ? KTPWP_Contract_Billing_Cycle::sanitize( $service->contract_billing_cycle )
+            : 'none';
+        $is_recurring_contract = class_exists( 'KTPWP_Contract_Billing_Cycle' )
+            && KTPWP_Contract_Billing_Cycle::is_recurring( $contract_billing_cycle );
+        $contract_billing_cycle_label = class_exists( 'KTPWP_Contract_Billing_Cycle' )
+            ? KTPWP_Contract_Billing_Cycle::get_label( $contract_billing_cycle )
+            : '';
+
+        $recurring_items = array();
+        if ( $is_recurring_contract && class_exists( 'KTPWP_Contract_Recurring_Items' ) ) {
+            $service_id = isset( $service->id ) ? (int) $service->id : 0;
+            $item_rows  = KTPWP_Contract_Recurring_Items::get_by_service_id( $service_id );
+
+            foreach ( $item_rows as $item_row ) {
+                $item_amount = isset( $item_row->amount ) ? (float) $item_row->amount : 0.0;
+                $recurring_items[] = array(
+                    'item_name'      => isset( $item_row->item_name ) ? (string) $item_row->item_name : '',
+                    'amount'         => $item_amount,
+                    'amount_display' => class_exists( 'KTPWP_Settings' )
+                        ? KTPWP_Settings::format_money_trimmed( $item_amount )
+                        : number_format( $item_amount ),
+                    'tax_rate'       => isset( $item_row->tax_rate ) && $item_row->tax_rate !== null && $item_row->tax_rate !== ''
+                        ? ( class_exists( 'KTPWP_Settings' )
+                            ? KTPWP_Settings::format_decimal_trimmed( $item_row->tax_rate )
+                            : (string) $item_row->tax_rate )
+                        : '',
+                );
+            }
+        }
+
+        $initial_fee_rows = array();
+        if ( $is_recurring_contract && class_exists( 'KTPWP_Service_Initial_Fees' ) ) {
+            $service_id = isset( $service->id ) ? (int) $service->id : 0;
+            $fee_rows   = KTPWP_Service_Initial_Fees::get_by_service_id( $service_id );
+
+            foreach ( $fee_rows as $fee_row ) {
+                $initial_fee_rows[] = array(
+                    'fee_name' => isset( $fee_row->fee_name ) ? (string) $fee_row->fee_name : '',
+                    'amount'   => isset( $fee_row->amount ) ? (float) $fee_row->amount : 0.0,
+                    'tax_rate' => isset( $fee_row->tax_rate ) && $fee_row->tax_rate !== null && $fee_row->tax_rate !== ''
+                        ? $fee_row->tax_rate
+                        : '',
+                );
+            }
+        }
+
+        $initial_fees = $this->normalize_public_product_initial_fees( $initial_fee_rows );
+
+        $service_id = isset( $service->id ) ? (int) $service->id : 0;
+        $availability = array(
+            'acceptance_open'    => true,
+            'availability_state' => 'open',
+            'status_label'       => '',
         );
+        if ( class_exists( 'KTPWP_Contract_Service_Public_Availability' ) ) {
+            $availability = KTPWP_Contract_Service_Public_Availability::get_public_availability(
+                $service_id,
+                $service,
+                $is_recurring_contract
+            );
+        }
+        $acceptance_open = (bool) $availability['acceptance_open'];
+        $availability_state = (string) $availability['availability_state'];
+        $status_label = (string) $availability['status_label'];
+
+        return array(
+            'id'                           => isset( $service->id ) ? (int) $service->id : 0,
+            'name'                         => $name,
+            'price'                        => $price,
+            'price_display'                => $price_display,
+            'unit'                         => $unit,
+            'category'                     => $category,
+            'tax_rate'                     => $tax_rate,
+            'memo'                         => $memo,
+            'image'                        => $this->resolve_public_product_image_url( $service ),
+            'contract_billing_cycle'       => $contract_billing_cycle,
+            'contract_billing_cycle_label' => $contract_billing_cycle_label,
+            'is_recurring_contract'        => $is_recurring_contract,
+            'is_recurring'                 => $is_recurring_contract,
+            'recurring_items'              => $recurring_items,
+            'initial_fees'                 => $initial_fees,
+            'initial_fees_summary'         => $this->format_public_initial_fees_summary( $initial_fees ),
+            'recurring_items_summary'      => $this->format_public_recurring_items_summary( $recurring_items, $unit ),
+            'acceptance_open'              => $acceptance_open,
+            'availability_state'           => $availability_state,
+            'is_sold_out'                  => $availability_state === 'sold_out',
+            'is_pending'                   => $availability_state === 'pending',
+            'status_label'                 => $status_label,
+        );
+    }
+
+    /**
+     * 公開一覧用の初回費用行を正規化する。
+     *
+     * @param mixed $raw 初回費用行。
+     * @return array<int, array{fee_name: string, amount: float, amount_display: string, tax_rate: string}>
+     */
+    private function normalize_public_product_initial_fees( $raw ) {
+        if ( ! is_array( $raw ) ) {
+            return array();
+        }
+
+        $fees = array();
+        foreach ( $raw as $row ) {
+            if ( ! is_array( $row ) ) {
+                continue;
+            }
+
+            $name = isset( $row['fee_name'] ) ? trim( (string) $row['fee_name'] ) : '';
+            if ( $name === '' ) {
+                continue;
+            }
+
+            $amount = isset( $row['amount'] ) ? (float) $row['amount'] : 0.0;
+            $tax_rate = isset( $row['tax_rate'] ) && $row['tax_rate'] !== null && $row['tax_rate'] !== ''
+                ? ( class_exists( 'KTPWP_Settings' )
+                    ? KTPWP_Settings::format_decimal_trimmed( $row['tax_rate'] )
+                    : (string) $row['tax_rate'] )
+                : '';
+
+            $fees[] = array(
+                'fee_name'       => $name,
+                'amount'         => $amount,
+                'amount_display' => class_exists( 'KTPWP_Settings' )
+                    ? KTPWP_Settings::format_money_trimmed( $amount )
+                    : number_format( $amount ),
+                'tax_rate'       => $tax_rate,
+            );
+        }
+
+        return $fees;
+    }
+
+    /**
+     * @param array<int, array{fee_name: string, amount_display: string}> $initial_fees 初回費用。
+     * @return string
+     */
+    private function format_public_initial_fees_summary( array $initial_fees ) {
+        if ( empty( $initial_fees ) ) {
+            return '';
+        }
+
+        $parts = array();
+        foreach ( $initial_fees as $fee ) {
+            $parts[] = $fee['fee_name'] . ' ' . $fee['amount_display'];
+        }
+
+        return implode( '、', $parts );
+    }
+
+    /**
+     * @param array<int, array{item_name: string, amount_display: string, tax_rate: string}> $recurring_items 定期請求項目。
+     * @param string                                                                          $unit            単位。
+     * @return string
+     */
+    private function format_public_recurring_items_summary( array $recurring_items, $unit ) {
+        if ( empty( $recurring_items ) ) {
+            return '';
+        }
+
+        $parts = array();
+        foreach ( $recurring_items as $item ) {
+            $parts[] = $this->format_public_recurring_item_line(
+                (string) $item['item_name'],
+                (string) $item['amount_display'],
+                $unit
+            );
+        }
+
+        return implode( '、', $parts );
+    }
+
+    /**
+     * @param string $item_name      項目名。
+     * @param string $amount_display 金額表示。
+     * @param string $unit           単位。
+     * @return string
+     */
+    private function format_public_recurring_item_line( $item_name, $amount_display, $unit ) {
+        $suffix = $unit !== '' ? '/' . $unit : '';
+
+        return $item_name . ' ' . $amount_display . $suffix;
+    }
+
+    /**
+     * 公開一覧の価格ブロック HTML を返す。
+     *
+     * @param array<string, mixed> $row     商品行データ。
+     * @param array<string, bool>  $display 表示フラグ。
+     * @param string               $prefix  CSS クラス接頭辞。
+     * @return string
+     */
+    private function render_public_product_list_price_block_html( array $row, array $display, $prefix ) {
+        if ( ! $display['price'] && ! ( $display['unit'] && $row['unit'] !== '' ) && ! ( $display['tax'] && $row['tax_rate'] !== '' ) ) {
+            return '';
+        }
+
+        $unit              = (string) ( $row['unit'] ?? '' );
+        $service_tax_rate  = (string) ( $row['tax_rate'] ?? '' );
+        $price_html        = '';
+        $has_recurring_items = ! empty( $row['recurring_items'] ) && is_array( $row['recurring_items'] );
+
+        if ( $has_recurring_items ) {
+            $lines = '';
+            foreach ( $row['recurring_items'] as $item ) {
+                if ( ! is_array( $item ) ) {
+                    continue;
+                }
+
+                $item_name      = (string) ( $item['item_name'] ?? '' );
+                $amount_display = (string) ( $item['amount_display'] ?? '' );
+                if ( $item_name === '' || $amount_display === '' ) {
+                    continue;
+                }
+
+                $line_text = $this->format_public_recurring_item_line(
+                    $item_name,
+                    $amount_display,
+                    $display['unit'] && $unit !== '' ? $unit : ''
+                );
+                $lines    .= '<div class="' . esc_attr( $prefix ) . '__recurring-item">'
+                    . '<span class="' . esc_attr( $prefix ) . '__recurring-item-line">' . esc_html( $line_text ) . '</span>'
+                    . '</div>';
+            }
+
+            if ( $lines !== '' ) {
+                $price_html = '<div class="' . esc_attr( $prefix ) . '__recurring-items">' . $lines . '</div>';
+            }
+        }
+
+        if ( $price_html === '' && $display['price'] ) {
+            $price_part = '<span class="' . esc_attr( $prefix ) . '__price">' . esc_html( (string) $row['price_display'] ) . '</span>';
+            $unit_part  = ( $display['unit'] && $unit !== '' )
+                ? '<span class="' . esc_attr( $prefix ) . '__unit">/' . esc_html( $unit ) . '</span>'
+                : '';
+            $price_html = '<div class="' . esc_attr( $prefix ) . '__price-row">' . $price_part . $unit_part . '</div>';
+        }
+
+        $tax_html = ( $display['tax'] && $service_tax_rate !== '' && ! $has_recurring_items )
+            ? '<span class="' . esc_attr( $prefix ) . '__tax">' . esc_html__( '税率', 'ktpwp' ) . ': ' . esc_html( $service_tax_rate ) . '%</span>'
+            : '';
+
+        if ( $price_html === '' && $tax_html === '' ) {
+            return '';
+        }
+
+        return '<div class="' . esc_attr( $prefix ) . '__price-block">' . $price_html . $tax_html . '</div>';
+    }
+
+    /**
+     * 公開一覧の初回費用 HTML を返す。
+     *
+     * @param array<string, mixed> $row       商品行データ。
+     * @param string               $css_class CSS クラス名。
+     * @return string
+     */
+    private function render_public_product_list_initial_fees_html( array $row, $css_class ) {
+        if ( empty( $row['initial_fees'] ) || ! is_array( $row['initial_fees'] ) ) {
+            return '';
+        }
+
+        $fee_lines = array();
+        foreach ( $row['initial_fees'] as $fee ) {
+            if ( ! is_array( $fee ) ) {
+                continue;
+            }
+
+            $fee_lines[] = esc_html( (string) ( $fee['fee_name'] ?? '' ) ) . ' '
+                . esc_html( (string) ( $fee['amount_display'] ?? '' ) );
+        }
+
+        if ( empty( $fee_lines ) ) {
+            return '';
+        }
+
+        $items = '';
+        $last  = count( $fee_lines ) - 1;
+        foreach ( $fee_lines as $index => $line ) {
+            $items .= '<span class="' . esc_attr( $css_class ) . '__item">' . $line;
+            if ( $index === $last ) {
+                $items .= '<span class="' . esc_attr( $css_class ) . '__note">' . esc_html__( '初回請求時のみ', 'ktpwp' ) . '</span>';
+            }
+            $items .= '</span>';
+        }
+
+        return '<div class="' . esc_attr( $css_class ) . '">'
+            . '<span class="' . esc_attr( $css_class ) . '__label">' . esc_html__( '初回費用', 'ktpwp' ) . '</span>'
+            . $items
+            . '</div>';
     }
 
     /**
@@ -1392,12 +1682,43 @@ class KTPWP_Shortcodes {
      */
     private function get_public_product_item_attrs( array $payload, $extra_class = '' ) {
         $classes  = trim( 'ktpwp-public-product-item ' . $extra_class );
+        if ( ! empty( $payload['is_sold_out'] ) ) {
+            $classes .= ' ktpwp-public-product-item--sold-out';
+        } elseif ( ! empty( $payload['is_pending'] ) ) {
+            $classes .= ' ktpwp-public-product-item--pending';
+        }
         $category = isset( $payload['category'] ) ? (string) $payload['category'] : '';
 
         return ' class="' . esc_attr( $classes ) . '"'
             . ' role="button" tabindex="0"'
             . ' data-category="' . esc_attr( $category ) . '"'
             . ' data-product="' . esc_attr( wp_json_encode( $payload ) ) . '"';
+    }
+
+    /**
+     * 保留中バッジ HTML。
+     *
+     * @return string
+     */
+    private function render_public_product_pending_badge_html( $css_class = 'ktpwp-public-product-item__pending-badge' ) {
+        return '<span class="' . esc_attr( $css_class ) . '">' . esc_html__( '保留中', 'ktpwp' ) . '</span>';
+    }
+
+    /**
+     * 画像上に重ねる受付停止オーバーレイ HTML。
+     *
+     * @param string $label 表示ラベル（保留中 / 完売御礼！ 等）。
+     * @return string
+     */
+    private function render_public_product_status_overlay_html( $label ) {
+        $label = trim( (string) $label );
+        if ( $label === '' ) {
+            return '';
+        }
+
+        return '<span class="ktpwp-public-product-item__pending-overlay" aria-hidden="true">'
+            . '<span class="ktpwp-public-product-item__pending-overlay-badge">' . esc_html( $label ) . '</span>'
+            . '</span>';
     }
 
     /**
@@ -1408,9 +1729,11 @@ class KTPWP_Shortcodes {
      * @param string $image_class 画像要素の CSS クラス。
      * @param string $wrap_class  ラップ要素の CSS クラス（空なら省略）。
      * @param string $extra_attrs img 要素の追加属性（例: width/height）。
+     * @param bool   $show_status_overlay 受付停止オーバーレイを画像上に表示するか。
+     * @param string $status_label        オーバーレイ文言。
      * @return string
      */
-    private function render_public_product_image_html( $image_url, $name, $image_class, $wrap_class = '', $extra_attrs = '' ) {
+    private function render_public_product_image_html( $image_url, $name, $image_class, $wrap_class = '', $extra_attrs = '', $show_status_overlay = false, $status_label = '' ) {
         $label = sprintf(
             /* translators: %s: product name */
             __( '%s の画像を拡大', 'ktpwp' ),
@@ -1426,7 +1749,10 @@ class KTPWP_Shortcodes {
             return $image_markup;
         }
 
-        return '<div class="' . esc_attr( $wrap_class ) . '">' . $image_markup . '</div>';
+        $wrap_classes = trim( $wrap_class . ( $show_status_overlay ? ' ktpwp-public-product-item__image-wrap--pending' : '' ) );
+        $overlay      = $show_status_overlay ? $this->render_public_product_status_overlay_html( $status_label ) : '';
+
+        return '<div class="' . esc_attr( $wrap_classes ) . '">' . $image_markup . $overlay . '</div>';
     }
 
     /**
@@ -1503,7 +1829,10 @@ class KTPWP_Shortcodes {
         <div class="ktpwp-public-product-detail" id="ktpwp-public-product-detail" hidden>
             <button type="button" class="ktpwp-public-product-detail__backdrop" aria-label="<?php echo esc_attr__( '閉じる', 'ktpwp' ); ?>"></button>
             <div class="ktpwp-public-product-detail__panel" role="dialog" aria-modal="true" aria-labelledby="ktpwp-public-product-detail-title">
-                <button type="button" class="ktpwp-public-product-detail__close" aria-label="<?php echo esc_attr__( '閉じる', 'ktpwp' ); ?>">&times;</button>
+                <div class="ktpwp-public-product-detail__header">
+                    <button type="button" class="ktpwp-public-product-detail__close" aria-label="<?php echo esc_attr__( '閉じる', 'ktpwp' ); ?>">&times;</button>
+                </div>
+                <div class="ktpwp-public-product-detail__scroll">
                 <div class="ktpwp-public-product-detail__content"></div>
                 <form class="ktpwp-public-product-order-form" novalidate>
                     <h4 class="ktpwp-public-product-order-form__title" id="ktpwp-public-product-detail-title"><?php echo esc_html__( 'お問い合わせ', 'ktpwp' ); ?></h4>
@@ -1541,6 +1870,7 @@ class KTPWP_Shortcodes {
                     </p>
                     <div class="ktpwp-public-product-order-form__message" role="status" aria-live="polite" hidden></div>
                 </form>
+                </div>
             </div>
         </div>
         <?php
@@ -1577,6 +1907,9 @@ class KTPWP_Shortcodes {
         if ( $display['memo'] ) {
             $headers[] = '<th scope="col">' . esc_html__( 'メモ', 'ktpwp' ) . '</th>';
         }
+        if ( $display['initial_fees'] ) {
+            $headers[] = '<th scope="col">' . esc_html__( '初回費用', 'ktpwp' ) . '</th>';
+        }
 
         foreach ( $services as $service ) {
             $row     = $this->format_public_product_row( $service );
@@ -1584,12 +1917,15 @@ class KTPWP_Shortcodes {
             $cells   = array();
 
             if ( $display['image'] ) {
+                $show_overlay = empty( $row['acceptance_open'] );
                 $cells[] = '<td>' . $this->render_public_product_image_html(
                     $row['image'],
                     $row['name'],
                     'ktpwp-public-products-thumb',
-                    '',
-                    'width="48" height="48"'
+                    'ktpwp-public-products-table__image-wrap',
+                    'width="48" height="48"',
+                    $show_overlay,
+                    (string) ( $row['status_label'] ?? '' )
                 ) . '</td>';
             }
             $cells[] = '<td>' . esc_html( $row['name'] ) . '</td>';
@@ -1597,7 +1933,10 @@ class KTPWP_Shortcodes {
                 $cells[] = '<td>' . esc_html( $row['category'] ) . '</td>';
             }
             if ( $display['price'] ) {
-                $cells[] = '<td>' . esc_html( $row['price_display'] ) . '</td>';
+                $price_cell = ! empty( $row['recurring_items_summary'] )
+                    ? (string) $row['recurring_items_summary']
+                    : (string) $row['price_display'];
+                $cells[] = '<td>' . esc_html( $price_cell ) . '</td>';
             }
             if ( $display['unit'] ) {
                 $cells[] = '<td>' . esc_html( $row['unit'] ) . '</td>';
@@ -1607,6 +1946,9 @@ class KTPWP_Shortcodes {
             }
             if ( $display['memo'] ) {
                 $cells[] = '<td class="ktpwp-public-products-table__memo">' . esc_html( $row['memo'] ) . '</td>';
+            }
+            if ( $display['initial_fees'] ) {
+                $cells[] = '<td class="ktpwp-public-products-table__initial-fees">' . esc_html( (string) $row['initial_fees_summary'] ) . '</td>';
             }
 
             $rows .= '<tr' . $this->get_public_product_item_attrs( $payload ) . '>' . implode( '', $cells ) . '</tr>';
@@ -1631,36 +1973,34 @@ class KTPWP_Shortcodes {
             $payload = $row;
             $image_html = '';
             if ( $display['image'] ) {
-                $image_html = $this->render_public_product_image_html(
-                    $row['image'],
-                    $row['name'],
-                    'ktpwp-public-products-grid__image',
-                    'ktpwp-public-products-grid__image-wrap'
-                );
+                $show_overlay = empty( $row['acceptance_open'] );
+                $status_label = (string) ( $row['status_label'] ?? '' );
+                if ( $row['image'] !== '' ) {
+                    $image_html = $this->render_public_product_image_html(
+                        $row['image'],
+                        $row['name'],
+                        'ktpwp-public-products-grid__image',
+                        'ktpwp-public-products-grid__image-wrap',
+                        '',
+                        $show_overlay,
+                        $status_label
+                    );
+                } elseif ( $show_overlay && $status_label !== '' ) {
+                    $image_html = '<div class="ktpwp-public-products-grid__image-wrap ktpwp-public-product-item__image-wrap--pending">'
+                        . $this->render_public_product_status_overlay_html( $status_label )
+                        . '</div>';
+                }
             }
 
             $category_html = ( $display['category'] && $row['category'] !== '' )
                 ? '<p class="ktpwp-public-products-grid__category">' . esc_html( $row['category'] ) . '</p>'
                 : '';
-            $price_row_html = '';
-            if ( $display['price'] || ( $display['unit'] && $row['unit'] !== '' ) ) {
-                $price_part = $display['price']
-                    ? '<span class="ktpwp-public-products-grid__price">' . esc_html( $row['price_display'] ) . '</span>'
-                    : '';
-                $unit_part = ( $display['unit'] && $row['unit'] !== '' )
-                    ? '<span class="ktpwp-public-products-grid__unit">/' . esc_html( $row['unit'] ) . '</span>'
-                    : '';
-                $price_row_html = '<div class="ktpwp-public-products-grid__price-row">' . $price_part . $unit_part . '</div>';
-            }
-            $tax_html = ( $display['tax'] && $row['tax_rate'] !== '' )
-                ? '<span class="ktpwp-public-products-grid__tax">' . esc_html__( '税率', 'ktpwp' ) . ': ' . esc_html( $row['tax_rate'] ) . '%</span>'
-                : '';
-            $price_block = '';
-            if ( $price_row_html !== '' || $tax_html !== '' ) {
-                $price_block = '<div class="ktpwp-public-products-grid__price-block">' . $price_row_html . $tax_html . '</div>';
-            }
+            $price_block = $this->render_public_product_list_price_block_html( $row, $display, 'ktpwp-public-products-grid' );
             $memo_html = $display['memo']
                 ? $this->render_public_product_list_memo_html( $row['memo'], 'ktpwp-public-products-grid__memo' )
+                : '';
+            $initial_fees_html = $display['initial_fees']
+                ? $this->render_public_product_list_initial_fees_html( $row, 'ktpwp-public-products-grid__initial-fees' )
                 : '';
 
             $items .= '<article' . $this->get_public_product_item_attrs( $payload, 'ktpwp-public-products-grid__item' ) . '>'
@@ -1669,6 +2009,7 @@ class KTPWP_Shortcodes {
                 . '<h3 class="ktpwp-public-products-grid__name">' . esc_html( $row['name'] ) . '</h3>'
                 . $category_html
                 . $price_block
+                . $initial_fees_html
                 . $memo_html
                 . '</div></article>';
         }
@@ -1692,36 +2033,34 @@ class KTPWP_Shortcodes {
             $payload = $row;
             $image_html = '';
             if ( $display['image'] ) {
-                $image_html = $this->render_public_product_image_html(
-                    $row['image'],
-                    $row['name'],
-                    'ktpwp-public-products-card__image',
-                    'ktpwp-public-products-card__image-wrap'
-                );
+                $show_overlay = empty( $row['acceptance_open'] );
+                $status_label = (string) ( $row['status_label'] ?? '' );
+                if ( $row['image'] !== '' ) {
+                    $image_html = $this->render_public_product_image_html(
+                        $row['image'],
+                        $row['name'],
+                        'ktpwp-public-products-card__image',
+                        'ktpwp-public-products-card__image-wrap',
+                        '',
+                        $show_overlay,
+                        $status_label
+                    );
+                } elseif ( $show_overlay && $status_label !== '' ) {
+                    $image_html = '<div class="ktpwp-public-products-card__image-wrap ktpwp-public-product-item__image-wrap--pending">'
+                        . $this->render_public_product_status_overlay_html( $status_label )
+                        . '</div>';
+                }
             }
 
             $category_html = ( $display['category'] && $row['category'] !== '' )
                 ? '<p class="ktpwp-public-products-card__category">' . esc_html( $row['category'] ) . '</p>'
                 : '';
-            $price_row_html = '';
-            if ( $display['price'] || ( $display['unit'] && $row['unit'] !== '' ) ) {
-                $price_part = $display['price']
-                    ? '<span class="ktpwp-public-products-card__price">' . esc_html( $row['price_display'] ) . '</span>'
-                    : '';
-                $unit_part = ( $display['unit'] && $row['unit'] !== '' )
-                    ? '<span class="ktpwp-public-products-card__unit">/' . esc_html( $row['unit'] ) . '</span>'
-                    : '';
-                $price_row_html = '<div class="ktpwp-public-products-card__price-row">' . $price_part . $unit_part . '</div>';
-            }
-            $tax_html = ( $display['tax'] && $row['tax_rate'] !== '' )
-                ? '<span class="ktpwp-public-products-card__tax">' . esc_html__( '税率', 'ktpwp' ) . ': ' . esc_html( $row['tax_rate'] ) . '%</span>'
-                : '';
-            $price_block = '';
-            if ( $price_row_html !== '' || $tax_html !== '' ) {
-                $price_block = '<div class="ktpwp-public-products-card__price-block">' . $price_row_html . $tax_html . '</div>';
-            }
+            $price_block = $this->render_public_product_list_price_block_html( $row, $display, 'ktpwp-public-products-card' );
             $memo_html = $display['memo']
                 ? $this->render_public_product_list_memo_html( $row['memo'], 'ktpwp-public-products-card__memo' )
+                : '';
+            $initial_fees_html = $display['initial_fees']
+                ? $this->render_public_product_list_initial_fees_html( $row, 'ktpwp-public-products-card__initial-fees' )
                 : '';
 
             $items .= '<article' . $this->get_public_product_item_attrs( $payload, 'ktpwp-public-products-card' ) . '>'
@@ -1730,6 +2069,7 @@ class KTPWP_Shortcodes {
                 . $category_html
                 . '<h3 class="ktpwp-public-products-card__name">' . esc_html( $row['name'] ) . '</h3>'
                 . $price_block
+                . $initial_fees_html
                 . $memo_html
                 . '</div></article>';
         }

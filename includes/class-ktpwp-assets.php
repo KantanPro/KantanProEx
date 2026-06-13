@@ -270,7 +270,7 @@ class KTPWP_Assets {
             'ktp-css' => array(
                 'src'    => 'css/styles.css',
                 'deps'   => array(),
-                'ver'    => KANTANPRO_PLUGIN_VERSION,
+                'ver'    => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'css/styles.css' ),
                 'media'  => 'all',
                 'admin'  => false,
             ),
@@ -495,6 +495,13 @@ class KTPWP_Assets {
                 'in_footer' => true,
                 'admin'     => false,
             ),
+            'ktp-number-format' => array(
+                'src'       => 'js/ktp-number-format.js',
+                'deps'      => array(),
+                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-number-format.js' ),
+                'in_footer' => true,
+                'admin'     => false,
+            ),
             'ktp-atena-print' => array(
                 'src'       => 'js/ktp-atena-print.js',
                 'deps'      => array(),
@@ -562,6 +569,54 @@ class KTPWP_Assets {
                     'data'   => array(
                         'ajax_url' => admin_url( 'admin-ajax.php' ),
                         'nonce'    => wp_create_nonce( 'ktp_contract_billing_nonce' ),
+                    ),
+                ),
+            ),
+            'ktp-order-delete-confirm' => array(
+                'src'       => 'js/ktp-order-delete-confirm.js',
+                'deps'      => array(),
+                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-order-delete-confirm.js' ),
+                'in_footer' => true,
+                'admin'     => false,
+                'localize'  => array(
+                    'object' => 'ktpOrderDeleteConfirm',
+                    'data'   => array(
+                        'message' => __(
+                            "本当にこの受注書を削除しますか？\n\n請求明細・原価明細・スタッフチャット・添付ファイル・メール送信履歴も削除されます。\nこの操作は元に戻せません。",
+                            'ktpwp'
+                        ),
+                    ),
+                ),
+            ),
+            'ktp-order-contract' => array(
+                'src'       => 'js/ktp-order-contract.js',
+                'deps'      => array( 'ktp-number-format' ),
+                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-order-contract.js' ),
+                'in_footer' => true,
+                'admin'     => false,
+                'localize'  => array(
+                    'object' => 'ktpOrderContract',
+                    'data'   => array(
+                        'ajax_url' => admin_url( 'admin-ajax.php' ),
+                        'nonce'    => wp_create_nonce( 'ktp_order_contract_nonce' ),
+                        'icons'    => class_exists( 'KTPWP_SVG_Icons' )
+                            ? array(
+                                'delete' => KTPWP_SVG_Icons::get_icon(
+                                    'delete',
+                                    array(
+                                        'class' => 'ktp-svg-icon',
+                                        'style' => 'font-size:18px;line-height:1;',
+                                    )
+                                ),
+                                'add'    => KTPWP_SVG_Icons::get_icon(
+                                    'add',
+                                    array(
+                                        'class' => 'ktp-svg-icon',
+                                        'style' => 'font-size:18px;line-height:1;',
+                                    )
+                                ),
+                            )
+                            : array(),
                     ),
                 ),
             ),
@@ -726,6 +781,8 @@ class KTPWP_Assets {
             'ktp-delivery-dates',
             'ktp-order-preview',
             'ktp-order-inline-projectname',
+            'ktp-order-delete-confirm',
+            'ktp-order-contract',
             'ktp-email-popup',
             'ktp-progress-select',
         );

@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.31
+Stable tag: 1.3.32
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,17 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.32 - 2026年06月13日 =
+* サービスに定期請求明細行・初回費用（既定）・在庫数の設定を追加
+* 公開商品一覧に定期請求明細・初回費用・保留中/完売バッジ表示を追加
+* 在庫数に応じた公開ページ受付制御（完売御礼・保留中）を追加
+* 案件詳細から定期契約への変換 UI・AJAX を追加
+* Web 申込案件のメモ解析・進捗変更時の契約連動（ボツ時の解消など）を追加
+* 受注書削除確認ダイアログを追加
+* 数値表示の小数点省略ルールを導入（`format_decimal_trimmed` / `ktp-number-format.js`）
+* DB マイグレーション3件（定期請求明細・初回費用・サービス在庫数）
+* 計37ファイル・約2500行増（v1.3.31…HEAD）
 
 = 1.3.31 - 2026年06月13日 =
 * 定期契約（継続請求）機能を追加

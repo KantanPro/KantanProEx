@@ -258,23 +258,73 @@ class KTPWP_Settings {
 
     /**
      * Format a numeric amount using the selected currency.
+     * 整数値は小数点以下を表示しない（50000.00 → 50,000円）。
      *
      * @param float|int|string $amount Amount value.
      * @return string
      */
     public static function format_money( $amount ) {
-        $config = self::get_currency_config();
-        $number = is_numeric( $amount ) ? (float) $amount : 0.0;
-        $decimals = isset( $config['decimals'] ) ? (int) $config['decimals'] : 0;
-        $formatted = number_format( $number, $decimals );
-        $symbol = isset( $config['symbol'] ) ? (string) $config['symbol'] : '';
+        $config   = self::get_currency_config();
+        $symbol   = isset( $config['symbol'] ) ? (string) $config['symbol'] : '';
         $position = isset( $config['position'] ) ? (string) $config['position'] : 'after';
+        $plain    = self::format_decimal_trimmed( $amount );
+
+        if ( $plain === '' ) {
+            $plain = '0';
+        }
+
+        $parts    = explode( '.', $plain );
+        $parts[0] = number_format( (float) $parts[0], 0, '.', ',' );
+        $formatted = isset( $parts[1] ) ? $parts[0] . '.' . $parts[1] : $parts[0];
 
         if ( $position === 'before' ) {
             return $symbol . $formatted;
         }
 
         return $formatted . $symbol;
+    }
+
+    /**
+     * 末尾の不要な 0 を省略して数値を表示する（税率・数量など）。
+     *
+     * @param float|int|string|null $value        数値。
+     * @param int                   $max_decimals 最大小数桁。
+     * @return string
+     */
+    public static function format_decimal_trimmed( $value, $max_decimals = 4 ) {
+        if ( $value === null || $value === '' ) {
+            return '';
+        }
+
+        if ( ! is_numeric( $value ) ) {
+            return (string) $value;
+        }
+
+        $number    = (float) $value;
+        $formatted = rtrim( rtrim( number_format( $number, $max_decimals, '.', '' ), '0' ), '.' );
+
+        return $formatted === '' ? '0' : $formatted;
+    }
+
+    /**
+     * フォーム input の value 属性用（DB の DECIMAL 由来の .00 を省略）。
+     *
+     * @param float|int|string|null $value        数値。
+     * @param int                   $max_decimals 最大小数桁。
+     * @return string
+     */
+    public static function format_number_field_value( $value, $max_decimals = 4 ) {
+        return self::format_decimal_trimmed( $value, $max_decimals );
+    }
+
+    /**
+     * 通貨記号付きで金額を表示する（{@see format_money} のエイリアス）。
+     *
+     * @param float|int|string $amount 金額。
+     * @return string
+     */
+    public static function format_money_trimmed( $amount ) {
+        return self::format_money( $amount );
     }
 
     /**

@@ -73,17 +73,18 @@ if ( ! class_exists( 'KTPWP_Contract_Billing_UI' ) ) {
 			$html .= '<div class="ktp-contract-billing-panel__header">';
 			$html .= '<div class="ktp-contract-billing-panel__title-wrap">';
 			$html .= '<h3 class="ktp-contract-billing-panel__title">' . esc_html( $period_title ) . ' ' . esc_html__( '定期請求', 'ktpwp' ) . '</h3>';
-			$html .= '<p class="ktp-contract-billing-panel__summary">';
+			$html .= '<div class="ktp-contract-billing-panel__meta">';
+			$html .= '<div class="ktp-contract-billing-panel__meta-line ktp-contract-billing-panel__summary">';
 			$html .= esc_html(
 				sprintf(
 					/* translators: 1: total contracts, 2: pending count */
-					__( '対象 %1$d件（未生成 %2$d件）', 'ktpwp' ),
+					__( '対象 %1$d件（未紐付け %2$d件）', 'ktpwp' ),
 					count( $rows ),
 					$pending_count
 				)
 			);
-			$html .= '</p>';
-			$html .= '<p class="ktp-contract-billing-panel__summary">';
+			$html .= '</div>';
+			$html .= '<div class="ktp-contract-billing-panel__meta-line ktp-contract-billing-panel__summary">';
 			$html .= esc_html(
 				sprintf(
 					/* translators: 1: sent count, 2: eligible count */
@@ -92,8 +93,12 @@ if ( ! class_exists( 'KTPWP_Contract_Billing_UI' ) ) {
 					(int) $reminder_stats['sent'] + (int) $reminder_stats['pending']
 				)
 			);
-			$html .= '</p>';
-			$html .= '<p class="ktp-contract-billing-panel__hint">' . esc_html__( 'サイクルは請求タイミング、支払期日は契約の「入金期日」設定に従って表示します。', 'ktpwp' ) . '</p>';
+			$html .= '</div>';
+			$html .= '<div class="ktp-contract-billing-panel__meta-line ktp-contract-billing-panel__hint">' . esc_html__( 'サイクルは請求タイミング、支払期日は契約の「入金期日」設定に従って表示します。', 'ktpwp' ) . '</div>';
+			if ( empty( $rows ) ) {
+				$html .= '<div class="ktp-contract-billing-panel__meta-line ktp-contract-billing-panel__empty">' . esc_html__( '今月請求対象の定期契約はありません。', 'ktpwp' ) . '</div>';
+			}
+			$html .= '</div>';
 			$html .= '</div>';
 			$html .= '<div class="ktp-contract-billing-panel__actions">';
 			if ( (int) $reminder_stats['pending'] > 0 ) {
@@ -103,15 +108,13 @@ if ( ! class_exists( 'KTPWP_Contract_Billing_UI' ) ) {
 			}
 			if ( $pending_count > 0 ) {
 				$html .= '<button type="button" class="ktp-contract-action-btn ktp-contract-action-btn--primary" id="ktp-contract-billing-generate-all" data-period="' . esc_attr( $period ) . '">';
-				$html .= esc_html__( '未生成を一括で案件化', 'ktpwp' );
+				$html .= esc_html__( '未紐付けを一括で紐付け', 'ktpwp' );
 				$html .= '</button>';
 			}
 			$html .= '</div>';
 			$html .= '</div>';
 
-			if ( empty( $rows ) ) {
-				$html .= '<p class="ktp-contract-billing-panel__empty">' . esc_html__( '今月請求対象の定期契約はありません。', 'ktpwp' ) . '</p>';
-			} else {
+			if ( ! empty( $rows ) ) {
 				$html .= '<div class="ktp-contract-billing-table-wrap">';
 				$html .= '<table class="ktp-contract-billing-table">';
 				$html .= '<thead><tr>';
@@ -253,7 +256,7 @@ if ( ! class_exists( 'KTPWP_Contract_Billing_UI' ) ) {
 			$html .= '<td>' . esc_html( (string) $row['contract_name'] ) . '</td>';
 			$html .= '<td class="ktp-contract-billing-table__cycle">' . esc_html( $cycle_timing_line ) . '</td>';
 			$html .= '<td>' . esc_html( $payment_timing ) . '</td>';
-			$html .= '<td>¥' . esc_html( number_format( (float) $row['amount'] ) ) . '</td>';
+			$html .= '<td>' . esc_html( class_exists( 'KTPWP_Settings' ) ? KTPWP_Settings::format_money( (float) $row['amount'] ) : number_format( (float) $row['amount'] ) ) . '</td>';
 			$html .= '<td><span class="ktp-contract-billing-status ' . esc_attr( $status_class ) . '">' . esc_html( $status_label ) . '</span></td>';
 			$html .= '<td>' . $this->render_reminder_status_cell( $row, $period ) . '</td>';
 			$html .= '<td class="ktp-contract-billing-table__actions">';
@@ -263,7 +266,7 @@ if ( ! class_exists( 'KTPWP_Contract_Billing_UI' ) ) {
 
 			if ( 'pending' === $row['status'] ) {
 				$html .= '<button type="button" class="ktp-contract-action-btn ktp-contract-action-btn--primary ktp-contract-billing-generate-one" data-contract-id="' . esc_attr( (string) $row['contract_id'] ) . '" data-period="' . esc_attr( $period ) . '">';
-				$html .= esc_html__( '案件を生成', 'ktpwp' );
+				$html .= esc_html__( '案件を紐付け', 'ktpwp' );
 				$html .= '</button>';
 			} elseif ( (int) $row['order_id'] > 0 ) {
 				$order_url = add_query_arg(
@@ -358,10 +361,11 @@ if ( ! class_exists( 'KTPWP_Contract_Billing_UI' ) ) {
 		 */
 		private function get_status_label( $status ) {
 			$labels = array(
-				'pending'   => __( '未生成', 'ktpwp' ),
-				'generated' => __( '案件生成済', 'ktpwp' ),
+				'pending'   => __( '未紐付け', 'ktpwp' ),
+				'generated' => __( '紐付け済', 'ktpwp' ),
 				'invoiced'  => __( '請求済', 'ktpwp' ),
 				'paid'      => __( '入金済', 'ktpwp' ),
+				'rejected'  => __( 'ボツ', 'ktpwp' ),
 			);
 
 			return $labels[ $status ] ?? $status;

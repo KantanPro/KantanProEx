@@ -51,7 +51,7 @@ function ktpwp_contract_billing_get_frontend_base_url() {
 }
 
 /**
- * 単一契約の案件生成
+ * 単一契約の案件紐付け
  */
 function ktp_generate_contract_order_ajax() {
 	if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ?? '' ) ), 'ktp_contract_billing_nonce' ) ) {
@@ -89,13 +89,13 @@ function ktp_generate_contract_order_ajax() {
 		array(
 			'order_id'  => (int) $result,
 			'order_url' => $order_url,
-			'message'   => __( '案件を生成しました。', 'ktpwp' ),
+			'message'   => __( '案件を紐付けしました。', 'ktpwp' ),
 		)
 	);
 }
 
 /**
- * 未生成分を一括案件化
+ * 未紐付け分を一括案件紐付け
  */
 function ktp_generate_all_contract_orders_ajax() {
 	if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ?? '' ) ), 'ktp_contract_billing_nonce' ) ) {
@@ -116,7 +116,7 @@ function ktp_generate_all_contract_orders_ajax() {
 
 	$message = sprintf(
 		/* translators: %d: created count */
-		__( '%d件の案件を生成しました。', 'ktpwp' ),
+		__( '%d件の案件を紐付けしました。', 'ktpwp' ),
 		(int) $result['created']
 	);
 

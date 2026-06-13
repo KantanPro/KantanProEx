@@ -1740,6 +1740,18 @@ form > .create-order-btn {
   color: #6b7280;
 }
 
+.ktp-service-public-badge--sold-out {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.ktpwp-service-stock-sold-out-notice {
+  color: #c62828;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 8px 0 0;
+}
+
 .ktp-contract-cycle-badge {
   border-radius: 4px;
   display: inline-block;
@@ -2108,7 +2120,7 @@ form > .create-order-btn {
   border: 1px solid #ddd;
   border-radius: 8px;
   margin: 16px 0;
-  padding: 16px;
+  padding: 10px 14px;
 }
 
 .ktp-contract-billing-panel .ktp-contract-action-btn,
@@ -2191,26 +2203,55 @@ form > .create-order-btn {
   align-items: flex-start;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 6px;
+}
+
+.ktp-contract-billing-panel__title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
 }
 
 .ktp-contract-billing-panel__title {
-  font-size: 18px;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.25;
   margin: 0 0 4px;
+}
+
+.ktp-contract-billing-panel__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.ktp-contract-billing-panel__meta-line {
+  color: #666;
+  font-size: 12px;
+  line-height: 1.3;
+  margin: 0;
+  padding: 0;
+}
+
+.ktp-contract-billing-panel__meta-line + .ktp-contract-billing-panel__meta-line {
+  margin-top: 3px;
 }
 
 .ktp-contract-billing-panel__summary {
   color: #666;
-  font-size: 13px;
-  margin: 0;
+  font-size: 12px;
+  line-height: 1.3;
 }
 
 .ktp-contract-billing-panel__hint {
   color: #888;
-  font-size: 12px;
-  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.3;
 }
 
 .ktp-contract-billing-panel__actions {
@@ -2220,10 +2261,12 @@ form > .create-order-btn {
   gap: 8px;
 }
 
-.ktp-contract-billing-panel__empty,
-.ktp-contract-billing-panel__hint {
+.ktp-contract-billing-panel__empty {
   color: #666;
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.3;
+  margin: 0;
+  padding: 0;
 }
 
 .ktp-contract-billing-table-wrap {
@@ -2288,6 +2331,11 @@ form > .create-order-btn {
 .ktp-contract-billing-status--paid {
   background: #e8f5e9;
   color: #2e7d32;
+}
+
+.ktp-contract-billing-status--rejected {
+  background: #ffebee;
+  color: #c62828;
 }
 
 .ktp-contract-billing-panel__message {
@@ -3099,6 +3147,109 @@ input[name="tab_item"] {
   border-left: 3px solid #e74c3c;
 }
 
+/* サービス詳細：契約・定期請求項目 */
+.ktpwp-service-field-block__label-text {
+  display: block;
+  font-size: 14px;
+  color: #444;
+  line-height: 1.4;
+  font-weight: normal;
+}
+
+.ktpwp-service-field-block__hint {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #777;
+  font-weight: normal;
+}
+
+.form-group.ktpwp-service-contract-field {
+  align-items: flex-start;
+}
+
+.ktpwp-service-field-label-col {
+  width: 25%;
+  flex-shrink: 0;
+  margin-right: 12px;
+  text-align: right;
+}
+
+.ktpwp-service-field-label-col label {
+  display: block;
+  width: 100%;
+  margin: 0;
+  text-align: right;
+  font-size: 14px;
+  color: #444;
+  white-space: normal;
+}
+
+.ktpwp-service-field-hint {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.45;
+  margin: 4px 0 0;
+}
+
+.form-group.ktpwp-service-contract-field .ktpwp-service-field-hint {
+  text-align: right;
+}
+
+.form-group.ktpwp-service-contract-field select {
+  width: 75%;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ktpwp-service-recurring-items {
+  margin-bottom: 16px;
+}
+
+.ktpwp-service-recurring-items__head {
+  display: flex;
+  margin-bottom: 8px;
+}
+
+.ktpwp-service-recurring-items__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  table-layout: fixed;
+}
+
+.ktpwp-service-recurring-items__table th,
+.ktpwp-service-recurring-items__table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  vertical-align: middle;
+}
+
+.ktpwp-service-recurring-items__table th {
+  background: #ffeef1;
+  color: #4b5563;
+  font-weight: 600;
+  text-align: left;
+  border-bottom: 1px solid #fecdd3;
+}
+
+.ktpwp-service-recurring-items__table td input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  background-color: #fff;
+}
+
+.ktpwp-service-recurring-items__table td input:focus {
+  border-color: #4a90e2;
+  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.15);
+  outline: none;
+}
+
 /* エラー表示のスタイル */
 .form-error {
   color: #e74c3c;
@@ -3638,6 +3789,27 @@ div.ktp-report-print-area {
   .form-group input,
   .form-group select,
   .form-group textarea {
+    width: 100%;
+  }
+
+  .form-group.ktpwp-service-contract-field {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ktpwp-service-field-label-col,
+  .form-group.ktpwp-service-contract-field .ktpwp-service-field-label-col {
+    width: 100%;
+    margin-right: 0;
+    text-align: left;
+  }
+
+  .ktpwp-service-field-label-col label,
+  .form-group.ktpwp-service-contract-field .ktpwp-service-field-hint {
+    text-align: left;
+  }
+
+  .form-group.ktpwp-service-contract-field select {
     width: 100%;
   }
   
@@ -5313,6 +5485,42 @@ body.ktpwp-modal-open {
   border-color: #ac2925 !important;
 }
 
+.controller .ktp-order-controller-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.controller .ktp-order-contract-btn {
+  background: #5c6bc0 !important;
+  color: #fff !important;
+  border: 1px solid #3f51b5 !important;
+  border-radius: 4px !important;
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+.controller .ktp-order-contract-btn:hover:not(:disabled) {
+  background: #3f51b5 !important;
+  border-color: #303f9f !important;
+}
+
+.controller .ktp-order-contract-btn--view {
+  background: #fff !important;
+  color: #374151 !important;
+  border: 1px solid #d1d5db !important;
+}
+
+.controller .ktp-order-contract-btn--view:hover {
+  background: #f9fafb !important;
+  border-color: #9ca3af !important;
+  color: #111827 !important;
+}
+
 .controller .order-mail-btn {
   background: #2196f3 !important;
   color: #fff !important;
@@ -6476,4 +6684,222 @@ body.ktpwp-modal-open {
 .ktp-biz-items-table thead.ktp-bulk-items-table-head th {
   background-color: #ffeef1;
   border-bottom: 1px solid #fecdd3;
+}
+
+/* 案件→定期契約変換パネル */
+.ktp-order-contract-panel {
+  margin: 16px 0 24px;
+}
+.ktp-order-contract-panel__inner {
+  padding: 16px 18px;
+}
+.ktp-order-contract-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.ktp-order-contract-summary {
+  background: #eef6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #1e3a5f;
+}
+.ktp-order-contract-summary__line {
+  margin: 0;
+}
+.ktp-order-contract-summary__line + .ktp-order-contract-summary__line {
+  margin-top: 2px;
+}
+.ktp-order-contract-summary__note {
+  color: #334155;
+}
+.ktp-order-contract-summary p {
+  margin: 0;
+}
+.ktp-order-contract-message {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.ktp-order-contract-message--error {
+  background: #ffebee;
+  border: 1px solid #f44336;
+  color: #b71c1c;
+}
+.ktp-order-contract-message--success {
+  background: #e8f5e9;
+  border: 1px solid #4caf50;
+  color: #1b5e20;
+}
+.ktp-order-contract-link-block {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+.ktp-order-contract-link-block__title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+}
+.ktp-order-contract-link-block__checkbox label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  cursor: pointer;
+}
+.ktp-order-contract-link-block__checkbox input[type="checkbox"] {
+  margin: 0;
+  flex: 0 0 auto;
+}
+.ktp-order-contract-link-block__help {
+  margin: 6px 0 12px;
+  padding-left: 24px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+/* 案件→定期契約パネル：文字サイズ・見出しを統一 */
+.ktp-order-contract-panel {
+  font-size: 14px;
+  line-height: 1.45;
+  color: #334155;
+}
+
+.ktp-order-contract-panel .ktp-contract-section__title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+  margin: 0;
+  color: #1e293b;
+}
+
+.ktp-order-contract-panel .ktp-order-contract-summary,
+.ktp-order-contract-panel .ktp-order-contract-summary__line,
+.ktp-order-contract-panel .ktp-order-contract-message,
+.ktp-order-contract-panel .ktp-contract-form__field label,
+.ktp-order-contract-panel .ktp-contract-form__field--checkbox label,
+.ktp-order-contract-panel .ktp-contract-recurring-items__title,
+.ktp-order-contract-panel .ktp-contract-initial-fees__title,
+.ktp-order-contract-panel .ktp-order-contract-link-block__title,
+.ktp-order-contract-panel .ktp-order-contract-link-block__checkbox label,
+.ktp-order-contract-panel .ktp-order-contract-link-block__help,
+.ktp-order-contract-panel .ktp-contract-initial-fees__presets label,
+.ktp-order-contract-panel .ktp-contract-recurring-items__locked,
+.ktp-order-contract-panel .ktp-contract-initial-fees__locked,
+.ktp-order-contract-panel .description {
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.ktp-order-contract-panel h4,
+.ktp-order-contract-panel h5 {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+  margin: 0 0 8px;
+  color: #334155;
+}
+
+.ktp-order-contract-panel .ktp-contract-form__field label {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #475569;
+}
+
+.ktp-order-contract-panel .ktp-contract-form__field--checkbox label,
+.ktp-order-contract-panel .ktp-order-contract-link-block__checkbox label {
+  font-weight: 600;
+  color: #334155;
+}
+
+.ktp-order-contract-panel .ktp-contract-form__field input[type="text"],
+.ktp-order-contract-panel .ktp-contract-form__field input[type="number"],
+.ktp-order-contract-panel .ktp-contract-form__field input[type="date"],
+.ktp-order-contract-panel .ktp-contract-form__field input[type="month"],
+.ktp-order-contract-panel .ktp-contract-form__field select,
+.ktp-order-contract-panel .ktp-contract-form__field textarea,
+.ktp-order-contract-panel .ktp-contract-recurring-items__table input,
+.ktp-order-contract-panel .ktp-contract-initial-fees__table input,
+.ktp-order-contract-panel .ktp-contract-initial-fees__presets select {
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.ktp-order-contract-panel .ktp-contract-recurring-items,
+.ktp-order-contract-panel .ktp-contract-initial-fees {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.ktp-order-contract-panel .ktp-contract-recurring-items__table,
+.ktp-order-contract-panel .ktp-contract-initial-fees__table {
+  border-collapse: collapse;
+  font-size: 14px;
+  margin-bottom: 10px;
+  width: 100%;
+}
+
+.ktp-order-contract-panel .ktp-contract-recurring-items__table th,
+.ktp-order-contract-panel .ktp-contract-recurring-items__table td,
+.ktp-order-contract-panel .ktp-contract-initial-fees__table th,
+.ktp-order-contract-panel .ktp-contract-initial-fees__table td {
+  border: 1px solid #ddd;
+  padding: 6px 8px;
+  vertical-align: middle;
+}
+
+.ktp-order-contract-panel .ktp-contract-recurring-items__table th,
+.ktp-order-contract-panel .ktp-contract-initial-fees__table th {
+  background: #f5f5f5;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.ktp-order-contract-panel .ktp-contract-recurring-items__table input,
+.ktp-order-contract-panel .ktp-contract-initial-fees__table input {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.ktp-order-contract-panel .ktp-contract-recurring-items__actions,
+.ktp-order-contract-panel .ktp-contract-initial-fees__actions {
+  text-align: center;
+  width: 44px;
+}
+
+.ktp-order-contract-panel .ktp-contract-section .ktp-contract-action-btn {
+  font-size: 14px;
+}
+
+.ktp-order-contract-panel .ktp-order-contract-link-block__title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: #334155;
+}
+
+.ktp-order-contract-panel .description,
+.ktp-order-contract-panel .ktp-order-contract-link-block__help {
+  color: #64748b;
+  font-weight: 400;
+  margin: 0 0 8px;
+}
+
+.ktp-order-contract-panel .ktp-order-contract-link-block__help {
+  margin: 6px 0 12px;
+  padding-left: 24px;
 }

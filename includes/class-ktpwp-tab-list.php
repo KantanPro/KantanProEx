@@ -899,6 +899,9 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 					}
 
 					$wpdb->update( $table_name, $update_data, array( 'id' => $update_id ) );
+					if ( class_exists( 'KTPWP_Order_Progress_Effects' ) ) {
+						KTPWP_Order_Progress_Effects::after_progress_updated( $update_id, $update_progress );
+					}
 					// リダイレクトで再読み込み（POSTリダブミット防止）
 					wp_redirect( esc_url_raw( $_SERVER['REQUEST_URI'] ) );
 					exit;

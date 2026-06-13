@@ -79,7 +79,7 @@
 			})
 				.then(function (json) {
 					if (!json || typeof json !== 'object' || !json.success) {
-						var errMsg = '案件の生成に失敗しました。';
+						var errMsg = '案件の紐付けに失敗しました。';
 						if (json && typeof json.data === 'string' && json.data !== '') {
 							errMsg = json.data;
 						}
@@ -87,7 +87,7 @@
 						generateOne.disabled = false;
 						return;
 					}
-					showMessage(json.data.message || '案件を生成しました。', false);
+					showMessage(json.data.message || '案件を紐付けしました。', false);
 					var orderId = json.data && json.data.order_id ? parseInt(json.data.order_id, 10) : 0;
 					var orderUrl = orderId > 0 ? buildOrderUrl(orderId) : (json.data.order_url || '');
 					if (orderUrl) {
@@ -106,7 +106,7 @@
 		var generateAll = event.target.closest('#ktp-contract-billing-generate-all');
 		if (generateAll) {
 			event.preventDefault();
-			if (!window.confirm('未生成の定期契約を一括で案件化します。よろしいですか？')) {
+			if (!window.confirm('未紐付けの定期契約を一括で案件紐付けします。よろしいですか？')) {
 				return;
 			}
 			generateAll.disabled = true;
@@ -115,7 +115,7 @@
 			})
 				.then(function (json) {
 					if (!json || typeof json !== 'object' || !json.success) {
-						var errMsg = '一括生成に失敗しました。';
+						var errMsg = '一括紐付けに失敗しました。';
 						if (json && typeof json.data === 'string' && json.data !== '') {
 							errMsg = json.data;
 						}
@@ -123,7 +123,7 @@
 						generateAll.disabled = false;
 						return;
 					}
-					showMessage(json.data.message || '一括生成が完了しました。', false);
+					showMessage(json.data.message || '一括紐付けが完了しました。', false);
 					reloadSoon();
 				})
 				.catch(function () {

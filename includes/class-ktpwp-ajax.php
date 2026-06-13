@@ -5033,6 +5033,10 @@ class KTPWP_Ajax {
 		$result = $wpdb->update( $table_name, $update_data, array( 'id' => $order_id ), $data_format, $where_format );
 
 		if ( $result !== false ) {
+			if ( class_exists( 'KTPWP_Order_Progress_Effects' ) ) {
+				KTPWP_Order_Progress_Effects::after_progress_updated( $order_id, $new_progress );
+			}
+
 			wp_send_json_success( array(
 				'message' => __( '進捗を更新しました', 'ktpwp' ),
 				'progress' => $new_progress,

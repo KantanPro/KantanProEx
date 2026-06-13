@@ -191,10 +191,16 @@ if ( ! class_exists( 'KTPWP_Contract_UI' ) ) {
 				$cycle = class_exists( 'KTPWP_Contract_Billing_Cycle' )
 					? KTPWP_Contract_Billing_Cycle::sanitize( $service->contract_billing_cycle ?? 'none' )
 					: 'monthly';
+				$service_recurring = class_exists( 'KTPWP_Contract_Recurring_Items' )
+					? KTPWP_Contract_Recurring_Items::rows_to_payload(
+						KTPWP_Contract_Recurring_Items::get_by_service_id( (int) $service->id )
+					)
+					: array();
 				$html .= '<option value="' . esc_attr( (string) $service->id ) . '"'
 					. ' data-price="' . esc_attr( (string) $service->price ) . '"'
 					. ' data-cycle="' . esc_attr( $cycle ) . '"'
-					. ' data-tax-rate="' . esc_attr( $service->tax_rate !== null ? (string) $service->tax_rate : '' ) . '">'
+					. ' data-tax-rate="' . esc_attr( $service->tax_rate !== null ? (string) $service->tax_rate : '' ) . '"'
+					. ' data-recurring-items="' . esc_attr( wp_json_encode( $service_recurring ) ) . '">'
 					. esc_html( $service->service_name )
 					. '</option>';
 			}
@@ -204,6 +210,7 @@ if ( ! class_exists( 'KTPWP_Contract_UI' ) ) {
 			$html .= '<div class="ktp-contract-form__field">';
 			$html .= '<label for="ktp-contract-amount">' . esc_html__( '請求金額', 'ktpwp' ) . '</label>';
 			$html .= '<input type="number" id="ktp-contract-amount" min="0" step="0.01" value="0">';
+			$html .= '<p class="description">' . esc_html__( '定期請求項目がある場合は、項目の合計が契約金額になります。', 'ktpwp' ) . '</p>';
 			$html .= '</div>';
 
 			$html .= '<div class="ktp-contract-form__field">';
@@ -267,6 +274,8 @@ if ( ! class_exists( 'KTPWP_Contract_UI' ) ) {
 			$html .= '<textarea id="ktp-contract-memo" rows="2"></textarea>';
 			$html .= '</div>';
 
+			$html .= $this->render_recurring_items_block();
+
 			$html .= $this->render_initial_fees_block( $fee_presets );
 
 			$html .= '<div class="button ktp-contract-form__actions">';
@@ -287,6 +296,38 @@ if ( ! class_exists( 'KTPWP_Contract_UI' ) ) {
 					'label' => __( 'キャンセル', 'ktpwp' ),
 				)
 			);
+			$html .= '</div>';
+
+			return $html;
+		}
+
+		/**
+		 * 定期請求項目ブロック
+		 *
+		 * @return string
+		 */
+		private function render_recurring_items_block() {
+			$html  = '<div class="ktp-contract-recurring-items" id="ktp-contract-recurring-items">';
+			$html .= '<h5 class="ktp-contract-recurring-items__title">' . esc_html__( '定期請求項目', 'ktpwp' ) . '</h5>';
+			$html .= '<p class="description">' . esc_html__( '家賃＋共益費など、毎回請求する明細を登録します。空欄の行は無視されます。', 'ktpwp' ) . '</p>';
+			$html .= '<table class="ktp-contract-recurring-items__table" id="ktp-contract-recurring-items-table">';
+			$html .= '<thead><tr>';
+			$html .= '<th>' . esc_html__( '項目名', 'ktpwp' ) . '</th>';
+			$html .= '<th>' . esc_html__( '金額', 'ktpwp' ) . '</th>';
+			$html .= '<th>' . esc_html__( '税率(%)', 'ktpwp' ) . '</th>';
+			$html .= '<th></th>';
+			$html .= '</tr></thead>';
+			$html .= '<tbody id="ktp-contract-recurring-items-body"></tbody>';
+			$html .= '</table>';
+			$html .= $this->render_action_button(
+				array(
+					'id'    => 'ktp-contract-add-recurring-row',
+					'class' => 'ktp-contract-action-btn--primary ktp-contract-action-btn--sm',
+					'icon'  => 'add',
+					'label' => __( '行を追加', 'ktpwp' ),
+				)
+			);
+			$html .= '<p class="ktp-contract-recurring-items__locked" id="ktp-contract-recurring-items-locked" style="display:none;">' . esc_html__( '初回請求済みのため、定期請求項目は変更できません。', 'ktpwp' ) . '</p>';
 			$html .= '</div>';
 
 			return $html;

@@ -79,11 +79,41 @@
 		}
 	}
 
+	function getProductStatusLabel(product) {
+		if (product && product.status_label) {
+			return product.status_label;
+		}
+		if (product && product.is_sold_out) {
+			return i18n.soldOutBadge || '完売御礼！';
+		}
+		if (product && product.is_pending) {
+			return i18n.pendingBadge || '保留中';
+		}
+		return '';
+	}
+
+	function getProductStatusNotice(product) {
+		if (product && product.is_sold_out) {
+			return i18n.soldOutNotice || 'こちらの商品は完売しました。';
+		}
+		if (product && (product.is_pending || product.acceptance_open === false)) {
+			return i18n.pendingNotice || '現在お問い合わせを受け付けておりません。';
+		}
+		return '';
+	}
+
 	function buildDetailHtml(product) {
 		var parts = [];
+		var statusLabel = getProductStatusLabel(product);
+		var statusNotice = getProductStatusNotice(product);
+		var isClosed = product.acceptance_open === false;
 		parts.push('<div class="ktpwp-public-product-detail__hero">');
 		if (product.image) {
-			parts.push('<div class="ktpwp-public-product-detail__image-wrap">');
+			var imageWrapClass = 'ktpwp-public-product-detail__image-wrap';
+			if (isClosed) {
+				imageWrapClass += ' ktpwp-public-product-item__image-wrap--pending';
+			}
+			parts.push('<div class="' + imageWrapClass + '">');
 			parts.push(
 				'<img src="' +
 					escapeHtml(product.image) +
@@ -91,10 +121,25 @@
 					escapeHtml(product.name) +
 					'" class="ktpwp-public-product-detail__image" loading="lazy" decoding="async" />'
 			);
+			if (isClosed && statusLabel) {
+				parts.push(
+					'<span class="ktpwp-public-product-item__pending-overlay" aria-hidden="true">' +
+						'<span class="ktpwp-public-product-item__pending-overlay-badge">' +
+						escapeHtml(statusLabel) +
+						'</span></span>'
+				);
+			}
 			parts.push('</div>');
 		}
 		parts.push('<div class="ktpwp-public-product-detail__meta">');
 		parts.push('<h3 class="ktpwp-public-product-detail__name">' + escapeHtml(product.name) + '</h3>');
+		if (isClosed && statusNotice) {
+			parts.push(
+				'<p class="ktpwp-public-product-detail__pending-notice">' +
+					escapeHtml(statusNotice) +
+					'</p>'
+			);
+		}
 		if (product.category) {
 			parts.push(
 				'<p class="ktpwp-public-product-detail__category">' +
@@ -104,17 +149,64 @@
 					'</p>'
 			);
 		}
-		if (product.price_display) {
+		if (product.recurring_items && product.recurring_items.length) {
+			parts.push('<div class="ktpwp-public-product-detail__recurring-items">');
+			product.recurring_items.forEach(function (item) {
+				var amountWithUnit = escapeHtml(item.amount_display || '');
+				if (product.unit) {
+					amountWithUnit += '/' + escapeHtml(product.unit);
+				}
+				parts.push(
+					'<div class="ktpwp-public-product-detail__recurring-item">' +
+						'<span class="ktpwp-public-product-detail__recurring-item-line">' +
+						escapeHtml(item.item_name || '') +
+						' ' +
+						amountWithUnit +
+						'</span>' +
+						'</div>'
+				);
+			});
+			parts.push('</div>');
+		} else if (product.price_display) {
 			parts.push(
 				'<p class="ktpwp-public-product-detail__price">' +
 					escapeHtml(i18n.price || '単価') +
 					': ' +
 					escapeHtml(product.price_display) +
 					(product.unit ? ' / ' + escapeHtml(product.unit) : '') +
+					(product.is_recurring || product.is_recurring_contract
+						? ' <span class="ktpwp-public-product-detail__recurring-badge">' + escapeHtml(i18n.recurringBadge || '定期') + '</span>'
+						: '') +
 					'</p>'
 			);
 		}
-		if (product.tax_rate !== '' && product.tax_rate != null) {
+		if (product.initial_fees && product.initial_fees.length) {
+			parts.push('<div class="ktpwp-public-product-detail__initial-fees">');
+			parts.push(
+				'<span class="ktpwp-public-product-detail__initial-fees-label">' +
+					escapeHtml(i18n.initialFees || '初回費用') +
+					'</span>'
+			);
+			product.initial_fees.forEach(function (fee, index) {
+				parts.push('<span class="ktpwp-public-product-detail__initial-fees-item">');
+				parts.push(
+					escapeHtml(fee.fee_name || '') +
+						' ' +
+						escapeHtml(fee.amount_display || '') +
+						(fee.tax_rate ? ' (' + escapeHtml(i18n.tax || '税率') + ' ' + escapeHtml(fee.tax_rate) + '%)' : '')
+				);
+				if (index === product.initial_fees.length - 1) {
+					parts.push(
+						'<span class="ktpwp-public-product-detail__initial-fees-note">' +
+							escapeHtml(i18n.initialFeesNote || '初回請求時のみ') +
+							'</span>'
+					);
+				}
+				parts.push('</span>');
+			});
+			parts.push('</div>');
+		}
+		if (product.tax_rate !== '' && product.tax_rate != null && !(product.recurring_items && product.recurring_items.length)) {
 			parts.push(
 				'<p class="ktpwp-public-product-detail__tax">' +
 					escapeHtml(i18n.tax || '税率') +
@@ -360,6 +452,7 @@
 				return;
 			}
 
+			var acceptanceOpen = product.acceptance_open !== false && !product.is_pending;
 			lastActiveElement = document.activeElement;
 
 			hideMessage();
@@ -372,7 +465,7 @@
 				if (qty) {
 					qty.value = '1';
 				}
-				form.hidden = false;
+				form.hidden = !acceptanceOpen;
 			}
 
 			if (content) {

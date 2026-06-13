@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.3.31
+ * Version: 1.3.32
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -986,10 +986,18 @@ if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
         'KTPWP_Payment_Timing'  => 'includes/class-ktpwp-payment-timing.php',
         'KTPWP_External_Url'    => 'includes/class-ktpwp-external-url.php',
         'KTPWP_Contract_Billing_Cycle' => 'includes/class-ktpwp-contract-billing-cycle.php',
+        'KTPWP_Contract_Recurring_Items' => 'includes/class-ktpwp-contract-recurring-items.php',
+        'KTPWP_Service_Initial_Fees' => 'includes/class-ktpwp-service-initial-fees.php',
         'KTPWP_Contract_DB'     => 'includes/class-ktpwp-contract-db.php',
+        'KTPWP_Contract_Service_Public_Availability' => 'includes/class-ktpwp-contract-service-public-availability.php',
+        'KTPWP_Order_Progress_Effects' => 'includes/class-ktpwp-order-progress-effects.php',
         'KTPWP_Contract_UI'     => 'includes/class-ktpwp-contract-ui.php',
         'KTPWP_Contract_Billing'    => 'includes/class-ktpwp-contract-billing.php',
         'KTPWP_Contract_Billing_UI' => 'includes/class-ktpwp-contract-billing-ui.php',
+        'KTPWP_Public_Product_Order_Memo' => 'includes/class-ktpwp-public-product-order-memo.php',
+        'KTPWP_Order_Contract_Draft_Resolver' => 'includes/class-ktpwp-order-contract-draft-resolver.php',
+        'KTPWP_Order_Contract_Conversion' => 'includes/class-ktpwp-order-contract-conversion.php',
+        'KTPWP_Order_Contract_UI' => 'includes/class-ktpwp-order-contract-ui.php',
     );
 
     foreach ( $classes as $class_name => $file_path ) {
@@ -1020,6 +1028,7 @@ require_once __DIR__ . '/includes/ajax-department.php';
 // --- 定期契約AJAXハンドラを読み込む ---
 require_once __DIR__ . '/includes/ajax-contract.php';
 require_once __DIR__ . '/includes/ajax-contract-billing.php';
+require_once __DIR__ . '/includes/ajax-order-contract.php';
 
 // --- 売上台帳PDF生成AJAXハンドラを読み込む ---
 require_once __DIR__ . '/includes/ajax-sales-ledger-pdf.php';
@@ -4394,6 +4403,13 @@ function ktpwp_ensure_shortcodes_registered() {
         }
     }
 
+    if ( ! get_option( 'ktp_service_stock_migration_completed' ) ) {
+        $migration_file = plugin_dir_path( __FILE__ ) . 'includes/migrations/20260617_add_stock_to_service.php';
+        if ( file_exists( $migration_file ) ) {
+            require_once $migration_file;
+        }
+    }
+
     if ( ! class_exists( 'KTPWP_Shortcodes' ) ) {
         $shortcodes_file = plugin_dir_path( __FILE__ ) . 'includes/class-ktpwp-shortcodes.php';
         if ( file_exists( $shortcodes_file ) ) {
@@ -4437,7 +4453,14 @@ function ktpwp_scripts_and_styles( $hook = '' ) {
         return;
     }
 
-    wp_enqueue_script( 'ktp-js', plugins_url( 'js/ktp-js.js', __FILE__ ) . '?v=' . time(), array( 'jquery' ), null, true );
+    wp_enqueue_script(
+        'ktp-number-format',
+        plugins_url( 'js/ktp-number-format.js', __FILE__ ),
+        array(),
+        KANTANPRO_PLUGIN_VERSION,
+        true
+    );
+    wp_enqueue_script( 'ktp-js', plugins_url( 'js/ktp-js.js', __FILE__ ) . '?v=' . time(), array( 'jquery', 'ktp-number-format' ), null, true );
 
     // デバッグモードの設定（WP_DEBUGまたは開発環境でのみ有効）
     $debug_mode = ( defined( 'WP_DEBUG' ) && WP_DEBUG ) || ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG );

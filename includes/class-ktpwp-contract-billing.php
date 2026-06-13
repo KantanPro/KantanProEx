@@ -117,7 +117,9 @@ if ( ! class_exists( 'KTPWP_Contract_Billing' ) ) {
 				$status = 'pending';
 				if ( $order ) {
 					$progress = (int) $order->progress;
-					if ( $progress >= 6 ) {
+					if ( 7 === $progress ) {
+						$status = 'rejected';
+					} elseif ( $progress >= 6 ) {
 						$status = 'paid';
 					} elseif ( $progress >= 5 ) {
 						$status = 'invoiced';
@@ -261,7 +263,7 @@ if ( ! class_exists( 'KTPWP_Contract_Billing' ) ) {
 			}
 
 			if ( 'active' !== $contract->status ) {
-				return new WP_Error( 'inactive', __( '有効な定期契約のみ案件を生成できます。', 'ktpwp' ) );
+				return new WP_Error( 'inactive', __( '有効な定期契約のみ案件を紐付けできます。', 'ktpwp' ) );
 			}
 
 			if ( ! $this->is_contract_due_in_period( $contract, $period ) ) {
@@ -270,13 +272,13 @@ if ( ! class_exists( 'KTPWP_Contract_Billing' ) ) {
 
 			$existing_log = $this->get_billing_log( $contract_id, $period );
 			if ( $existing_log && (int) $existing_log->order_id > 0 ) {
-				return new WP_Error( 'already_generated', __( '今月分の案件はすでに生成されています。', 'ktpwp' ) );
+				return new WP_Error( 'already_generated', __( '今月分の案件はすでに紐付けされています。', 'ktpwp' ) );
 			}
 
 			$existing_order = $this->find_order_for_contract_period( $contract_id, $period );
 			if ( $existing_order ) {
 				$this->ensure_billing_log( $contract_id, $period, (int) $existing_order->id );
-				return new WP_Error( 'already_generated', __( '今月分の案件はすでに生成されています。', 'ktpwp' ) );
+				return new WP_Error( 'already_generated', __( '今月分の案件はすでに紐付けされています。', 'ktpwp' ) );
 			}
 
 			$client = $wpdb->get_row(
@@ -290,7 +292,7 @@ if ( ! class_exists( 'KTPWP_Contract_Billing' ) ) {
 			}
 
 			if ( isset( $client->client_status ) && '対象外' === $client->client_status ) {
-				return new WP_Error( 'client_excluded', __( '対象外の顧客には案件を生成できません。', 'ktpwp' ) );
+				return new WP_Error( 'client_excluded', __( '対象外の顧客には案件を紐付けできません。', 'ktpwp' ) );
 			}
 
 			$service = $wpdb->get_row(
@@ -365,7 +367,7 @@ if ( ! class_exists( 'KTPWP_Contract_Billing' ) ) {
 			$inserted = $wpdb->insert( $order_table, $insert_data, $insert_formats );
 			if ( false === $inserted ) {
 				$wpdb->query( 'ROLLBACK' );
-				return new WP_Error( 'insert_failed', __( '案件の生成に失敗しました。', 'ktpwp' ) );
+				return new WP_Error( 'insert_failed', __( '案件の紐付けに失敗しました。', 'ktpwp' ) );
 			}
 
 			$order_id = (int) $wpdb->insert_id;
@@ -545,23 +547,45 @@ if ( ! class_exists( 'KTPWP_Contract_Billing' ) ) {
 			$invoice_table = $wpdb->prefix . 'ktp_order_invoice_items';
 			$wpdb->delete( $invoice_table, array( 'order_id' => $order_id ), array( '%d' ) );
 
-			$price    = (float) $contract->amount;
 			$unit     = ( $service && ! empty( $service->unit ) ) ? (string) $service->unit : __( '式', 'ktpwp' );
-			$tax_rate = null;
+			$default_tax_rate = null;
 			if ( $service && isset( $service->tax_rate ) && $service->tax_rate !== null && $service->tax_rate !== '' ) {
-				$tax_rate = (float) $service->tax_rate;
+				$default_tax_rate = (float) $service->tax_rate;
 			}
 
-			$product_name = (string) $contract->contract_name;
-			if ( $service && ! empty( $service->service_name ) ) {
-				$product_name = (string) $service->service_name;
-			}
+			$recurring_items = class_exists( 'KTPWP_Contract_Recurring_Items' )
+				? KTPWP_Contract_Recurring_Items::get_by_contract_id( (int) $contract->id )
+				: array();
+			$sort = 1;
 
-			$this->insert_invoice_line( $order_id, $product_name, $price, 1, $unit, $tax_rate, 1 );
+			if ( ! empty( $recurring_items ) ) {
+				foreach ( $recurring_items as $item ) {
+					$item_tax = ( $item->tax_rate !== null && $item->tax_rate !== '' )
+						? (float) $item->tax_rate
+						: $default_tax_rate;
+					$this->insert_invoice_line(
+						$order_id,
+						(string) $item->item_name,
+						(float) $item->amount,
+						1,
+						$unit,
+						$item_tax,
+						$sort
+					);
+					++$sort;
+				}
+			} else {
+				$price = (float) $contract->amount;
+				$product_name = (string) $contract->contract_name;
+				if ( $service && ! empty( $service->service_name ) ) {
+					$product_name = (string) $service->service_name;
+				}
+
+				$this->insert_invoice_line( $order_id, $product_name, $price, 1, $unit, $default_tax_rate, $sort );
+				++$sort;
+			}
 
 			if ( $include_initial ) {
-				$fees = $this->contract_db->get_initial_fees_by_contract_id( (int) $contract->id );
-				$sort = 2;
 				foreach ( $fees as $fee ) {
 					$fee_tax = ( $fee->tax_rate !== null && $fee->tax_rate !== '' ) ? (float) $fee->tax_rate : null;
 					$this->insert_invoice_line(

@@ -89,6 +89,24 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				$quantity = 1;
 			}
 
+			if ( class_exists( 'KTPWP_Contract_Service_Public_Availability' ) ) {
+				$availability = KTPWP_Contract_Service_Public_Availability::get_public_availability(
+					(int) $service->id,
+					$service
+				);
+
+				if ( empty( $availability['acceptance_open'] ) ) {
+					$message = $availability['availability_state'] === 'sold_out'
+						? __( 'こちらの商品は完売しました。', 'ktpwp' )
+						: __( '現在この商品はお問い合わせを受け付けておりません（保留中）。', 'ktpwp' );
+
+					return array(
+						'success' => false,
+						'message' => $message,
+					);
+				}
+			}
+
 			$customer_name = $company_name !== '' ? $company_name : $contact_name;
 
 			$resolved = $this->find_or_create_client(
