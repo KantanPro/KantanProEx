@@ -75,6 +75,78 @@ if ( ! class_exists( 'KTPWP_Contract_Service_Public_Availability' ) ) {
 		}
 
 		/**
+		 * 管理画面向けの枠使用状況サマリー。
+		 *
+		 * @param int         $service_id   サービス ID。
+		 * @param object|null $service      サービス行（省略時は DB から取得）。
+		 * @param bool|null   $is_recurring 定期契約用か。
+		 * @return array{
+		 *   stock:int,
+		 *   used_slots:int,
+		 *   contract_active_count:int,
+		 *   contract_paused_count:int,
+		 *   inquiry_count:int,
+		 *   acceptance_open:bool,
+		 *   availability_state:string,
+		 *   status_label:string
+		 * }
+		 */
+		public static function get_slot_usage_summary( $service_id, $service = null, $is_recurring = null ) {
+			$service_id = absint( $service_id );
+			$service    = $service ?? self::get_service_row( $service_id );
+
+			if ( $service_id <= 0 || ! $service ) {
+				return array(
+					'stock'                   => 1,
+					'used_slots'              => 0,
+					'contract_active_count'   => 0,
+					'contract_paused_count'   => 0,
+					'inquiry_count'           => 0,
+					'acceptance_open'         => true,
+					'availability_state'    => 'open',
+					'status_label'            => '',
+				);
+			}
+
+			$stock = self::get_stock_value( $service );
+
+			if ( $is_recurring === null ) {
+				$is_recurring = self::service_is_recurring( $service_id );
+			}
+
+			if ( ! $is_recurring ) {
+				return array(
+					'stock'                   => $stock,
+					'used_slots'              => 0,
+					'contract_active_count'   => 0,
+					'contract_paused_count'   => 0,
+					'inquiry_count'           => 0,
+					'acceptance_open'         => true,
+					'availability_state'    => 'open',
+					'status_label'            => '',
+				);
+			}
+
+			$include_paused          = $stock <= 1;
+			$contract_active_count     = self::count_contracts_with_status( $service_id, 'active' );
+			$contract_paused_count     = $include_paused ? self::count_contracts_with_status( $service_id, 'paused' ) : 0;
+			$inquiry_count             = self::count_open_inquiry_orders( $service_id );
+			$used_slots                = self::count_used_public_slots( $service_id, $stock );
+			$availability              = self::get_public_availability( $service_id, $service, $is_recurring );
+
+			return array(
+				'stock'                 => $stock,
+				'used_slots'            => $used_slots,
+				'contract_active_count' => $contract_active_count,
+				'contract_paused_count' => $contract_paused_count,
+				'inquiry_count'         => $inquiry_count,
+				'acceptance_open'       => (bool) $availability['acceptance_open'],
+				'availability_state'    => (string) $availability['availability_state'],
+				'status_label'          => (string) $availability['status_label'],
+			);
+		}
+
+		/**
 		 * 公開ページの受付状態を返す。
 		 *
 		 * @param int      $service_id   サービス ID。
@@ -357,6 +429,31 @@ if ( ! class_exists( 'KTPWP_Contract_Service_Public_Availability' ) ) {
 			}
 
 			return $orders;
+		}
+
+		/**
+		 * サービス行を取得する。
+		 *
+		 * @param int $service_id サービス ID。
+		 * @return object|null
+		 */
+		private static function get_service_row( $service_id ) {
+			global $wpdb;
+
+			$service_id = absint( $service_id );
+			if ( $service_id <= 0 ) {
+				return null;
+			}
+
+			$table = $wpdb->prefix . 'ktp_service';
+
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			return $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT * FROM {$table} WHERE id = %d",
+					$service_id
+				)
+			);
 		}
 
 		/**

@@ -61,3 +61,8 @@ Environment Rules
 
 Git / コミット
 - Gitのコミットメッセージは常に日本語で記述すること。
+
+数値表示
+- ユーザーが小数を入力していない限り、小数点以下は表示しない（詳細は `.cursor/rules/number-display-trimmed.mdc`）。
+- PHP: `KTPWP_Settings::format_money()` / `format_decimal_trimmed()` / `format_number_field_value()` を使う。
+- JS: `KTPNumberFormat.decimal()`（`js/ktp-number-format.js`）を使う。

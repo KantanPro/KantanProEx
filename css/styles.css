@@ -1745,11 +1745,54 @@ form > .create-order-btn {
   color: #c62828;
 }
 
+.ktp-service-public-badge--pending {
+  background: #fff3e0;
+  color: #e65100;
+}
+
 .ktpwp-service-stock-sold-out-notice {
   color: #c62828;
   font-size: 13px;
   font-weight: 600;
   margin: 8px 0 0;
+}
+
+.ktpwp-service-stock-availability-notice {
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 8px 0 0;
+  padding: 10px 12px;
+}
+
+.ktpwp-service-stock-availability-notice__usage {
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.ktpwp-service-stock-availability-notice__breakdown,
+.ktpwp-service-stock-availability-notice__status,
+.ktpwp-service-stock-availability-notice__hint {
+  margin: 4px 0 0;
+}
+
+.ktpwp-service-stock-availability-notice__hint {
+  font-size: 12px;
+}
+
+.ktpwp-service-stock-availability-notice--open {
+  background: #e8f5e9;
+  color: #1b5e20;
+}
+
+.ktpwp-service-stock-availability-notice--pending {
+  background: #fff3e0;
+  color: #bf360c;
+}
+
+.ktpwp-service-stock-availability-notice--sold-out {
+  background: #ffebee;
+  color: #b71c1c;
 }
 
 .ktp-contract-cycle-badge {

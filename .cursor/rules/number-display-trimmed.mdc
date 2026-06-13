@@ -1,0 +1,38 @@
+---
+description: 数値表示は末尾ゼロを省略（小数未入力なら整数表示）
+globs: "**/*.{php,js}"
+alwaysApply: true
+---
+
+# 数値表示ルール（小数点省略）
+
+**ユーザーが小数を入力していない限り、小数点以下は表示しない。**
+
+例: `50000.00` → `50000` / `50,000円`、`10.00` → `10`、`10.5` → `10.5`
+
+## PHP（KantanProEX）
+
+| 用途 | 使う関数 |
+|------|----------|
+| 金額の画面表示 | `KTPWP_Settings::format_money()` |
+| 税率・数量・単価など | `KTPWP_Settings::format_decimal_trimmed()` |
+| `<input type="number">` の value | `KTPWP_Settings::format_number_field_value()` |
+
+**禁止**: 表示専用に `number_format($x, 2)` や `(string) $row->amount` をそのまま使わない（DB の DECIMAL は `.00` 付きになりやすい）。
+
+`format_money_trimmed` は `format_money` のエイリアス。新規コードは `format_money` を使う。
+
+## JavaScript
+
+| 用途 | 使う関数 |
+|------|----------|
+| 表示・input value | `KTPNumberFormat.decimal(value)` または `formatDecimalDisplay(value)` |
+
+**禁止**: 表示用に `.toFixed(2)` を固定で使わない。
+
+`js/ktp-number-format.js` を読み込んでから利用する。
+
+## 例外
+
+- ファイルサイズ（KB/MB）、グラフのパーセント表示など、**意図的に固定小数桁が必要な UI** は対象外
+- 内部計算・DB 保存は float/decimal のまま（表示層だけ整形）
