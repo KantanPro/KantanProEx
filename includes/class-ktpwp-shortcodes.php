@@ -1190,6 +1190,7 @@ class KTPWP_Shortcodes {
                     'soldOutBadge'    => __( '完売御礼！', 'ktpwp' ),
                     'pendingNotice'   => __( '現在お問い合わせを受け付けておりません。', 'ktpwp' ),
                     'soldOutNotice'   => __( 'こちらの商品は完売しました。', 'ktpwp' ),
+                    'inquire'         => __( '問い合わす', 'ktpwp' ),
                 ),
             )
         );
@@ -1704,6 +1705,37 @@ class KTPWP_Shortcodes {
     }
 
     /**
+     * 一覧ブロック下部の「問い合わす」ボタン HTML。
+     *
+     * @param array<string, mixed> $row        整形済み商品行。
+     * @param bool                 $table_cell テーブルセル内表示（フッター余白なし）。
+     * @return string
+     */
+    private function render_public_product_inquiry_button_html( array $row, $table_cell = false ) {
+        $acceptance_open = ! empty( $row['acceptance_open'] ) && empty( $row['is_pending'] ) && empty( $row['is_sold_out'] );
+        $wrapper_class   = $table_cell
+            ? 'ktpwp-public-product-item__inquire-wrap ktpwp-public-product-item__inquire-wrap--table'
+            : 'ktpwp-public-product-item__footer';
+
+        if ( $acceptance_open ) {
+            return '<div class="' . esc_attr( $wrapper_class ) . '">'
+                . '<button type="button" class="ktpwp-public-product-item__inquire-btn">'
+                . esc_html__( '問い合わす', 'ktpwp' )
+                . '</button></div>';
+        }
+
+        $label = (string) ( $row['status_label'] ?? '' );
+        if ( $label === '' ) {
+            $label = __( '受付停止', 'ktpwp' );
+        }
+
+        return '<div class="' . esc_attr( $wrapper_class ) . '">'
+            . '<button type="button" class="ktpwp-public-product-item__inquire-btn" disabled>'
+            . esc_html( $label )
+            . '</button></div>';
+    }
+
+    /**
      * クリック可能な商品要素の data 属性文字列を返す。
      *
      * @param array<string, mixed> $payload 商品データ。
@@ -1719,7 +1751,6 @@ class KTPWP_Shortcodes {
         $category = isset( $payload['category'] ) ? (string) $payload['category'] : '';
 
         return ' class="' . esc_attr( $classes ) . '"'
-            . ' role="button" tabindex="0"'
             . ' data-category="' . esc_attr( $category ) . '"'
             . ' data-product="' . esc_attr( wp_json_encode( $payload ) ) . '"';
     }
@@ -1896,6 +1927,7 @@ class KTPWP_Shortcodes {
                     </p>
                     <p class="ktpwp-public-product-order-form__actions">
                         <button type="submit" class="ktpwp-public-product-order-form__submit"><?php echo esc_html__( '送信する', 'ktpwp' ); ?></button>
+                        <button type="button" class="ktpwp-public-product-order-form__close"><?php echo esc_html__( '閉じる', 'ktpwp' ); ?></button>
                     </p>
                     <div class="ktpwp-public-product-order-form__message" role="status" aria-live="polite" hidden></div>
                 </form>
@@ -1939,6 +1971,7 @@ class KTPWP_Shortcodes {
         if ( $display['initial_fees'] ) {
             $headers[] = '<th scope="col">' . esc_html__( '初回費用', 'ktpwp' ) . '</th>';
         }
+        $headers[] = '<th scope="col">' . esc_html__( 'お問い合わせ', 'ktpwp' ) . '</th>';
 
         foreach ( $services as $service ) {
             $row     = $this->format_public_product_row( $service );
@@ -1979,6 +2012,8 @@ class KTPWP_Shortcodes {
             if ( $display['initial_fees'] ) {
                 $cells[] = '<td class="ktpwp-public-products-table__initial-fees">' . esc_html( (string) $row['initial_fees_summary'] ) . '</td>';
             }
+
+            $cells[] = '<td class="ktpwp-public-products-table__inquire">' . $this->render_public_product_inquiry_button_html( $row, true ) . '</td>';
 
             $rows .= '<tr' . $this->get_public_product_item_attrs( $payload ) . '>' . implode( '', $cells ) . '</tr>';
         }
@@ -2032,6 +2067,8 @@ class KTPWP_Shortcodes {
                 ? $this->render_public_product_list_initial_fees_html( $row, 'ktpwp-public-products-grid__initial-fees' )
                 : '';
 
+            $inquire_html = $this->render_public_product_inquiry_button_html( $row );
+
             $items .= '<article' . $this->get_public_product_item_attrs( $payload, 'ktpwp-public-products-grid__item' ) . '>'
                 . $image_html
                 . '<div class="ktpwp-public-products-grid__body">'
@@ -2040,7 +2077,9 @@ class KTPWP_Shortcodes {
                 . $price_block
                 . $initial_fees_html
                 . $memo_html
-                . '</div></article>';
+                . '</div>'
+                . $inquire_html
+                . '</article>';
         }
 
         return '<div class="ktpwp-public-products-grid ktpwp-public-products-grid--cols-' . esc_attr( (string) $columns ) . '">' . $items . '</div>';
@@ -2092,6 +2131,8 @@ class KTPWP_Shortcodes {
                 ? $this->render_public_product_list_initial_fees_html( $row, 'ktpwp-public-products-card__initial-fees' )
                 : '';
 
+            $inquire_html = $this->render_public_product_inquiry_button_html( $row );
+
             $items .= '<article' . $this->get_public_product_item_attrs( $payload, 'ktpwp-public-products-card' ) . '>'
                 . $image_html
                 . '<div class="ktpwp-public-products-card__body">'
@@ -2100,7 +2141,9 @@ class KTPWP_Shortcodes {
                 . $price_block
                 . $initial_fees_html
                 . $memo_html
-                . '</div></article>';
+                . '</div>'
+                . $inquire_html
+                . '</article>';
         }
 
         return '<div class="ktpwp-public-products-cards ktpwp-public-products-cards--cols-' . esc_attr( (string) $columns ) . '">' . $items . '</div>';

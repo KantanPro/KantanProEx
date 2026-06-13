@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.39
+Stable tag: 1.3.40
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,15 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.40 - 2026年06月14日 =
+* [ktpwp_public_products] 各商品ブロック下部に「問い合わす」ボタンを追加
+* ボタンクリックでお問い合わせモーダルを開き、フォームまでスクロールして入力欄にフォーカス
+* グリッド・カード・テーブルレイアウトすべてに対応
+* 受付停止・完売・保留中商品はボタンを無効化してステータスを表示
+* ブロック全体クリックでのモーダル表示を廃止し、問い合わせ操作を明確化
+* モーダル内フォームに「閉じる」ボタンを追加（モバイル）
+* 計3ファイル・166行増・25行減（v1.3.39…HEAD）
 
 = 1.3.39 - 2026年06月13日 =
 * 一般設定に「業務画面ページ」を追加（受注通知メール等の受注書リンク先を本番ページに指定可能）

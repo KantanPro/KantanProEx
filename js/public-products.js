@@ -405,8 +405,10 @@
 		var content = qs(detail, '.ktpwp-public-product-detail__content');
 		var form = qs(detail, '.ktpwp-public-product-order-form');
 		var closeBtn = qs(detail, '.ktpwp-public-product-detail__close');
+		var formCloseBtn = qs(form, '.ktpwp-public-product-order-form__close');
 		var backdrop = qs(detail, '.ktpwp-public-product-detail__backdrop');
 		var dialog = qs(detail, '.ktpwp-public-product-detail__panel');
+		var dialogScroll = qs(detail, '.ktpwp-public-product-detail__scroll');
 		var messageBox = qs(form, '.ktpwp-public-product-order-form__message');
 		var submitBtn = qs(form, '.ktpwp-public-product-order-form__submit');
 		var serviceIdInput = qs(form, 'input[name="service_id"]');
@@ -446,7 +448,8 @@
 				'ktpwp-public-product-order-form__message ktpwp-public-product-order-form__message--' + (type || 'info');
 		}
 
-		function openDetail(el) {
+		function openDetail(el, options) {
+			options = options || {};
 			var product = parseProduct(el);
 			if (!product || !product.id) {
 				return;
@@ -480,6 +483,17 @@
 			document.addEventListener('keydown', onEscapeKey);
 
 			window.requestAnimationFrame(function () {
+				if (options.focusForm && form && !form.hidden) {
+					if (dialogScroll) {
+						dialogScroll.scrollTop = Math.max(0, form.offsetTop - 16);
+					}
+					var firstField = qs(form, 'input[name="contact_name"]');
+					if (firstField) {
+						firstField.focus();
+						return;
+					}
+				}
+
 				if (closeBtn) {
 					closeBtn.focus();
 				}
@@ -503,20 +517,30 @@
 			}
 		}
 
-		qsa(wrapper, '.ktpwp-public-product-item').forEach(function (item) {
-			item.addEventListener('click', function () {
-				openDetail(item);
-			});
-			item.addEventListener('keydown', function (event) {
-				if (event.key === 'Enter' || event.key === ' ') {
-					event.preventDefault();
-					openDetail(item);
+		qsa(wrapper, '.ktpwp-public-product-item__inquire-btn').forEach(function (btn) {
+			btn.addEventListener('click', function (event) {
+				event.preventDefault();
+				event.stopPropagation();
+
+				if (btn.disabled) {
+					return;
 				}
+
+				var item = btn.closest('.ktpwp-public-product-item');
+				if (!item) {
+					return;
+				}
+
+				openDetail(item, { focusForm: true });
 			});
 		});
 
 		if (closeBtn) {
 			closeBtn.addEventListener('click', closeDetail);
+		}
+
+		if (formCloseBtn) {
+			formCloseBtn.addEventListener('click', closeDetail);
 		}
 
 		if (backdrop) {
