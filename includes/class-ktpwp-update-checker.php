@@ -2392,6 +2392,8 @@ class KTPWP_Update_Checker {
             30 * MINUTE_IN_SECONDS
         );
 
+        $this->backup_service_images_before_update();
+
         return $response;
     }
 
@@ -2526,6 +2528,8 @@ class KTPWP_Update_Checker {
     public function after_update( $response, $hook_extra, $result ) {
         $target_basename = $this->resolve_target_basename( $hook_extra );
         if ( $this->is_target_plugin_basename( $target_basename ) ) {
+            $this->restore_service_images_after_update();
+
             remove_filter( 'http_request_args', array( $this, 'github_download_args' ), 10 );
             delete_option( 'ktpwp_update_available' );
             delete_option( 'ktpwp_latest_version' );
@@ -2540,6 +2544,63 @@ class KTPWP_Update_Checker {
         }
 
         return $response;
+    }
+
+    /**
+     * プラグイン更新前にサービス画像を wp-content/uploads へ退避する。
+     *
+     * WordPress 標準のプラグイン更新は配布 ZIP にユーザー画像が含まれないため、
+     * 更新前に退避しないと images/upload/ が消える。
+     *
+     * @return void
+     */
+    private function backup_service_images_before_update() {
+        $plugin_upload_dir = trailingslashit( WP_PLUGIN_DIR ) . $this->plugin_slug . '/images/upload';
+        if ( ! is_dir( $plugin_upload_dir ) ) {
+            return;
+        }
+
+        $upload_info = wp_upload_dir();
+        if ( ! empty( $upload_info['error'] ) ) {
+            return;
+        }
+
+        $backup_dir = trailingslashit( $upload_info['basedir'] ) . 'ktpwp-service-images-backup';
+        if ( is_dir( $backup_dir ) ) {
+            $this->recursive_rmdir( $backup_dir );
+        }
+
+        if ( ! wp_mkdir_p( $backup_dir ) ) {
+            return;
+        }
+
+        $this->merge_upload_directory( $plugin_upload_dir, $backup_dir );
+        set_site_transient( $this->key( 'upload_backup_path' ), $backup_dir, 30 * MINUTE_IN_SECONDS );
+    }
+
+    /**
+     * プラグイン更新後に退避したサービス画像を復元する。
+     *
+     * @return void
+     */
+    private function restore_service_images_after_update() {
+        $backup_dir = get_site_transient( $this->key( 'upload_backup_path' ) );
+        delete_site_transient( $this->key( 'upload_backup_path' ) );
+
+        if ( ! is_string( $backup_dir ) || $backup_dir === '' || ! is_dir( $backup_dir ) ) {
+            return;
+        }
+
+        $plugin_upload_dir = trailingslashit( WP_PLUGIN_DIR ) . $this->plugin_slug . '/images/upload';
+        if ( ! is_dir( $plugin_upload_dir ) ) {
+            wp_mkdir_p( $plugin_upload_dir );
+        }
+
+        if ( is_dir( $plugin_upload_dir ) ) {
+            $this->merge_upload_directory( $backup_dir, $plugin_upload_dir );
+        }
+
+        $this->recursive_rmdir( $backup_dir );
     }
 
     /**

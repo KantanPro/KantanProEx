@@ -1050,6 +1050,26 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 		}
 
 		/**
+		 * サービス ID に紐づく新形式画像ファイルを検索する（GLOB_BRACE 非依存）。
+		 *
+		 * @param string $upload_dir アップロード先ディレクトリ（末尾スラッシュ付き）。
+		 * @param int    $service_id サービス ID。
+		 * @return array<int, string>
+		 */
+		private function glob_service_image_files( $upload_dir, $service_id ) {
+			$files = array();
+
+			foreach ( array( 'jpeg', 'jpg', 'png', 'gif' ) as $ext ) {
+				$matched = glob( $upload_dir . $service_id . '-*.' . $ext );
+				if ( is_array( $matched ) ) {
+					$files = array_merge( $files, $matched );
+				}
+			}
+
+			return $files;
+		}
+
+		/**
 		 * サービス ID に紐づくアップロード画像ファイルを検索する。
 		 *
 		 * 旧形式（{id}.jpeg）と新形式（{id}-{日付}.{ext}）の両方に対応する。
@@ -1075,8 +1095,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				}
 			}
 
-			$pattern = $upload_dir . $service_id . '-*.{jpeg,jpg,png,gif}';
-			$files   = glob( $pattern, GLOB_BRACE );
+			$files = $this->glob_service_image_files( $upload_dir, $service_id );
 			if ( empty( $files ) ) {
 				return null;
 			}
@@ -1115,7 +1134,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				}
 			}
 
-			$files = glob( $upload_dir . $service_id . '-*.{jpeg,jpg,png,gif}', GLOB_BRACE );
+			$files = $this->glob_service_image_files( $upload_dir, $service_id );
 			if ( ! empty( $files ) ) {
 				foreach ( $files as $file ) {
 					if ( is_file( $file ) ) {
