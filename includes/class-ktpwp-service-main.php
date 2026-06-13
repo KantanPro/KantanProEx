@@ -465,7 +465,23 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			// 統一されたページネーションデザインを使用
 			$results_f = $this->render_pagination( $current_page, $total_pages, $query_limit, $name, $flg, $base_page_url, $total_rows );
 
-			$data_list = $results_h . $list_header . implode( $results ) . $list_footer . $results_f . '</div>'; // ktp_data_list_box を閉じる
+			$selected_service_id   = $this->resolve_selected_service_id( $name, $table_name );
+			$related_list_html     = '';
+			if ( $selected_service_id > 0 && class_exists( 'KTPWP_Service_Related_Orders' ) ) {
+				$selected_service_name = (string) $wpdb->get_var(
+					$wpdb->prepare(
+						"SELECT service_name FROM {$table_name} WHERE id = %d",
+						$selected_service_id
+					)
+				);
+				$related_list_html = KTPWP_Service_Related_Orders::render_list_section(
+					$selected_service_id,
+					$selected_service_name,
+					$base_page_url
+				);
+			}
+
+			$data_list = $results_h . $list_header . implode( $results ) . $list_footer . $results_f . $related_list_html . '</div>'; // ktp_data_list_box を閉じる
 
 			// -----------------------------
 			// 詳細表示(GET)
@@ -968,13 +984,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 						? KTPWP_Contract_Billing_Cycle::sanitize( $contract_billing_cycle )
 						: 'none'
 				);
-				$data_forms .= $this->render_stock_field(
-					(int) $stock,
-					(int) $data_id,
-					class_exists( 'KTPWP_Contract_Billing_Cycle' )
-						? KTPWP_Contract_Billing_Cycle::sanitize( $contract_billing_cycle )
-						: 'none'
-				);
+				$data_forms .= $this->render_stock_field( (int) $stock );
 				$data_forms .= $this->render_service_recurring_items_field( (int) $data_id );
 				$data_forms .= $this->render_service_initial_fees_field( (int) $data_id );
 				$data_forms .= $this->render_service_contract_fields_scripts();
@@ -1114,6 +1124,37 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			// コンテンツを返す（複数検索結果ダイアログ用スクリプトを含む）
 			$content = $message . $print . $data_list . $data_title . $data_forms . $service_search_results_script . $div_end;
 			return $content;
+		}
+
+		/**
+		 * 詳細表示と同じルールで選択中のサービス ID を解決する。
+		 *
+		 * @param string $name       タブ名。
+		 * @param string $table_name サービステーブル名。
+		 * @return int
+		 */
+		private function resolve_selected_service_id( $name, $table_name ) {
+			global $wpdb;
+
+			$cookie_name = 'ktp_' . $name . '_id';
+
+			if ( isset( $_GET['data_id'] ) && $_GET['data_id'] !== '' ) {
+				return max( 0, (int) filter_input( INPUT_GET, 'data_id', FILTER_SANITIZE_NUMBER_INT ) );
+			}
+
+			if ( isset( $_COOKIE[ $cookie_name ] ) && $_COOKIE[ $cookie_name ] !== '' ) {
+				$cookie_id = (int) filter_input( INPUT_COOKIE, $cookie_name, FILTER_SANITIZE_NUMBER_INT );
+				if ( $cookie_id > 0 ) {
+					$exists = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table_name} WHERE id = %d", $cookie_id ) );
+					if ( $exists ) {
+						return $cookie_id;
+					}
+				}
+			}
+
+			$last_id_row = $wpdb->get_row( "SELECT id FROM {$table_name} ORDER BY id DESC LIMIT 1" );
+
+			return $last_id_row && isset( $last_id_row->id ) ? (int) $last_id_row->id : 0;
 		}
 
 		/**
@@ -1490,12 +1531,10 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 		/**
 		 * 在庫数フィールドの HTML を返す。
 		 *
-		 * @param int    $stock                  在庫数。
-		 * @param int    $service_id             サービス ID。
-		 * @param string $contract_billing_cycle 請求サイクル。
+		 * @param int $stock 在庫数。
 		 * @return string
 		 */
-		private function render_stock_field( $stock, $service_id = 0, $contract_billing_cycle = 'none' ) {
+		private function render_stock_field( $stock ) {
 			$stock = max( 0, absint( $stock ) );
 			$html  = $this->render_service_contract_fields_styles();
 			$html .= '<div id="ktpwp-service-stock" class="ktpwp-service-field-block ktpwp-service-field-block--stock">';
@@ -1506,115 +1545,9 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			if ( $stock === 0 ) {
 				$html .= '<p class="ktpwp-service-stock-sold-out-notice">' . esc_html__( '公開ページでは「完売御礼！」と表示され、問い合わせは受け付けません。', 'ktpwp' ) . '</p>';
 			}
-			$html .= $this->render_stock_availability_notice( $service_id, $stock, $contract_billing_cycle );
 			$html .= '<div class="ktpwp-service-field-block__control">';
 			$html .= '<input type="number" id="stock" name="stock" min="0" step="1" value="' . esc_attr( (string) $stock ) . '">';
 			$html .= '</div></div>';
-
-			return $html;
-		}
-
-		/**
-		 * 在庫枠の使用状況と販売所の受付状態を表示する。
-		 *
-		 * @param int    $service_id             サービス ID。
-		 * @param int    $stock                  在庫数。
-		 * @param string $contract_billing_cycle 請求サイクル。
-		 * @return string
-		 */
-		private function render_stock_availability_notice( $service_id, $stock, $contract_billing_cycle ) {
-			$service_id = absint( $service_id );
-			if ( $service_id <= 0 || ! class_exists( 'KTPWP_Contract_Service_Public_Availability' ) ) {
-				return '';
-			}
-
-			$is_recurring = class_exists( 'KTPWP_Contract_Billing_Cycle' )
-				&& KTPWP_Contract_Billing_Cycle::is_recurring( $contract_billing_cycle );
-			if ( ! $is_recurring ) {
-				return '';
-			}
-
-			$service = (object) array(
-				'stock'                  => $stock,
-				'contract_billing_cycle' => $contract_billing_cycle,
-			);
-			$summary = KTPWP_Contract_Service_Public_Availability::get_slot_usage_summary(
-				$service_id,
-				$service,
-				true
-			);
-
-			$used_slots   = (int) $summary['used_slots'];
-			$stock_value  = (int) $summary['stock'];
-			$active_count = (int) $summary['contract_active_count'];
-			$paused_count = (int) $summary['contract_paused_count'];
-			$inquiry_count = (int) $summary['inquiry_count'];
-			$status_label = (string) $summary['status_label'];
-			$state        = (string) $summary['availability_state'];
-
-			$parts = array();
-			if ( $active_count > 0 ) {
-				$parts[] = sprintf(
-					/* translators: %d: active contract count */
-					__( '有効契約 %d件', 'ktpwp' ),
-					$active_count
-				);
-			}
-			if ( $paused_count > 0 ) {
-				$parts[] = sprintf(
-					/* translators: %d: paused contract count */
-					__( '一時停止契約 %d件', 'ktpwp' ),
-					$paused_count
-				);
-			}
-			if ( $inquiry_count > 0 ) {
-				$parts[] = sprintf(
-					/* translators: %d: open inquiry order count */
-					__( '問い合わせ案件 %d件', 'ktpwp' ),
-					$inquiry_count
-				);
-			}
-			if ( $parts === array() ) {
-				$parts[] = esc_html__( '契約・問い合わせ 0件', 'ktpwp' );
-			}
-
-			$usage_text = sprintf(
-				/* translators: 1: used slots, 2: stock */
-				__( '使用中 %1$d / 在庫 %2$d', 'ktpwp' ),
-				$used_slots,
-				$stock_value
-			);
-
-			$class = 'ktpwp-service-stock-availability-notice';
-			if ( $state === 'sold_out' ) {
-				$class .= ' ktpwp-service-stock-availability-notice--sold-out';
-			} elseif ( $state === 'pending' ) {
-				$class .= ' ktpwp-service-stock-availability-notice--pending';
-			} else {
-				$class .= ' ktpwp-service-stock-availability-notice--open';
-			}
-
-			$html  = '<div class="' . esc_attr( $class ) . '">';
-			$html .= '<p class="ktpwp-service-stock-availability-notice__usage">' . esc_html( $usage_text ) . '</p>';
-			$html .= '<p class="ktpwp-service-stock-availability-notice__breakdown">' . esc_html( implode( ' / ', $parts ) ) . '</p>';
-
-			if ( $status_label !== '' ) {
-				$html .= '<p class="ktpwp-service-stock-availability-notice__status">' . esc_html(
-					sprintf(
-						/* translators: %s: public page status label */
-						__( '販売所の表示: %s', 'ktpwp' ),
-						$status_label
-					)
-				) . '</p>';
-			} elseif ( $summary['acceptance_open'] ) {
-				$html .= '<p class="ktpwp-service-stock-availability-notice__status">' . esc_html__( '販売所の表示: 受付中', 'ktpwp' ) . '</p>';
-			}
-
-			if ( $state === 'pending' && $inquiry_count === 0 && ( $active_count + $paused_count ) > 0 ) {
-				$html .= '<p class="ktpwp-service-stock-availability-notice__hint">' . esc_html__( '問い合わせ案件が 0 件でも、有効契約または一時停止契約が在庫数に達していると販売所は「保留中」になります。', 'ktpwp' ) . '</p>';
-			}
-
-			$html .= '</div>';
 
 			return $html;
 		}

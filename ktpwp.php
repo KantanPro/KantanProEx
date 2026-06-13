@@ -988,6 +988,7 @@ if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
         'KTPWP_Contract_Billing_Cycle' => 'includes/class-ktpwp-contract-billing-cycle.php',
         'KTPWP_Contract_Recurring_Items' => 'includes/class-ktpwp-contract-recurring-items.php',
         'KTPWP_Service_Initial_Fees' => 'includes/class-ktpwp-service-initial-fees.php',
+        'KTPWP_Service_Related_Orders' => 'includes/class-ktpwp-service-related-orders.php',
         'KTPWP_Contract_DB'     => 'includes/class-ktpwp-contract-db.php',
         'KTPWP_Contract_Service_Public_Availability' => 'includes/class-ktpwp-contract-service-public-availability.php',
         'KTPWP_Order_Progress_Effects' => 'includes/class-ktpwp-order-progress-effects.php',

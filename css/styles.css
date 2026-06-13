@@ -1757,42 +1757,86 @@ form > .create-order-btn {
   margin: 8px 0 0;
 }
 
-.ktpwp-service-stock-availability-notice {
-  border-radius: 6px;
-  font-size: 13px;
-  line-height: 1.5;
-  margin: 8px 0 0;
-  padding: 10px 12px;
+.ktp-service-related-list__title {
+  margin-top: 18px;
 }
 
-.ktpwp-service-stock-availability-notice__usage {
-  font-weight: 600;
-  margin: 0 0 4px;
+.ktp_data_list_box .ktp-service-related-list__rows > a:nth-of-type(odd) .ktp_data_list_item {
+  background-color: #e7eefd !important;
 }
 
-.ktpwp-service-stock-availability-notice__breakdown,
-.ktpwp-service-stock-availability-notice__status,
-.ktpwp-service-stock-availability-notice__hint {
-  margin: 4px 0 0;
+.ktp_data_list_box .ktp-service-related-list__rows > a:nth-of-type(even) .ktp_data_list_item {
+  background-color: #ffffff !important;
 }
 
-.ktpwp-service-stock-availability-notice__hint {
+.ktp_data_list_box .ktp-service-related-list__rows > a:hover .ktp_data_list_item {
+  background-color: #f0f7ff !important;
+}
+
+.ktp-service-related-list__section + .ktp-service-related-list__section {
+  margin-top: 10px;
+}
+
+.ktp-service-related-list__group-title {
+  background-color: #ffeef1;
+  border-bottom: 1px solid #fecdd3;
+  color: #4b5563;
   font-size: 12px;
+  font-weight: 600;
+  margin: 0;
+  padding: 8px 16px;
 }
 
-.ktpwp-service-stock-availability-notice--open {
-  background: #e8f5e9;
-  color: #1b5e20;
+.ktp-service-related-list__item {
+  font-size: 13px;
+  line-height: 1.45;
 }
 
-.ktpwp-service-stock-availability-notice--pending {
-  background: #fff3e0;
-  color: #bf360c;
+.ktp-service-related-list__meta {
+  color: #666;
+  font-size: 12px;
+  margin-left: 6px;
 }
 
-.ktpwp-service-stock-availability-notice--sold-out {
-  background: #ffebee;
-  color: #b71c1c;
+.ktp-service-related-list__badge {
+  border-radius: 4px;
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: 6px;
+  padding: 1px 6px;
+  vertical-align: middle;
+}
+
+.ktp-service-related-list__badge--contract {
+  background: #e8eaf6;
+  color: #3949ab;
+}
+
+.ktp-service-related-list__badge--web {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.ktp-service-related-list__status {
+  float: right;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ktp-service-related-list__empty {
+  align-items: center;
+  background: linear-gradient(135deg, #fff3cd 0%, #fff8e1 100%);
+  border-radius: 6px;
+  color: #856404;
+  display: flex;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 8px;
+  justify-content: center;
+  margin: 12px 0;
+  padding: 12px 16px;
+  text-align: center;
 }
 
 .ktp-contract-cycle-badge {
