@@ -330,7 +330,11 @@ if ( ! class_exists( 'KTPWP_Order_Admin_Notification' ) ) {
 		 * @return string
 		 */
 		private function get_order_document_url( $order_id ) {
-			$base_url = $this->get_ktpwp_page_url();
+			if ( ! class_exists( 'KTPWP_Settings' ) ) {
+				return '';
+			}
+
+			$base_url = KTPWP_Settings::get_ktpwp_business_page_url();
 			if ( $base_url === '' ) {
 				return '';
 			}
@@ -340,60 +344,12 @@ if ( ! class_exists( 'KTPWP_Order_Admin_Notification' ) ) {
 				'order_id' => (int) $order_id,
 			);
 
-			$page_id = $this->get_ktpwp_page_id();
+			$page_id = KTPWP_Settings::get_ktpwp_business_page_id();
 			if ( $page_id > 0 ) {
 				$args['page_id'] = $page_id;
 			}
 
 			return add_query_arg( $args, $base_url );
-		}
-
-		/**
-		 * [ktpwp_all_tab] 設置ページ ID を取得する。
-		 *
-		 * @return int
-		 */
-		private function get_ktpwp_page_id() {
-			static $cached_page_id = null;
-			if ( $cached_page_id !== null ) {
-				return (int) $cached_page_id;
-			}
-
-			global $wpdb;
-			$cached_page_id = (int) $wpdb->get_var(
-				"SELECT ID FROM {$wpdb->posts}
-				WHERE post_type = 'page'
-				AND post_status = 'publish'
-				AND ( post_content LIKE '%[ktpwp_all_tab]%' OR post_content LIKE '%[kantanAllTab]%' )
-				ORDER BY ID ASC
-				LIMIT 1"
-			);
-
-			return (int) $cached_page_id;
-		}
-
-		/**
-		 * [ktpwp_all_tab] 設置ページの URL を取得する。
-		 *
-		 * @return string
-		 */
-		private function get_ktpwp_page_url() {
-			static $cached_url = null;
-			if ( $cached_url !== null ) {
-				return $cached_url;
-			}
-
-			$page_id = $this->get_ktpwp_page_id();
-			if ( $page_id > 0 ) {
-				$permalink = get_permalink( $page_id );
-				if ( $permalink ) {
-					$cached_url = (string) add_query_arg( array( 'page_id' => $page_id ), $permalink );
-					return $cached_url;
-				}
-			}
-
-			$cached_url = '';
-			return $cached_url;
 		}
 	}
 }

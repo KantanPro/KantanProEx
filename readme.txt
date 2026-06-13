@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.38
+Stable tag: 1.3.39
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,12 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.39 - 2026年06月13日 =
+* 一般設定に「業務画面ページ」を追加（受注通知メール等の受注書リンク先を本番ページに指定可能）
+* 受注通知メールのリンク生成を一般設定の業務画面ページ参照に変更（未指定時は自動検出）
+* 業務画面ページの自動検出対象に `[kantanpro_ex]` を追加
+* 計2ファイル・約200行増・50行減（v1.3.38…HEAD）
 
 = 1.3.38 - 2026年06月13日 =
 * 公開商品ショートコードで `category` 属性指定時、カテゴリ絞り込み UI のサジェストを指定カテゴリーのみに限定

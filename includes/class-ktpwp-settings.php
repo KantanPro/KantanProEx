@@ -118,6 +118,158 @@ class KTPWP_Settings {
     }
 
     /**
+     * 業務画面ショートコードの検索パターン。
+     *
+     * @return string[]
+     */
+    public static function get_ktpwp_shortcode_search_patterns() {
+        return array( '[ktpwp_all_tab]', '[kantanpro_ex]', '[kantanAllTab]' );
+    }
+
+    /**
+     * 固定ページに業務画面ショートコードが設置されているか。
+     *
+     * @param int $page_id 固定ページ ID。
+     * @return bool
+     */
+    public static function page_has_ktpwp_shortcode( $page_id ) {
+        $page_id = (int) $page_id;
+        if ( $page_id <= 0 ) {
+            return false;
+        }
+
+        $post = get_post( $page_id );
+        if ( ! $post || $post->post_type !== 'page' || $post->post_status !== 'publish' ) {
+            return false;
+        }
+
+        $content = (string) $post->post_content;
+        foreach ( self::get_ktpwp_shortcode_search_patterns() as $pattern ) {
+            if ( strpos( $content, $pattern ) !== false ) {
+                return true;
+            }
+        }
+
+        return has_shortcode( $content, 'ktpwp_all_tab' ) || has_shortcode( $content, 'kantanpro_ex' );
+    }
+
+    /**
+     * 業務画面ショートコード設置ページを自動検出する。
+     *
+     * @return int
+     */
+    public static function detect_ktpwp_business_page_id() {
+        static $cached_page_id = null;
+        if ( $cached_page_id !== null ) {
+            return (int) $cached_page_id;
+        }
+
+        global $wpdb;
+        $likes = array();
+        foreach ( self::get_ktpwp_shortcode_search_patterns() as $pattern ) {
+            $likes[] = $wpdb->prepare( 'post_content LIKE %s', '%' . $wpdb->esc_like( $pattern ) . '%' );
+        }
+
+        $like_sql = implode( ' OR ', $likes );
+        $cached_page_id = (int) $wpdb->get_var(
+            "SELECT ID FROM {$wpdb->posts}
+            WHERE post_type = 'page'
+            AND post_status = 'publish'
+            AND ( {$like_sql} )
+            ORDER BY ID ASC
+            LIMIT 1"
+        );
+
+        return (int) $cached_page_id;
+    }
+
+    /**
+     * 業務画面ページ ID を取得する（一般設定 → 自動検出の順）。
+     *
+     * @return int
+     */
+    public static function get_ktpwp_business_page_id() {
+        $options    = get_option( 'ktp_general_settings', array() );
+        $configured = isset( $options['ktp_page_id'] ) ? (int) $options['ktp_page_id'] : 0;
+
+        if ( $configured > 0 && self::page_has_ktpwp_shortcode( $configured ) ) {
+            return $configured;
+        }
+
+        return self::detect_ktpwp_business_page_id();
+    }
+
+    /**
+     * 業務画面ページ URL を取得する。
+     *
+     * @return string
+     */
+    public static function get_ktpwp_business_page_url() {
+        static $cached_url = null;
+        if ( $cached_url !== null ) {
+            return $cached_url;
+        }
+
+        $page_id = self::get_ktpwp_business_page_id();
+        if ( $page_id <= 0 ) {
+            $cached_url = '';
+            return $cached_url;
+        }
+
+        $permalink = get_permalink( $page_id );
+        if ( ! $permalink ) {
+            $cached_url = '';
+            return $cached_url;
+        }
+
+        $cached_url = (string) add_query_arg( array( 'page_id' => $page_id ), $permalink );
+        return $cached_url;
+    }
+
+    /**
+     * 業務画面ショートコード設置ページ一覧を取得する。
+     *
+     * @return array<int, WP_Post>
+     */
+    public static function get_ktpwp_shortcode_pages() {
+        global $wpdb;
+
+        $likes = array();
+        foreach ( self::get_ktpwp_shortcode_search_patterns() as $pattern ) {
+            $likes[] = $wpdb->prepare( 'post_content LIKE %s', '%' . $wpdb->esc_like( $pattern ) . '%' );
+        }
+
+        $like_sql = implode( ' OR ', $likes );
+        $ids      = $wpdb->get_col(
+            "SELECT ID FROM {$wpdb->posts}
+            WHERE post_type = 'page'
+            AND post_status = 'publish'
+            AND ( {$like_sql} )
+            ORDER BY post_title ASC"
+        );
+
+        $pages = array();
+        foreach ( $ids as $id ) {
+            $post = get_post( (int) $id );
+            if ( $post instanceof WP_Post ) {
+                $pages[] = $post;
+            }
+        }
+
+        return $pages;
+    }
+
+    /**
+     * 一般設定で指定された業務画面ページ ID（0 は未指定）。
+     *
+     * @return int
+     */
+    public static function get_configured_ktpwp_business_page_id() {
+        $options = get_option( 'ktp_general_settings', array() );
+        return isset( $options['ktp_page_id'] ) ? (int) $options['ktp_page_id'] : 0;
+    }
+
+    /**
      * 請求書下部に印字する振込先口座ブロック（HTML）
      *
      * @return string 未入力のときは空文字
@@ -528,6 +680,11 @@ class KTPWP_Settings {
 
             if ( ! array_key_exists( 'currency_code', $existing_general ) ) {
                 $existing_general['currency_code'] = 'JPY';
+                $general_updated = true;
+            }
+
+            if ( ! array_key_exists( 'ktp_page_id', $existing_general ) ) {
+                $existing_general['ktp_page_id'] = 0;
                 $general_updated = true;
             }
 
@@ -2782,6 +2939,14 @@ class KTPWP_Settings {
             'general_setting_section'
         );
 
+        add_settings_field(
+            'ktp_page_id',
+            __( '業務画面ページ', 'ktpwp' ),
+            array( $this, 'ktp_page_id_callback' ),
+            'ktp-general',
+            'general_setting_section'
+        );
+
         // リストの表示件数
         add_settings_field(
             'work_list_range',
@@ -3756,6 +3921,24 @@ class KTPWP_Settings {
             $new_input['currency_code'] = isset( $supported_currencies[ $currency_code ] ) ? $currency_code : 'JPY';
         }
 
+        if ( isset( $input['ktp_page_id'] ) ) {
+            $page_id = absint( $input['ktp_page_id'] );
+            if ( $page_id === 0 ) {
+                $new_input['ktp_page_id'] = 0;
+            } elseif ( self::page_has_ktpwp_shortcode( $page_id ) ) {
+                $new_input['ktp_page_id'] = $page_id;
+            } else {
+                $existing = get_option( 'ktp_general_settings', array() );
+                $new_input['ktp_page_id'] = isset( $existing['ktp_page_id'] ) ? (int) $existing['ktp_page_id'] : 0;
+                add_settings_error(
+                    'ktp_general_settings',
+                    'invalid_ktp_page_id',
+                    __( '業務画面ページには、[ktpwp_all_tab] または [kantanpro_ex] が設置された公開中の固定ページを選択してください。', 'ktpwp' ),
+                    'error'
+                );
+            }
+        }
+
         // 税制モード（明示的に選択: multiple | unified | abolished）
         if ( isset( $input['tax_mode'] ) ) {
             $ui_mode = sanitize_text_field( $input['tax_mode'] );
@@ -4048,6 +4231,52 @@ class KTPWP_Settings {
      */
     public function sanitize_fixed_system_description( $value ) {
         return sanitize_textarea_field( $this->get_fixed_system_description() );
+    }
+
+    /**
+     * 業務画面ページフィールドのコールバック。
+     *
+     * @return void
+     */
+    public function ktp_page_id_callback() {
+        $selected   = self::get_configured_ktpwp_business_page_id();
+        $candidates = self::get_ktpwp_shortcode_pages();
+        ?>
+        <select id="ktp_page_id" name="ktp_general_settings[ktp_page_id]">
+            <option value="0" <?php selected( $selected, 0 ); ?>>
+                <?php echo esc_html__( '自動検出（ショートコード設置ページのうち ID が最小の公開ページ）', 'ktpwp' ); ?>
+            </option>
+            <?php foreach ( $candidates as $page ) : ?>
+                <option value="<?php echo esc_attr( (string) (int) $page->ID ); ?>" <?php selected( $selected, (int) $page->ID ); ?>>
+                    <?php echo esc_html( $page->post_title . ' (ID: ' . (int) $page->ID . ')' ); ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <p class="description">
+            <?php echo esc_html__( '受注通知メール等の「受注書へのリンク」に使う KantanPro 業務画面ページです。デモページが選ばれる場合は本番ページを指定してください。', 'ktpwp' ); ?>
+        </p>
+        <?php
+        $effective_page_id = self::get_ktpwp_business_page_id();
+        if ( $effective_page_id > 0 ) {
+            $effective_url = self::get_ktpwp_business_page_url();
+            if ( $effective_url !== '' ) {
+                ?>
+                <p class="description">
+                    <?php
+                    printf(
+                        /* translators: 1: page ID */
+                        esc_html__( '現在のリンク先: ページ ID %1$d', 'ktpwp' ),
+                        (int) $effective_page_id
+                    );
+                    ?>
+                    —
+                    <a href="<?php echo esc_url( $effective_url ); ?>" target="_blank" rel="noopener noreferrer">
+                        <?php echo esc_html__( 'ページを開く', 'ktpwp' ); ?>
+                    </a>
+                </p>
+                <?php
+            }
+        }
     }
 
     /**
