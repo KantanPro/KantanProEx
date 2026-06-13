@@ -1234,7 +1234,7 @@ class KTPWP_Shortcodes {
         }
 
         $columns = max( 1, min( 4, (int) $atts['columns'] ) );
-        $category = sanitize_text_field( $atts['category'] );
+        $categories = $this->parse_public_products_categories( $atts['category'] );
         $ids = $this->parse_public_products_ids( $atts['ids'] );
         $limit = max( 0, (int) $atts['limit'] );
         $order_by = sanitize_key( $atts['order_by'] );
@@ -1271,8 +1271,8 @@ class KTPWP_Shortcodes {
             'order'     => $order,
         );
 
-        if ( $category !== '' ) {
-            $query_args['category'] = $category;
+        if ( ! empty( $categories ) ) {
+            $query_args['category'] = count( $categories ) === 1 ? $categories[0] : $categories;
         }
 
         if ( ! empty( $ids ) ) {
@@ -1295,10 +1295,11 @@ class KTPWP_Shortcodes {
         }
 
         $service_db   = KTPWP_Service_DB::get_instance();
-        $categories   = $service_db->get_public_service_categories();
+        $all_categories = $service_db->get_public_service_categories();
         $show_filter  = $this->is_shortcode_flag_enabled( $atts['show_filter'] );
-        $filter_html  = ( $show_filter && ! empty( $categories ) )
-            ? $this->render_public_category_filter( $categories, $category )
+        $filter_initial = count( $categories ) === 1 ? $categories[0] : '';
+        $filter_html  = ( $show_filter && ! empty( $all_categories ) )
+            ? $this->render_public_category_filter( $all_categories, $filter_initial )
             : '';
 
         return '<div class="ktpwp-public-products ktpwp-public-products--' . esc_attr( $layout ) . '">'
@@ -1340,6 +1341,33 @@ class KTPWP_Shortcodes {
         }
 
         return array_values( array_filter( array_map( 'absint', $parts ) ) );
+    }
+
+    /**
+     * category 属性（カンマ区切り可）を配列に変換する。
+     *
+     * @param string $category_attr カテゴリー属性。
+     * @return array<int, string>
+     */
+    private function parse_public_products_categories( $category_attr ) {
+        if ( $category_attr === '' ) {
+            return array();
+        }
+
+        $parts = preg_split( '/\s*,\s*/', (string) $category_attr );
+        if ( ! is_array( $parts ) ) {
+            return array();
+        }
+
+        $categories = array();
+        foreach ( $parts as $part ) {
+            $category = sanitize_text_field( $part );
+            if ( $category !== '' ) {
+                $categories[] = $category;
+            }
+        }
+
+        return array_values( array_unique( $categories ) );
     }
 
     /**

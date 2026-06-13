@@ -844,6 +844,47 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 		}
 
 		/**
+		 * カテゴリー条件を WHERE 句に追加する。
+		 *
+		 * @param array<int, string> $where_clauses WHERE 句配列。
+		 * @param array<int, mixed>  $where_values  プレースホルダ値。
+		 * @param string|array<int, string> $category カテゴリー（単一または複数）。
+		 * @return void
+		 */
+		private function append_service_category_filter( array &$where_clauses, array &$where_values, $category ) {
+			if ( empty( $category ) ) {
+				return;
+			}
+
+			if ( is_array( $category ) ) {
+				$categories = array_values(
+					array_unique(
+						array_filter(
+							array_map( 'sanitize_text_field', $category )
+						)
+					)
+				);
+				if ( empty( $categories ) ) {
+					return;
+				}
+
+				if ( count( $categories ) === 1 ) {
+					$where_clauses[] = 'category = %s';
+					$where_values[]  = $categories[0];
+					return;
+				}
+
+				$placeholders    = implode( ', ', array_fill( 0, count( $categories ), '%s' ) );
+				$where_clauses[] = "category IN ({$placeholders})";
+				$where_values    = array_merge( $where_values, $categories );
+				return;
+			}
+
+			$where_clauses[] = 'category = %s';
+			$where_values[]  = sanitize_text_field( (string) $category );
+		}
+
+		/**
 		 * Get services with filters and pagination
 		 *
 		 * @param string $tab_name Table name suffix
@@ -891,10 +932,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			}
 
 			// カテゴリーフィルター
-			if ( ! empty( $args['category'] ) ) {
-				$where_clauses[] = 'category = %s';
-				$where_values[] = $args['category'];
-			}
+			$this->append_service_category_filter( $where_clauses, $where_values, $args['category'] );
 
 			// 検索フィルター
 			if ( ! empty( $args['search'] ) ) {
@@ -987,10 +1025,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			}
 
 			// カテゴリーフィルター
-			if ( ! empty( $args['category'] ) ) {
-				$where_clauses[] = 'category = %s';
-				$where_values[] = $args['category'];
-			}
+			$this->append_service_category_filter( $where_clauses, $where_values, $args['category'] );
 
 			// 検索フィルター
 			if ( ! empty( $args['search'] ) ) {

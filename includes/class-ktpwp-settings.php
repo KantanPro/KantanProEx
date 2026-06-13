@@ -2531,7 +2531,7 @@ class KTPWP_Settings {
                     <tr>
                         <td><code>category</code></td>
                         <td><?php echo esc_html__( '（空）', 'ktpwp' ); ?></td>
-                        <td><?php echo esc_html__( 'カテゴリで絞り込み（サーバー側）。絞り込み UI 表示時は初期値にも使用', 'ktpwp' ); ?></td>
+                        <td><?php echo esc_html__( 'カテゴリで絞り込み（サーバー側）。複数指定時はカンマ区切り（例: サポート,WEB制作）。絞り込み UI 表示時は単一指定のみ初期値に使用', 'ktpwp' ); ?></td>
                     </tr>
                     <tr>
                         <td><code>show_filter</code></td>
@@ -2558,6 +2558,7 @@ class KTPWP_Settings {
                 <li><code>[ktpwp_public_products layout="table"]</code></li>
                 <li><code>[ktpwp_public_products layout="cards" columns="2" show_tax="yes"]</code></li>
                 <li><code>[ktpwp_public_products category="Web制作" ids="2,5,8"]</code></li>
+                <li><code>[ktpwp_public_products category="サポート,WEB制作"]</code></li>
             </ul>
         </div>
         <?php
