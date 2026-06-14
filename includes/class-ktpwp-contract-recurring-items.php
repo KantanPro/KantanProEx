@@ -44,13 +44,28 @@ if ( ! class_exists( 'KTPWP_Contract_Recurring_Items' ) ) {
 					: null;
 
 				$items[] = array(
-					'item_name' => $name,
-					'amount'    => max( 0, floatval( $row['amount'] ?? 0 ) ),
-					'tax_rate'  => $tax_rate,
+					'item_name'             => $name,
+					'amount'                => max( 0, floatval( $row['amount'] ?? 0 ) ),
+					'tax_rate'              => $tax_rate,
+					'bill_on_first_invoice' => self::parse_bill_on_first_invoice( $row ),
 				);
 			}
 
 			return $items;
+		}
+
+		/**
+		 * WEB初回請求フラグ（未指定時はオン）。
+		 *
+		 * @param array<string, mixed> $row 入力行。
+		 * @return bool
+		 */
+		private static function parse_bill_on_first_invoice( $row ) {
+			if ( ! isset( $row['bill_on_first_invoice'] ) ) {
+				return true;
+			}
+
+			return rest_sanitize_boolean( $row['bill_on_first_invoice'] );
 		}
 
 		/**
@@ -111,6 +126,7 @@ if ( ! class_exists( 'KTPWP_Contract_Recurring_Items' ) ) {
 		 */
 		public static function ensure_tables() {
 			if ( self::tables_exist() ) {
+				self::ensure_service_billing_scope_column();
 				return true;
 			}
 
@@ -152,6 +168,24 @@ if ( ! class_exists( 'KTPWP_Contract_Recurring_Items' ) ) {
 			dbDelta( $contract_sql );
 
 			return self::tables_exist();
+		}
+
+		/**
+		 * bill_on_first_invoice カラムを追加（未適用環境向け）。
+		 *
+		 * @return void
+		 */
+		private static function ensure_service_billing_scope_column() {
+			if ( self::service_table_has_column( 'bill_on_first_invoice' ) ) {
+				return;
+			}
+
+			global $wpdb;
+			$table = self::service_table_name();
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			$wpdb->query(
+				"ALTER TABLE `{$table}` ADD COLUMN `bill_on_first_invoice` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1=WEB初回見積に含める' AFTER `tax_rate`"
+			);
 		}
 
 		/**
@@ -255,6 +289,11 @@ if ( ! class_exists( 'KTPWP_Contract_Recurring_Items' ) ) {
 					array_splice( $insert_format, 3, 0, array( '%f' ) );
 				}
 
+				if ( self::service_table_has_column( 'bill_on_first_invoice' ) ) {
+					$insert_data['bill_on_first_invoice'] = ! empty( $item['bill_on_first_invoice'] ) ? 1 : 0;
+					$insert_format[]                      = '%d';
+				}
+
 				$result = $wpdb->insert( $table, $insert_data, $insert_format );
 				if ( false === $result ) {
 					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -338,6 +377,28 @@ if ( ! class_exists( 'KTPWP_Contract_Recurring_Items' ) ) {
 			}
 
 			return $payload;
+		}
+
+		/**
+		 * @param string $column Column name.
+		 * @return bool
+		 */
+		private static function service_table_has_column( $column ) {
+			global $wpdb;
+
+			$table = self::service_table_name();
+			if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
+				return false;
+			}
+
+			$found = $wpdb->get_var(
+				$wpdb->prepare(
+					"SHOW COLUMNS FROM `{$table}` LIKE %s",
+					$column
+				)
+			);
+
+			return is_string( $found ) && $found === $column;
 		}
 	}
 }

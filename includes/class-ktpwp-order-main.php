@@ -1939,6 +1939,10 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					$content .= '</div></div>';
 
 					$content .= '<div class="ktp-order-summary-trailing-meta">';
+					$content .= '<div class="ktp-order-summary-date-cell ktp-order-summary-date-cell--order-id">';
+					$content .= '<span class="ktp-order-summary-field-label">' . esc_html__( '受注ID', 'ktpwp' ) . '：</span>';
+					$content .= '<span class="ktp-order-summary-order-id">' . esc_html( (string) $order_data->id ) . '</span>';
+					$content .= '</div>';
 					$content .= '<div class="order-payment-timing-wrap">';
 					$content .= '<form method="post" action="' . esc_url( $current_url ) . '" class="ktp-order-summary-payment-form" id="ktp-order-payment-timing-form">';
 					$content .= '<input type="hidden" name="tab_name" value="order" />';

@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.44
+Stable tag: 1.3.45
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,21 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.45 - 2026年06月15日 =
+* WEB受注の見積決済整合性を改善（今回請求／定期参考の分離）
+* 請求項目に is_provisional（定期参考）を追加し、画面・メール・Stripe で同一ルール適用
+* KTPWP_Invoice_Line_Amount ヘルパーと請求スコープ用 DB マイグレーションを追加
+* サービス定期項目に「WEB初回請求」チェックを追加（デフォルトON）
+* WEB受注案件の「今回請求」列を削除（WEB初回はサービス設定で管理）
+* Stripe 請求元名の同期設定を追加（Hosted Invoice の表示名）
+* Stripe Invoice の金額不一致時に古い請求書を無効化して再作成
+* Stripe Invoice 作成時の不正パラメータ（setup_future_usage）を修正
+* メール送信前の請求金額同期を ktp_order_invoice_items に修正
+* メール送信履歴から Stripe 決済リンクを除外（入金後の領収書等へのアクセス防止）
+* 参考行（合計対象外）の背景色表示と操作ロックを追加
+* 見積メールのレイアウトを改善（罫線・合計1行表示）
+* 受注書画面に受注IDを表示
 
 = 1.3.44 - 2026年06月14日 =
 * サービス詳細画面の契約・在庫・定期請求項目のレイアウトと見出しスタイルを改善

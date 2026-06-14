@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.3.44
+ * Version: 1.3.45
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -957,6 +957,7 @@ if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
         'KTPWP_Database'        => 'includes/class-ktpwp-database.php',
         'KTPWP_Order'           => 'includes/class-ktpwp-order.php',
         'KTPWP_Order_Items'     => 'includes/class-ktpwp-order-items.php',
+        'KTPWP_Invoice_Line_Amount' => 'includes/class-ktpwp-invoice-line-amount.php',
         'KTPWP_Order_UI'        => 'includes/class-ktpwp-order-ui.php',
         'KTPWP_Staff_Chat'      => 'includes/class-ktpwp-staff-chat.php',
         'KTPWP_Order_Auxiliary' => 'includes/class-ktpwp-order-auxiliary.php',

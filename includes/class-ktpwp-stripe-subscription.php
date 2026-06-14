@@ -128,6 +128,8 @@ if ( ! class_exists( 'KTPWP_Stripe_Subscription' ) ) {
 			}
 
 			$stripe = new \Stripe\StripeClient( KTPWP_Stripe_Billing::get_secret_key() );
+			$stripe_billing->sync_account_business_profile( $stripe );
+			$expected_total = $stripe_billing->compute_expected_invoice_total_cents( $order_id );
 
 			if ( ! empty( $order->stripe_subscription_id ) ) {
 				try {
@@ -140,16 +142,25 @@ if ( ! class_exists( 'KTPWP_Stripe_Subscription' ) ) {
 						return new WP_Error( 'already_paid', __( 'この請求は入金済みです。', 'ktpwp' ) );
 					}
 					if ( $invoice && in_array( (string) $invoice->status, array( 'draft', 'open' ), true ) ) {
-						if ( $finalize && $invoice->status === 'draft' ) {
-							$invoice = $stripe->invoices->finalizeInvoice( $invoice->id );
-						}
-						$url = (string) ( $invoice->hosted_invoice_url ?? '' );
-						$stripe_billing->save_order_stripe_invoice( $order_id, (string) $invoice->id, $url );
+						if ( $expected_total > 0 && $stripe_billing->invoice_matches_order( $invoice, $order_id, $expected_total ) ) {
+							if ( $finalize && $invoice->status === 'draft' ) {
+								$invoice = $stripe->invoices->finalizeInvoice( $invoice->id );
+							}
+							$url = (string) ( $invoice->hosted_invoice_url ?? '' );
+							$stripe_billing->save_order_stripe_invoice( $order_id, (string) $invoice->id, $url );
 
-						return array(
-							'invoice_id'      => (string) $invoice->id,
-							'url'             => $url,
-							'subscription_id' => (string) $subscription->id,
+							return array(
+								'invoice_id'      => (string) $invoice->id,
+								'url'             => $url,
+								'subscription_id' => (string) $subscription->id,
+							);
+						}
+
+						$this->void_subscription_for_recreate(
+							$stripe,
+							$order_id,
+							(string) $subscription->id,
+							$invoice && ! empty( $invoice->id ) ? (string) $invoice->id : ''
 						);
 					}
 				} catch ( Exception $e ) {
@@ -1223,6 +1234,45 @@ if ( ! class_exists( 'KTPWP_Stripe_Subscription' ) ) {
 			} catch ( Exception $e ) {
 				return 0;
 			}
+		}
+
+		/**
+		 * 金額不一致時: Invoice を void し Subscription を解約して再作成可能にする。
+		 *
+		 * @param \Stripe\StripeClient $stripe          Stripe client.
+		 * @param int                  $order_id        受注 ID.
+		 * @param string               $subscription_id Subscription ID.
+		 * @param string               $invoice_id      Invoice ID.
+		 * @return void
+		 */
+		private function void_subscription_for_recreate( $stripe, $order_id, $subscription_id, $invoice_id ) {
+			if ( $invoice_id !== '' ) {
+				try {
+					$invoice = $stripe->invoices->retrieve( $invoice_id );
+					if ( in_array( (string) $invoice->status, array( 'draft', 'open' ), true ) ) {
+						$stripe->invoices->voidInvoice( $invoice_id );
+					}
+				} catch ( Exception $e ) {
+					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+						error_log( 'KTPWP Stripe void subscription invoice: ' . $e->getMessage() );
+					}
+				}
+			}
+
+			if ( $subscription_id !== '' ) {
+				try {
+					$sub = $stripe->subscriptions->retrieve( $subscription_id );
+					if ( isset( $sub->status ) && $sub->status !== 'canceled' ) {
+						$stripe->subscriptions->cancel( $subscription_id );
+					}
+				} catch ( Exception $e ) {
+					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+						error_log( 'KTPWP Stripe cancel subscription for recreate: ' . $e->getMessage() );
+					}
+				}
+			}
+
+			$this->save_order_subscription_id( $order_id, '' );
 		}
 
 		/**

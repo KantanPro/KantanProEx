@@ -147,6 +147,13 @@ if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
 				$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) );
 			}
 
+			if ( $exists === $table_name && ! $this->invoice_table_has_column( 'is_provisional' ) ) {
+				// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+				$wpdb->query(
+					"ALTER TABLE `{$table_name}` ADD COLUMN `is_provisional` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1=定期参考（今回請求しない）' AFTER `remarks`"
+				);
+			}
+
 			return $exists === $table_name;
 		}
 
@@ -204,6 +211,7 @@ if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
 					$tax_rate = isset( $item['tax_rate'] ) && $item['tax_rate'] !== null && $item['tax_rate'] !== ''
 						? (float) $item['tax_rate']
 						: $default_tax_rate;
+					$is_provisional = empty( $item['bill_on_first_invoice'] );
 
 					if ( $this->insert_public_product_invoice_row(
 						$order_id,
@@ -213,7 +221,8 @@ if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
 						$quantity,
 						'',
 						$tax_rate,
-						$sort_order
+						$sort_order,
+						$is_provisional
 					) ) {
 						$saved = true;
 						++$sort_order;
@@ -234,7 +243,8 @@ if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
 					$quantity,
 					'',
 					$default_tax_rate,
-					$sort_order
+					$sort_order,
+					false
 				) ) {
 					$saved = true;
 					++$sort_order;
@@ -270,7 +280,8 @@ if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
 						1.0,
 						$initial_fee_remarks,
 						$tax_rate,
-						$sort_order
+						$sort_order,
+						false
 					) ) {
 						++$sort_order;
 					}
@@ -291,19 +302,24 @@ if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
 		 * @param string      $remarks    備考。
 		 * @param float|null  $tax_rate   税率。
 		 * @param int         $sort_order 並び順。
+		 * @param bool        $is_provisional 定期参考（今回請求しない）か。
 		 * @return bool
 		 */
-		private function insert_public_product_invoice_row( $order_id, $name, $price, $unit, $quantity, $remarks, $tax_rate, $sort_order ) {
+		private function insert_public_product_invoice_row( $order_id, $name, $price, $unit, $quantity, $remarks, $tax_rate, $sort_order, $is_provisional = false ) {
 			global $wpdb;
 
 			$table_name = $wpdb->prefix . 'ktp_order_invoice_items';
+			$is_provisional = (bool) $is_provisional;
+			$row_amount       = $is_provisional
+				? 0
+				: (int) round( (float) $price * (float) $quantity );
 			$data       = array(
 				'order_id'     => (int) $order_id,
 				'product_name' => sanitize_text_field( (string) $name ),
 				'price'        => (float) $price,
 				'quantity'     => (float) $quantity,
 				'unit'         => sanitize_text_field( (string) $unit ),
-				'amount'       => (int) round( (float) $price * (float) $quantity ),
+				'amount'       => $row_amount,
 				'remarks'      => sanitize_text_field( (string) $remarks ),
 				'sort_order'   => (int) $sort_order,
 				'created_at'   => current_time( 'mysql' ),
@@ -311,6 +327,11 @@ if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
 			);
 
 			$format = array( '%d', '%s', '%f', '%f', '%s', '%d', '%s', '%d', '%s', '%s' );
+
+			if ( $this->invoice_table_has_column( 'is_provisional' ) ) {
+				$data['is_provisional'] = $is_provisional ? 1 : 0;
+				$format[]               = '%d';
+			}
 
 			if ( $tax_rate !== null ) {
 				$data['tax_rate'] = (float) $tax_rate;
@@ -1004,6 +1025,9 @@ if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
 				case 'supplier_id':
 					$value_changed = (int) $current_value !== (int) $field_value;
 					break;
+				case 'is_provisional':
+					$value_changed = (int) $current_value !== (int) rest_sanitize_boolean( $field_value );
+					break;
 				default:
 					$value_changed = $current_value !== $field_value;
 			}
@@ -1095,6 +1119,16 @@ if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
 						);
 					}
 					break;
+				case 'is_provisional':
+					if ( $item_type !== 'invoice' || ! $this->invoice_table_has_column( 'is_provisional' ) ) {
+						return array(
+							'success' => true,
+							'value_changed' => false,
+						);
+					}
+					$update_data['is_provisional'] = rest_sanitize_boolean( $field_value ) ? 1 : 0;
+					$format[]                      = '%d';
+					break;
 				default:
 					return array(
 						'success' => false,
@@ -1120,6 +1154,29 @@ if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
 					'success' => false,
 					'value_changed' => false,
 				);
+			}
+
+			if ( $item_type === 'invoice' && $field_name === 'is_provisional' && class_exists( 'KTPWP_Invoice_Line_Amount' ) ) {
+				$row = $wpdb->get_row(
+					$wpdb->prepare(
+						"SELECT * FROM `{$table_name}` WHERE id = %d",
+						$item_id
+					),
+					ARRAY_A
+				);
+				if ( is_array( $row ) ) {
+					$new_amount = KTPWP_Invoice_Line_Amount::resolve_billable_amount( $row );
+					$wpdb->update(
+						$table_name,
+						array(
+							'amount'     => $new_amount,
+							'updated_at' => current_time( 'mysql' ),
+						),
+						array( 'id' => $item_id ),
+						array( '%d', '%s' ),
+						array( '%d' )
+					);
+				}
 			}
 
 			return array(

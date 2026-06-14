@@ -1400,10 +1400,16 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 					continue;
 				}
 
+				$bill_on_first = true;
+				if ( isset( $row['bill_on_first_invoice'] ) ) {
+					$bill_on_first = rest_sanitize_boolean( $row['bill_on_first_invoice'] );
+				}
+
 				$sanitized[] = array(
-					'item_name' => isset( $row['item_name'] ) ? sanitize_text_field( $row['item_name'] ) : '',
-					'amount'    => isset( $row['amount'] ) ? $row['amount'] : 0,
-					'tax_rate'  => isset( $row['tax_rate'] ) && $row['tax_rate'] !== '' ? $row['tax_rate'] : null,
+					'item_name'             => isset( $row['item_name'] ) ? sanitize_text_field( $row['item_name'] ) : '',
+					'amount'                => isset( $row['amount'] ) ? $row['amount'] : 0,
+					'tax_rate'              => isset( $row['tax_rate'] ) && $row['tax_rate'] !== '' ? $row['tax_rate'] : null,
+					'bill_on_first_invoice' => $bill_on_first,
 				);
 			}
 

@@ -539,11 +539,12 @@ if ( ! class_exists( 'KTPWP_Order_Contract_Draft_Resolver' ) ) {
 			$rows = array();
 			foreach ( $items as $item ) {
 				$rows[] = array(
-					'item_name' => (string) ( $item->item_name ?? '' ),
-					'amount'    => (float) ( $item->amount ?? 0 ),
-					'tax_rate'  => isset( $item->tax_rate ) && $item->tax_rate !== null
+					'item_name'             => (string) ( $item->item_name ?? '' ),
+					'amount'                => (float) ( $item->amount ?? 0 ),
+					'tax_rate'              => isset( $item->tax_rate ) && $item->tax_rate !== null
 						? (float) $item->tax_rate
 						: null,
+					'bill_on_first_invoice' => ! empty( $item->bill_on_first_invoice ),
 				);
 			}
 

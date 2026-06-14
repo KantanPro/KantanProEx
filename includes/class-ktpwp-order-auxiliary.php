@@ -236,6 +236,10 @@ class KTPWP_Order_Auxiliary {
 		$note = $context_note !== null && $context_note !== '' ? mb_substr( $context_note, 0, 500 ) : null;
 		$kind = $mail_kind !== '' ? $mail_kind : 'customer';
 
+		if ( class_exists( 'KTPWP_Stripe_Billing' ) ) {
+			$body = KTPWP_Stripe_Billing::sanitize_body_for_mail_log( $body );
+		}
+
 		$wpdb->insert(
 			$table,
 			array(
@@ -384,6 +388,9 @@ class KTPWP_Order_Auxiliary {
 				}
 				$html .= '</tbody></table>';
 				$body_text = isset( $log->body ) && $log->body !== '' ? (string) $log->body : '';
+				if ( $body_text !== '' && class_exists( 'KTPWP_Stripe_Billing' ) ) {
+					$body_text = KTPWP_Stripe_Billing::sanitize_body_for_mail_log( $body_text );
+				}
 				$html     .= '<pre class="ktp-mail-log-body-pre">' . ( $body_text !== '' ? esc_html( $body_text ) : esc_html__( '（本文なし）', 'ktpwp' ) ) . '</pre>';
 				$html     .= '</div></div>';
 			}

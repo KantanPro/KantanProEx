@@ -2,7 +2,6 @@
 .btn-add-row {
   display: inline-block !important;
   visibility: visible !important;
-  opacity: 1 !important;
 }
 
 /* ===========================================
@@ -161,7 +160,7 @@
 
 .ktp-mail-log-body-pre {
     white-space: pre-wrap;
-    word-break: break-word;
+    word-break: break-all;
     background: #f9f9f9;
     border: 1px solid #eee;
     border-radius: 4px;
@@ -430,8 +429,8 @@
 .toggle-staff-chat:hover {
     background: #005a87;
 }
-/* 請求項目テーブル：交互色の透明行を白に */
-.invoice-items-table tr:nth-of-type(even) {
+/* 請求項目テーブル：交互色の透明行を白に（参考行は除外） */
+.invoice-items-table tr:nth-of-type(even):not(.invoice-item-row--provisional) {
   background-color: #fff !important;
 }
 /* コスト項目テーブル：交互色の透明行を白に */
@@ -464,6 +463,47 @@
 .invoice-item-row.dragging {
     background: #e3f2fd !important;
     opacity: 0.7;
+}
+
+/* 今回請求に含まれない行（定期参考・is_provisional） */
+.invoice-items-table tr.invoice-item-row--provisional {
+    background-color: #e8edf3 !important;
+    color: #64748b;
+}
+.invoice-items-table tr.invoice-item-row--provisional td {
+    background-color: inherit;
+}
+.invoice-items-table tr.invoice-item-row--provisional td:first-child {
+    border-left: 4px solid #94a3b8;
+}
+.invoice-items-table tr.invoice-item-row--provisional .invoice-item-amount {
+    color: #94a3b8;
+    font-style: italic;
+}
+.invoice-items-table tr.invoice-item-row--provisional .invoice-item-input {
+    pointer-events: none;
+    cursor: default;
+    user-select: none;
+    background-color: #eef2f6 !important;
+    color: #64748b;
+}
+.invoice-items-table tr.invoice-item-row--provisional .actions-column button,
+.invoice-items-table tr.invoice-item-row--provisional .drag-handle.is-disabled {
+    pointer-events: none;
+    opacity: 0.45 !important;
+    cursor: not-allowed;
+    filter: grayscale(1);
+}
+.invoice-items-table tr.invoice-item-row--provisional .actions-column .btn-add-row,
+.invoice-items-table tr.invoice-item-row--provisional .actions-column .btn-delete-row,
+.invoice-items-table tr.invoice-item-row--provisional .actions-column .btn-move-row {
+    background: #b0bec5 !important;
+    color: #eceff1 !important;
+}
+.invoice-items-table tr.invoice-item-row--provisional .actions-column .btn-add-row:hover,
+.invoice-items-table tr.invoice-item-row--provisional .actions-column .btn-delete-row:hover,
+.invoice-items-table tr.invoice-item-row--provisional .actions-column .btn-move-row:hover {
+    background: #b0bec5 !important;
 }
 
 .cost-item-row.dragging {
@@ -6606,6 +6646,12 @@ body.ktpwp-modal-open {
   font-weight: normal;
   color: #666;
   font-size: 14px;
+}
+.ktp-order-summary-date-cell--order-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 0 4px;
+  flex: 0 0 auto;
 }
 .ktp-order-summary-project-input {
   width: 100%;

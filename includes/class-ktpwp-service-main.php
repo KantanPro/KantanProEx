@@ -1609,19 +1609,27 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			$html .= '<div class="ktpwp-service-field-block ktpwp-service-field-block--recurring" id="ktpwp-service-recurring-items">';
 			$html .= '<div class="ktpwp-service-field-block__label">';
 			$html .= '<span class="ktpwp-service-field-block__label-text ktpwp-service-field-block__section-title">' . esc_html__( '定期請求項目', 'ktpwp' ) . '</span>';
-			$html .= '<span class="ktpwp-service-field-block__hint">' . esc_html__( '定期契約作成時のデフォルト明細です（例: 家賃・共益費）。', 'ktpwp' ) . '</span>';
+			$html .= '<span class="ktpwp-service-field-block__hint">' . esc_html__(
+				'定期契約作成時のデフォルト明細です（例: 家賃・共益費）。WEB初回オン＝WEB受注の今回請求に含める。オフ＝今回は0円の参考行（月額案内のみ）。初回だけ別請求は下の「初回費用」を使ってください。',
+				'ktpwp'
+			) . '</span>';
 			$html .= '</div>';
 			$html .= '<div class="ktpwp-service-field-block__control ktpwp-service-field-block__control--full">';
 			$html .= '<table class="ktpwp-service-detail-items__table" id="ktpwp-service-recurring-items-table"><thead><tr>';
-			$html .= $this->render_service_detail_items_table_headers();
+			$html .= $this->render_service_detail_items_table_headers( true );
 			$html .= '</tr></thead><tbody>';
 
 			for ( $i = 0; $i < $row_count; $i++ ) {
 				$item = isset( $items[ $i ] ) ? $items[ $i ] : null;
+				$bill_on_first = $item ? ! empty( $item->bill_on_first_invoice ) : true;
 				$html .= '<tr>';
 				$html .= '<td><input type="text" name="recurring_items[' . $i . '][item_name]" value="' . esc_attr( $item ? (string) $item->item_name : '' ) . '" maxlength="255"></td>';
 				$html .= '<td><input type="number" name="recurring_items[' . $i . '][amount]" value="' . esc_attr( $item ? KTPWP_Settings::format_number_field_value( $item->amount ) : '' ) . '" min="0" step="0.01"></td>';
 				$html .= '<td><input type="number" name="recurring_items[' . $i . '][tax_rate]" value="' . esc_attr( $item && $item->tax_rate !== null ? KTPWP_Settings::format_number_field_value( $item->tax_rate ) : '' ) . '" min="0" max="100" step="1" placeholder="' . esc_attr__( '非課税', 'ktpwp' ) . '"></td>';
+				$html .= '<td class="ktpwp-service-recurring-first-invoice">';
+				$html .= '<input type="hidden" name="recurring_items[' . $i . '][bill_on_first_invoice]" value="0">';
+				$html .= '<label><input type="checkbox" name="recurring_items[' . $i . '][bill_on_first_invoice]" value="1" ' . checked( $bill_on_first, true, false ) . '> ' . esc_html__( '初回請求', 'ktpwp' ) . '</label>';
+				$html .= '</td>';
 				$html .= '</tr>';
 			}
 
@@ -1687,10 +1695,13 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 		 *
 		 * @return string
 		 */
-		private function render_service_detail_items_table_headers() {
+		private function render_service_detail_items_table_headers( $include_first_invoice = false ) {
 			$html  = '<th>' . esc_html__( '項目名', 'ktpwp' ) . '</th>';
 			$html .= '<th>' . esc_html__( '金額', 'ktpwp' ) . '</th>';
 			$html .= '<th>' . esc_html__( '税率(%)', 'ktpwp' ) . '</th>';
+			if ( $include_first_invoice ) {
+				$html .= '<th>' . esc_html__( 'WEB初回', 'ktpwp' ) . '</th>';
+			}
 
 			return $html;
 		}

@@ -39,6 +39,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 			$instance = self::get_instance();
 			add_action( 'rest_api_init', array( $instance, 'register_rest_routes' ) );
 			add_action( 'ktpwp_stripe_void_stale_drafts', array( $instance, 'void_stale_draft_invoices' ) );
+			add_action( 'update_option_ktp_general_settings', array( $instance, 'maybe_sync_business_profile_on_settings_save' ), 10, 2 );
 
 			if ( ! wp_next_scheduled( 'ktpwp_stripe_void_stale_drafts' ) ) {
 				wp_schedule_event( time(), 'daily', 'ktpwp_stripe_void_stale_drafts' );
@@ -131,6 +132,74 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 		 */
 		public static function get_webhook_url() {
 			return rest_url( 'ktpwp/v1/stripe-webhook' );
+		}
+
+		/**
+		 * Hosted Invoice の「請求元」表示名。
+		 *
+		 * @return string
+		 */
+		public static function get_invoice_issuer_name() {
+			$options = get_option( 'ktp_general_settings', array() );
+			$custom  = trim( (string) ( $options['stripe_invoice_issuer_name'] ?? '' ) );
+			if ( $custom !== '' ) {
+				return $custom;
+			}
+
+			return defined( 'KANTANPRO_PLUGIN_NAME' ) ? KANTANPRO_PLUGIN_NAME : 'KantanProEX';
+		}
+
+		/**
+		 * Stripe アカウントの business_profile.name を同期（請求書の請求元表示）。
+		 *
+		 * @param \Stripe\StripeClient|null $stripe Stripe client.
+		 * @return void
+		 */
+		public function sync_account_business_profile( $stripe = null ) {
+			if ( ! self::is_enabled() || ! class_exists( '\Stripe\StripeClient' ) ) {
+				return;
+			}
+
+			$name = self::get_invoice_issuer_name();
+			if ( $name === '' ) {
+				return;
+			}
+
+			try {
+				if ( ! $stripe ) {
+					$stripe = new \Stripe\StripeClient( self::get_secret_key() );
+				}
+
+				$account = $stripe->accounts->retrieve();
+				$current = trim( (string) ( $account->business_profile->name ?? '' ) );
+				if ( $current === $name ) {
+					return;
+				}
+
+				$stripe->accounts->update(
+					$account->id,
+					array(
+						'business_profile' => array(
+							'name' => $name,
+						),
+					)
+				);
+			} catch ( Exception $e ) {
+				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+					error_log( 'KTPWP Stripe sync business_profile: ' . $e->getMessage() );
+				}
+			}
+		}
+
+		/**
+		 * 一般設定保存後に請求元名を Stripe へ反映。
+		 *
+		 * @param mixed $old_value Old option value.
+		 * @param mixed $new_value New option value.
+		 * @return void
+		 */
+		public function maybe_sync_business_profile_on_settings_save( $old_value, $new_value ) {
+			$this->sync_account_business_profile();
 		}
 
 		/**
@@ -428,6 +497,47 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 		}
 
 		/**
+		 * メール送信履歴用: Stripe 決済リンクを除去（入金後の領収書 URL 等を履歴に残さない）。
+		 *
+		 * @param string $body メール本文。
+		 * @return string
+		 */
+		public static function sanitize_body_for_mail_log( $body ) {
+			return self::get_instance()->strip_body_for_mail_log( $body );
+		}
+
+		/**
+		 * @param string $body メール本文。
+		 * @return string
+		 */
+		private function strip_body_for_mail_log( $body ) {
+			$body    = $this->normalize_email_body( $body );
+			$had_pay = (bool) preg_match( '/【オンライン決済】|invoice\.stripe\.com|pay\.stripe\.com/i', $body );
+
+			$body = $this->strip_existing_payment_block( $body );
+			$body = preg_replace( '/\n?https?:\/\/(?:invoice|pay)\.stripe\.com\/[^\s\n]*/iu', '', $body );
+			$body = preg_replace( '/\n{3,}/', "\n\n", $body );
+			$body = rtrim( $body );
+
+			if ( ! $had_pay ) {
+				return $body;
+			}
+
+			$note  = "\n\n" . __( '【オンライン決済】決済リンクは送信履歴には含めません。', 'ktpwp' );
+			$sig   = "\n\n--\n";
+			$pos   = strrpos( $body, $sig );
+			if ( false === $pos ) {
+				$sig = "\n--\n";
+				$pos = strrpos( $body, $sig );
+			}
+			if ( false !== $pos ) {
+				return substr( $body, 0, $pos ) . $note . substr( $body, $pos );
+			}
+
+			return $body . $note;
+		}
+
+		/**
 		 * 決済ブロック本文。
 		 *
 		 * @param string $url Stripe URL.
@@ -522,37 +632,21 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 			}
 
 			$stripe = new \Stripe\StripeClient( self::get_secret_key() );
+			$this->sync_account_business_profile( $stripe );
 
-			if ( ! empty( $order->stripe_invoice_id ) ) {
-				try {
-					$existing = $stripe->invoices->retrieve( (string) $order->stripe_invoice_id );
-					if ( isset( $existing->status ) && $existing->status === 'paid' ) {
-						return new WP_Error( 'already_paid', __( 'この請求は入金済みです。', 'ktpwp' ) );
-					}
-					if ( $finalize && in_array( $existing->status, array( 'draft', 'open' ), true ) ) {
-						if ( $existing->status === 'draft' ) {
-							$existing = $stripe->invoices->finalizeInvoice( $existing->id );
-						}
-						$this->save_order_stripe_fields( $order_id, $existing->id, $existing->hosted_invoice_url ?? '' );
-						return array(
-							'invoice_id' => (string) $existing->id,
-							'url'        => (string) ( $existing->hosted_invoice_url ?? '' ),
-						);
-					}
-					if ( ! $finalize && $existing->status === 'open' && ! empty( $existing->hosted_invoice_url ) ) {
-						return array(
-							'invoice_id' => (string) $existing->id,
-							'url'        => (string) $existing->hosted_invoice_url,
-						);
-					}
-					if ( in_array( $existing->status, array( 'draft', 'open' ), true ) ) {
-						$stripe->invoices->voidInvoice( $existing->id );
-					}
-				} catch ( Exception $e ) {
-					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-						error_log( 'KTPWP Stripe retrieve existing: ' . $e->getMessage() );
-					}
-				}
+			$line_items = $this->get_order_line_items( $order_id );
+			if ( empty( $line_items ) ) {
+				return new WP_Error( 'no_items', __( '請求明細がありません。', 'ktpwp' ) );
+			}
+
+			$expected_total = $this->compute_expected_total_from_lines( $line_items );
+
+			$reuse = $this->try_reuse_existing_invoice( $stripe, $order_id, $order, $expected_total, $finalize );
+			if ( is_wp_error( $reuse ) ) {
+				return $reuse;
+			}
+			if ( is_array( $reuse ) ) {
+				return $reuse;
 			}
 
 			$metadata = array(
@@ -575,19 +669,9 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 						'metadata'          => $metadata,
 						'payment_settings'  => array(
 							'payment_method_types' => array( 'card' ),
-							'payment_method_options' => array(
-								'card' => array(
-									'setup_future_usage' => 'off_session',
-								),
-							),
 						),
 					)
 				);
-
-				$line_items = $this->get_order_line_items( $order_id );
-				if ( empty( $line_items ) ) {
-					return new WP_Error( 'no_items', __( '請求明細がありません。', 'ktpwp' ) );
-				}
 
 				foreach ( $line_items as $line ) {
 					$stripe->invoiceItems->create(
@@ -632,13 +716,17 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 
 			$items = KTPWP_Order_Items::get_instance()->get_invoice_items( $order_id );
 			foreach ( $items as $item ) {
-				$name    = isset( $item['product_name'] ) ? trim( (string) $item['product_name'] ) : '';
-				$amount  = isset( $item['amount'] ) ? (float) $item['amount'] : 0;
-				$remarks = isset( $item['remarks'] ) ? trim( (string) $item['remarks'] ) : '';
-
-				if ( $name === '' || $amount <= 0 ) {
+				if ( ! is_array( $item ) || ! class_exists( 'KTPWP_Invoice_Line_Amount' ) ) {
 					continue;
 				}
+
+				if ( ! KTPWP_Invoice_Line_Amount::is_billable_now( $item ) ) {
+					continue;
+				}
+
+				$name   = trim( (string) ( $item['product_name'] ?? '' ) );
+				$amount = KTPWP_Invoice_Line_Amount::resolve_billable_amount( $item );
+				$remarks = isset( $item['remarks'] ) ? trim( (string) $item['remarks'] ) : '';
 
 				$desc = $name;
 				if ( $remarks !== '' ) {
@@ -646,12 +734,136 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				}
 
 				$lines[] = array(
-					'amount'      => (int) ceil( $amount ),
+					'amount'      => $amount,
 					'description' => $desc,
 				);
 			}
 
 			return $lines;
+		}
+
+		/**
+		 * 請求行から Stripe Invoice 合計（円）を算出。
+		 *
+		 * @param array<int, array{amount: int, description: string}> $line_items 請求行。
+		 * @return int
+		 */
+		public function compute_expected_total_from_lines( array $line_items ) {
+			$total = 0;
+			foreach ( $line_items as $line ) {
+				$total += (int) ( $line['amount'] ?? 0 );
+			}
+
+			return $total;
+		}
+
+		/**
+		 * 受注の今回請求合計（円）。
+		 *
+		 * @param int $order_id 受注 ID.
+		 * @return int
+		 */
+		public function compute_expected_invoice_total_cents( $order_id ) {
+			return $this->compute_expected_total_from_lines( $this->get_order_line_items( $order_id ) );
+		}
+
+		/**
+		 * Stripe Invoice が受注の今回請求と一致するか。
+		 *
+		 * @param object $invoice        Stripe Invoice.
+		 * @param int    $order_id       受注 ID.
+		 * @param int    $expected_total 期待合計（円）。
+		 * @return bool
+		 */
+		public function invoice_matches_order( $invoice, $order_id, $expected_total ) {
+			$invoice_total = isset( $invoice->total ) ? (int) $invoice->total : 0;
+			if ( $invoice_total !== (int) $expected_total ) {
+				return false;
+			}
+
+			if ( isset( $invoice->metadata->ktp_order_id ) ) {
+				$meta_order = (int) $invoice->metadata->ktp_order_id;
+				if ( $meta_order > 0 && $meta_order !== (int) $order_id ) {
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		/**
+		 * 既存 Invoice を再利用できる場合は URL を返す。不一致時は void して null。
+		 *
+		 * @param \Stripe\StripeClient $stripe         Stripe client.
+		 * @param int                  $order_id       受注 ID.
+		 * @param object               $order          受注行。
+		 * @param int                  $expected_total 期待合計（円）。
+		 * @param bool                 $finalize       finalize するか。
+		 * @return array{invoice_id: string, url: string}|WP_Error|null
+		 */
+		private function try_reuse_existing_invoice( $stripe, $order_id, $order, $expected_total, $finalize ) {
+			if ( empty( $order->stripe_invoice_id ) ) {
+				return null;
+			}
+
+			try {
+				$existing = $stripe->invoices->retrieve( (string) $order->stripe_invoice_id );
+			} catch ( Exception $e ) {
+				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+					error_log( 'KTPWP Stripe retrieve existing: ' . $e->getMessage() );
+				}
+
+				return null;
+			}
+
+			if ( isset( $existing->status ) && $existing->status === 'paid' ) {
+				return new WP_Error( 'already_paid', __( 'この請求は入金済みです。', 'ktpwp' ) );
+			}
+
+			if ( ! in_array( (string) $existing->status, array( 'draft', 'open' ), true ) ) {
+				return null;
+			}
+
+			if ( ! $this->invoice_matches_order( $existing, $order_id, $expected_total ) ) {
+				try {
+					$stripe->invoices->voidInvoice( $existing->id );
+				} catch ( Exception $e ) {
+					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+						error_log( 'KTPWP Stripe void stale invoice: ' . $e->getMessage() );
+					}
+				}
+
+				return null;
+			}
+
+			if ( $finalize && in_array( (string) $existing->status, array( 'draft', 'open' ), true ) ) {
+				if ( $existing->status === 'draft' ) {
+					$existing = $stripe->invoices->finalizeInvoice( $existing->id );
+				}
+				$this->save_order_stripe_fields( $order_id, $existing->id, $existing->hosted_invoice_url ?? '' );
+
+				return array(
+					'invoice_id' => (string) $existing->id,
+					'url'        => (string) ( $existing->hosted_invoice_url ?? '' ),
+				);
+			}
+
+			if ( ! $finalize && $existing->status === 'open' && ! empty( $existing->hosted_invoice_url ) ) {
+				return array(
+					'invoice_id' => (string) $existing->id,
+					'url'        => (string) $existing->hosted_invoice_url,
+				);
+			}
+
+			try {
+				$stripe->invoices->voidInvoice( $existing->id );
+			} catch ( Exception $e ) {
+				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+					error_log( 'KTPWP Stripe void draft invoice: ' . $e->getMessage() );
+				}
+			}
+
+			return null;
 		}
 
 		/**
@@ -1124,7 +1336,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 		 * @return void
 		 */
 		public static function render_settings_section_info() {
-			echo '<p>' . esc_html__( '初回は Stripe Invoice、初回費用なしの定額案件は Subscription を即時開始します。', 'ktpwp' ) . '</p>';
+			echo '<p>' . esc_html__( '初回は Stripe Invoice（今回請求分）、初回費用なしの定額案件は Subscription を即時開始します。', 'ktpwp' ) . '</p>';
 			echo '<p class="description">' . esc_html__( 'Webhook URL:', 'ktpwp' ) . ' <code>' . esc_html( self::get_webhook_url() ) . '</code></p>';
 		}
 
@@ -1208,6 +1420,17 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 			$value   = isset( $options['stripe_days_until_due'] ) ? absint( $options['stripe_days_until_due'] ) : 30;
 			echo '<input type="number" min="1" max="90" step="1" name="ktp_general_settings[stripe_days_until_due]" value="' . esc_attr( (string) max( 1, $value ) ) . '" class="small-text"> ';
 			echo esc_html__( '日', 'ktpwp' );
+		}
+
+		/**
+		 * 設定画面: 請求元名（Hosted Invoice）。
+		 *
+		 * @return void
+		 */
+		public static function render_invoice_issuer_name_field() {
+			$value = self::get_invoice_issuer_name();
+			echo '<input type="text" name="ktp_general_settings[stripe_invoice_issuer_name]" value="' . esc_attr( $value ) . '" class="regular-text">';
+			echo '<p class="description">' . esc_html__( 'Stripe 請求ページの「請求元」に表示されます。保存時と請求書作成時に Stripe アカウントへ同期されます。', 'ktpwp' ) . '</p>';
 		}
 
 		/**

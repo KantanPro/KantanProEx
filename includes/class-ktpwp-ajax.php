@@ -2123,7 +2123,11 @@ class KTPWP_Ajax {
 				$invoice_items_from_db = array();
 			}
 
-			if ( ! empty( $invoice_items_from_db ) ) {
+			if ( ! empty( $invoice_items_from_db ) && class_exists( 'KTPWP_Invoice_Line_Amount' ) ) {
+				$email_sections = KTPWP_Invoice_Line_Amount::build_invoice_email_sections( $invoice_items_from_db, $tax_category );
+				$invoice_list   = $email_sections['list'];
+				$amount         = (float) $email_sections['bill_total'];
+			} elseif ( ! empty( $invoice_items_from_db ) ) {
 				$invoice_list = "\n";
 				$max_length   = 0;
 				$item_lines   = array();
@@ -2365,8 +2369,9 @@ class KTPWP_Ajax {
 
             // 件名と本文の統一フォーマット
             $subject = sprintf( __( '%1$s：%2$s', 'ktpwp' ), $document_title, $project_name );
+            $email_rule_line = str_repeat( '-', 60 );
             $body    = sprintf(
-				__( "%1\$s\n%2\$s\n\nお世話になります。\n\n＜%3\$s＞\nID: %4\$d [%5\$s]\n\n「%6\$s」%7\$s\n%8\$s", 'ktpwp' ),
+				__( "%1\$s\n%2\$s\n\nお世話になります。\n「%6\$s」%7\$s\n\n＜%3\$s＞ID: %4\$d [%5\$s]\n%9\$s\n%8\$s", 'ktpwp' ),
 				$customer_display,
 				$user_display,
 				$document_title,
@@ -2374,7 +2379,8 @@ class KTPWP_Ajax {
 				$order_date,
 				$project_name,
 				$document_message,
-				$invoice_list
+				$invoice_list,
+				$email_rule_line
 			);
 
             // 見積り（進捗1）: Web受注は Stripe、それ以外は振込先
@@ -2469,11 +2475,16 @@ class KTPWP_Ajax {
 	 * @since 1.0.19
 	 */
 	private function update_latest_amounts_before_email($order_id) {
+		if ( class_exists( 'KTPWP_Invoice_Line_Amount' ) ) {
+			KTPWP_Invoice_Line_Amount::normalize_provisional_amounts_for_order( $order_id );
+			KTPWP_Invoice_Line_Amount::sync_billable_amounts_for_order( $order_id );
+			return;
+		}
+
 		try {
 			global $wpdb;
 			
-			// 請求項目の最新金額を取得してデータベースに保存
-			$invoice_items_table = $wpdb->prefix . 'ktp_invoice_items';
+			$invoice_items_table = $wpdb->prefix . 'ktp_order_invoice_items';
 			
 			// 現在の請求項目を取得
 			$current_items = $wpdb->get_results(

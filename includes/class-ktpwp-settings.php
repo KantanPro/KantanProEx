@@ -3201,6 +3201,14 @@ class KTPWP_Settings {
             );
 
             add_settings_field(
+                'stripe_invoice_issuer_name',
+                __( '請求元名（Stripe）', 'ktpwp' ),
+                array( 'KTPWP_Stripe_Billing', 'render_invoice_issuer_name_field' ),
+                'ktp-general',
+                'stripe_billing_setting_section'
+            );
+
+            add_settings_field(
                 'contract_invoice_auto_enabled',
                 __( '定期請求メール自動送信', 'ktpwp' ),
                 array( 'KTPWP_Stripe_Billing', 'render_contract_invoice_auto_field' ),
@@ -4147,6 +4155,12 @@ class KTPWP_Settings {
             $new_input['stripe_days_until_due'] = max( 1, min( 90, absint( $input['stripe_days_until_due'] ) ) );
         } elseif ( isset( $existing['stripe_days_until_due'] ) ) {
             $new_input['stripe_days_until_due'] = max( 1, min( 90, absint( $existing['stripe_days_until_due'] ) ) );
+        }
+
+        if ( array_key_exists( 'stripe_invoice_issuer_name', $input ) ) {
+            $new_input['stripe_invoice_issuer_name'] = sanitize_text_field( wp_unslash( (string) $input['stripe_invoice_issuer_name'] ) );
+        } elseif ( isset( $existing['stripe_invoice_issuer_name'] ) ) {
+            $new_input['stripe_invoice_issuer_name'] = $existing['stripe_invoice_issuer_name'];
         }
 
         $stripe_secret_fields = array(
