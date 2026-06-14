@@ -1668,7 +1668,7 @@ class KTPWP_Update_Checker {
             if ( ! is_dir( $plugin_upload_dir ) ) {
                 wp_mkdir_p( $plugin_upload_dir );
             }
-            $this->merge_upload_directory( $backup_upload_dir, $plugin_upload_dir );
+            $this->merge_upload_directory( $backup_upload_dir, $plugin_upload_dir, true );
         }
         
         // 成功時はバックアップを削除
@@ -1684,13 +1684,14 @@ class KTPWP_Update_Checker {
     }
     
     /**
-     * サービス画像アップロードディレクトリをマージする（既存ファイルは上書きしない）。
+     * サービス画像アップロードディレクトリをマージする。
      *
      * @param string $source_dir コピー元ディレクトリ。
      * @param string $target_dir コピー先ディレクトリ。
+     * @param bool   $overwrite  true のとき既存ファイルを上書きする（更新復元時）。
      * @return void
      */
-    private function merge_upload_directory( $source_dir, $target_dir ) {
+    private function merge_upload_directory( $source_dir, $target_dir, $overwrite = false ) {
         if ( ! is_dir( $source_dir ) || ! is_dir( $target_dir ) ) {
             return;
         }
@@ -1712,7 +1713,7 @@ class KTPWP_Update_Checker {
                 continue;
             }
 
-            if ( ! file_exists( $target_file ) ) {
+            if ( $overwrite || ! file_exists( $target_file ) ) {
                 @copy( $source_file, $target_file );
             }
         }
@@ -2597,7 +2598,7 @@ class KTPWP_Update_Checker {
         }
 
         if ( is_dir( $plugin_upload_dir ) ) {
-            $this->merge_upload_directory( $backup_dir, $plugin_upload_dir );
+            $this->merge_upload_directory( $backup_dir, $plugin_upload_dir, true );
         }
 
         $this->recursive_rmdir( $backup_dir );

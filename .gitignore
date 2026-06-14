@@ -20,5 +20,9 @@ Thumbs.db
 *.zip
 *.tmp
 
+# ユーザーアップロードのサービス画像（リポジトリ同梱・zipball 混入を防ぐ）
+images/upload/*
+!images/upload/.gitkeep
+
 # 開発用ローカル設定（任意）
 development-config.php

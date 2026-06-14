@@ -153,9 +153,13 @@ class KTPWP_Image_Processor {
             }
         }
         if ( ! empty( $files ) ) {
-            // 日付でソートして最新のものを取得するなどのロジックを追加可能
-            $latest_file = $files[ count( $files ) - 1 ]; // 最も新しいファイル（名前順）
-            $latest_file_name = basename( $latest_file );
+            usort(
+                $files,
+                static function ( $a, $b ) {
+                    return filemtime( $b ) <=> filemtime( $a );
+                }
+            );
+            $latest_file_name = basename( $files[0] );
             $plugin_url = plugin_dir_url( __DIR__ );
             return $plugin_url . 'images/upload/' . $latest_file_name;
         }

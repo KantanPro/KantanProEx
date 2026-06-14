@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.41
+Stable tag: 1.3.42
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,14 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.42 - 2026年06月14日 =
+* プラグイン更新後に一部のサービス画像が古い画像に戻る不具合を修正
+* 更新復元時に退避したユーザー画像で ZIP 内ファイルを上書きするよう merge 処理を改善
+* サービス画像の解決ロジックを filemtime 最新優先に統一（旧形式 {id}.jpeg の常時優先を廃止）
+* 画像アップロード時に同一サービス ID の旧ファイルを削除
+* 開発用サンプル画像を Git 追跡から除外（zipball 更新時の再混入を防止）
+* 計10ファイル・31行増・10行減（v1.3.41…HEAD）
 
 = 1.3.41 - 2026年06月14日 =
 * 公開商品 [ktpwp_public_products] のカテゴリー絞り込みが効かなくなる不具合を修正

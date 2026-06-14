@@ -713,6 +713,10 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				// デフォルト画像が存在しない場合のエラーは記録しない（プロダクション環境）
 			}
 
+			if ( isset( $_FILES['image'] ) && is_uploaded_file( $_FILES['image']['tmp_name'] ) ) {
+				$this->delete_uploaded_image_files( $data_id );
+			}
+
 			$image_url = $image_processor->handle_image( $tab_name, $data_id, $default_image_url );
 
 			$update_result = $wpdb->update(
@@ -1123,17 +1127,25 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				return null;
 			}
 
+			$files = array();
+
 			foreach ( array( '.jpeg', '.jpg' ) as $ext ) {
 				$legacy_file = $upload_dir . $service_id . $ext;
 				if ( is_file( $legacy_file ) ) {
-					return $legacy_file;
+					$files[] = $legacy_file;
 				}
 			}
 
-			$files = $this->glob_service_image_files( $upload_dir, $service_id );
+			$dated_files = $this->glob_service_image_files( $upload_dir, $service_id );
+			if ( ! empty( $dated_files ) ) {
+				$files = array_merge( $files, $dated_files );
+			}
+
 			if ( empty( $files ) ) {
 				return null;
 			}
+
+			$files = array_values( array_unique( $files ) );
 
 			usort(
 				$files,
