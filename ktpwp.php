@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.3.43
+ * Version: 1.3.44
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -1110,6 +1110,15 @@ function ktpwp_init_stripe_billing() {
 }
 
 /**
+ * 管理画面アクセス保護（IP 制限 / Basic 認証）を初期化
+ */
+function ktpwp_init_admin_access_protection() {
+    if ( class_exists( 'KTPWP_Security' ) ) {
+        KTPWP_Security::get_instance()->boot_admin_access_protection();
+    }
+}
+
+/**
  * 定期契約の請求メール自動送信 Cron を初期化
  */
 function ktpwp_init_contract_invoice_mail() {
@@ -1173,6 +1182,7 @@ function ktpwp_init_image_optimizer() {
 
 // プラグインが完全に読み込まれた後に実行（最初に実行してフック最適化を行う）
 add_action( 'plugins_loaded', 'ktpwp_init_hook_manager', 0 );
+add_action( 'plugins_loaded', 'ktpwp_init_admin_access_protection', 0 );
 add_action( 'plugins_loaded', 'ktpwp_init_update_checker' );
 add_action( 'plugins_loaded', 'ktpwp_init_contract_reminder_mail' );
 add_action( 'plugins_loaded', 'ktpwp_init_stripe_billing' );

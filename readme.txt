@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.43
+Stable tag: 1.3.44
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,15 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.44 - 2026年06月14日 =
+* サービス詳細画面の契約・在庫・定期請求項目のレイアウトと見出しスタイルを改善
+* 都度請求選択時に定期請求項目・初回費用ブロックを非表示にし、在庫数は常に表示
+* 請求サイクル変更時の表示切替をリアルタイム対応（DOM 挿入後の初期化にも対応）
+* 「サイトに公開」チェックボックスの表示間隔を調整
+* 管理画面への IP 制限機能を追加（一般設定、IPv4 / IPv6・CIDR 対応）
+* 管理画面 Basic 認証を追加（許可 IP 以外、または IP 制限無効時）
+* 計6ファイル・550行増・26行減（v1.3.43…HEAD）
 
 = 1.3.43 - 2026年06月14日 =
 * Stripe 請求連携機能を追加（一般設定で有効化・テスト/本番キー・Webhook 設定）

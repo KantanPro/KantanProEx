@@ -384,7 +384,7 @@ if ( ! class_exists( 'KTPWP_Service_UI' ) ) {
 				$html .= '</div>';
 
 				$html .= '<div class="form-group ktpwp-service-public-field">';
-				$html .= '<label><input type="checkbox" name="is_public" value="1"> ' . esc_html__( 'サイトに公開', 'ktpwp' ) . '</label>';
+				$html .= '<label><input type="checkbox" name="is_public" value="1"><span class="ktpwp-service-public-field__text">' . esc_html__( 'サイトに公開', 'ktpwp' ) . '</span></label>';
 				$html .= '</div>';
 
 				// 画像アップロード機能（新規サービス追加時）

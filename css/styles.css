@@ -3352,6 +3352,12 @@ input[name="tab_item"] {
   font-weight: normal;
 }
 
+.ktpwp-service-field-block__section-title {
+  margin-top: 12px;
+  font-weight: 700;
+  color: #333;
+}
+
 .ktpwp-service-field-block__hint {
   display: block;
   margin-top: 3px;
@@ -3359,6 +3365,22 @@ input[name="tab_item"] {
   line-height: 1.45;
   color: #777;
   font-weight: normal;
+}
+
+.form-group.ktpwp-service-public-field > label {
+  width: auto;
+  margin-right: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.form-group.ktpwp-service-public-field input[type="checkbox"] {
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0;
 }
 
 .form-group.ktpwp-service-contract-field {

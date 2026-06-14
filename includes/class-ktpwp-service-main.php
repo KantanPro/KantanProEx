@@ -764,12 +764,13 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				}
 
 				$data_forms .= $this->render_is_public_checkbox_field( 0 );
-				$data_forms .= $this->render_contract_billing_cycle_field(
-					class_exists( 'KTPWP_Contract_Billing_Cycle' ) ? KTPWP_Contract_Billing_Cycle::NONE : 'none'
-				);
+				$default_cycle = class_exists( 'KTPWP_Contract_Billing_Cycle' ) ? KTPWP_Contract_Billing_Cycle::NONE : 'none';
 				$data_forms .= $this->render_stock_field( 1 );
-				$data_forms .= $this->render_service_recurring_items_field( 0 );
+				$data_forms .= $this->render_contract_billing_cycle_field( $default_cycle );
+				$data_forms .= $this->render_service_recurring_fields_block_open( $default_cycle );
+				$data_forms .= $this->render_service_recurring_items_field( 0, $default_cycle );
 				$data_forms .= $this->render_service_initial_fees_field( 0 );
+				$data_forms .= $this->render_service_recurring_fields_block_close();
 				$data_forms .= $this->render_service_contract_fields_scripts();
 
 				$data_forms .= "<div class='button'>";
@@ -979,14 +980,15 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					}
 				}
 				$data_forms .= $this->render_is_public_checkbox_field( (int) $is_public );
-				$data_forms .= $this->render_contract_billing_cycle_field(
-					class_exists( 'KTPWP_Contract_Billing_Cycle' )
-						? KTPWP_Contract_Billing_Cycle::sanitize( $contract_billing_cycle )
-						: 'none'
-				);
+				$cycle_value = class_exists( 'KTPWP_Contract_Billing_Cycle' )
+					? KTPWP_Contract_Billing_Cycle::sanitize( $contract_billing_cycle )
+					: 'none';
 				$data_forms .= $this->render_stock_field( (int) $stock );
-				$data_forms .= $this->render_service_recurring_items_field( (int) $data_id );
+				$data_forms .= $this->render_contract_billing_cycle_field( $cycle_value );
+				$data_forms .= $this->render_service_recurring_fields_block_open( $cycle_value );
+				$data_forms .= $this->render_service_recurring_items_field( (int) $data_id, $cycle_value );
 				$data_forms .= $this->render_service_initial_fees_field( (int) $data_id );
+				$data_forms .= $this->render_service_recurring_fields_block_close();
 				$data_forms .= $this->render_service_contract_fields_scripts();
 				$data_forms .= '<input type="hidden" name="query_post" value="update">';
 				$data_forms .= "<input type=\"hidden\" name=\"data_id\" value=\"{$data_id}\">";
@@ -1492,8 +1494,8 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 
 			return '<div class="form-group ktpwp-service-public-field">'
 				. '<label>'
-				. '<input type="checkbox" name="is_public" value="1"' . $checked . '> '
-				. esc_html__( 'サイトに公開', 'ktpwp' )
+				. '<input type="checkbox" name="is_public" value="1"' . $checked . '>'
+				. '<span class="ktpwp-service-public-field__text">' . esc_html__( 'サイトに公開', 'ktpwp' ) . '</span>'
 				. '</label>'
 				. '</div>';
 		}
@@ -1513,7 +1515,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			$html     = $this->render_service_contract_fields_styles();
 			$html    .= '<div class="ktpwp-service-field-block ktpwp-service-field-block--cycle">';
 			$html    .= '<div class="ktpwp-service-field-block__label">';
-			$html    .= '<span class="ktpwp-service-field-block__label-text">' . esc_html__( '契約（請求サイクル）', 'ktpwp' ) . '</span>';
+			$html    .= '<span class="ktpwp-service-field-block__label-text ktpwp-service-field-block__section-title">' . esc_html__( '契約（請求サイクル）', 'ktpwp' ) . '</span>';
 			$html    .= '<span class="ktpwp-service-field-block__hint">' . esc_html__( '定期契約で請求する場合にサイクルを選びます。都度請求のサービスは「都度請求」のままにしてください。', 'ktpwp' ) . '</span>';
 			$html    .= '</div>';
 			$html    .= '<div class="ktpwp-service-field-block__control">';
@@ -1529,6 +1531,40 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 		}
 
 		/**
+		 * 定期請求項目以降（初回費用含む）のブロック開始タグ。
+		 *
+		 * @param string $contract_billing_cycle 請求サイクル。
+		 * @return string
+		 */
+		private function render_service_recurring_fields_block_open( $contract_billing_cycle ) {
+			return '<div id="ktpwp-service-recurring-fields" class="ktpwp-service-recurring-fields"'
+				. $this->get_service_recurring_fields_display_attr( $contract_billing_cycle )
+				. '>';
+		}
+
+		/**
+		 * 定期請求項目以降のブロック終了タグ。
+		 *
+		 * @return string
+		 */
+		private function render_service_recurring_fields_block_close() {
+			return '</div>';
+		}
+
+		/**
+		 * 定期契約用フィールドの初期表示属性（都度請求時は非表示）。
+		 *
+		 * @param string $contract_billing_cycle 請求サイクル。
+		 * @return string
+		 */
+		private function get_service_recurring_fields_display_attr( $contract_billing_cycle ) {
+			$show = ! class_exists( 'KTPWP_Contract_Billing_Cycle' )
+				|| KTPWP_Contract_Billing_Cycle::is_recurring( $contract_billing_cycle );
+
+			return $show ? '' : ' style="display:none;"';
+		}
+
+		/**
 		 * 在庫数フィールドの HTML を返す。
 		 *
 		 * @param int $stock 在庫数。
@@ -1539,7 +1575,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			$html  = $this->render_service_contract_fields_styles();
 			$html .= '<div id="ktpwp-service-stock" class="ktpwp-service-field-block ktpwp-service-field-block--stock">';
 			$html .= '<div class="ktpwp-service-field-block__label">';
-			$html .= '<span class="ktpwp-service-field-block__label-text">' . esc_html__( '在庫数', 'ktpwp' ) . '</span>';
+			$html .= '<span class="ktpwp-service-field-block__label-text ktpwp-service-field-block__section-title">' . esc_html__( '在庫数', 'ktpwp' ) . '</span>';
 			$html .= '<span class="ktpwp-service-field-block__hint">' . esc_html__( '販売所の受付上限です。0 で完売。契約件数と問い合わせ案件の合計が在庫数に達すると、すべての顧客からの問い合わせを停止（保留中）します。', 'ktpwp' ) . '</span>';
 			$html .= '</div>';
 			if ( $stock === 0 ) {
@@ -1555,10 +1591,11 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 		/**
 		 * サービス詳細の定期請求項目入力欄
 		 *
-		 * @param int $service_id サービス ID。
+		 * @param int    $service_id             サービス ID。
+		 * @param string $contract_billing_cycle 請求サイクル。
 		 * @return string
 		 */
-		private function render_service_recurring_items_field( $service_id ) {
+		private function render_service_recurring_items_field( $service_id, $contract_billing_cycle = 'none' ) {
 			if ( ! class_exists( 'KTPWP_Contract_Recurring_Items' ) ) {
 				return '';
 			}
@@ -1571,7 +1608,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			$html  = $this->render_service_contract_fields_styles();
 			$html .= '<div class="ktpwp-service-field-block ktpwp-service-field-block--recurring" id="ktpwp-service-recurring-items">';
 			$html .= '<div class="ktpwp-service-field-block__label">';
-			$html .= '<span class="ktpwp-service-field-block__label-text">' . esc_html__( '定期請求項目', 'ktpwp' ) . '</span>';
+			$html .= '<span class="ktpwp-service-field-block__label-text ktpwp-service-field-block__section-title">' . esc_html__( '定期請求項目', 'ktpwp' ) . '</span>';
 			$html .= '<span class="ktpwp-service-field-block__hint">' . esc_html__( '定期契約作成時のデフォルト明細です（例: 家賃・共益費）。', 'ktpwp' ) . '</span>';
 			$html .= '</div>';
 			$html .= '<div class="ktpwp-service-field-block__control ktpwp-service-field-block__control--full">';
@@ -1678,21 +1715,24 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				. '(function(){'
 				. 'function ktpwpToggleServiceContractFields(){'
 				. 'var cycle=document.getElementById("contract_billing_cycle");'
-				. 'var recurring=document.getElementById("ktpwp-service-recurring-items");'
-				. 'var fees=document.getElementById("ktpwp-service-initial-fees");'
-				. 'var stock=document.getElementById("ktpwp-service-stock");'
+				. 'var recurringFields=document.getElementById("ktpwp-service-recurring-fields");'
 				. 'if(!cycle){return;}'
 				. 'var show=(cycle.value||"' . esc_js( $none_value ) . '")!=="' . esc_js( $none_value ) . '";'
-				. 'if(recurring){recurring.style.display=show?"":"none";}'
-				. 'if(fees){fees.style.display=show?"":"none";}'
-				. 'if(stock){stock.style.display=show?"":"none";}'
+				. 'if(recurringFields){recurringFields.style.display=show?"":"none";}'
 				. '}'
-				. 'document.addEventListener("DOMContentLoaded",function(){'
+				. 'function ktpwpInitServiceContractFields(){'
 				. 'var cycle=document.getElementById("contract_billing_cycle");'
 				. 'if(!cycle){return;}'
 				. 'ktpwpToggleServiceContractFields();'
+				. 'if(cycle.dataset.ktpwpContractFieldsBound==="1"){return;}'
+				. 'cycle.dataset.ktpwpContractFieldsBound="1";'
 				. 'cycle.addEventListener("change",ktpwpToggleServiceContractFields);'
-				. '});'
+				. '}'
+				. 'if(document.readyState==="loading"){'
+				. 'document.addEventListener("DOMContentLoaded",ktpwpInitServiceContractFields);'
+				. '}else{'
+				. 'ktpwpInitServiceContractFields();'
+				. '}'
 				. '})();'
 				. '</script>';
 		}
@@ -1713,6 +1753,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				. '.ktpwp-service-field-block{display:grid;grid-template-columns:25% minmax(0,1fr);column-gap:12px;row-gap:0;margin-bottom:16px;align-items:start;}'
 				. '.ktpwp-service-field-block__label{text-align:right;padding-top:8px;}'
 				. '.ktpwp-service-field-block__label-text{display:block;font-size:14px;color:#444;line-height:1.4;font-weight:normal;}'
+				. '.ktpwp-service-field-block__section-title{margin-top:12px;font-weight:700;color:#333;}'
 				. '.ktpwp-service-field-block__hint{display:block;margin-top:3px;font-size:12px;line-height:1.45;color:#777;font-weight:normal;}'
 				. '.ktpwp-service-field-block__control{min-width:0;}'
 				. '.ktpwp-service-field-block__control select,.ktpwp-service-field-block__control input{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #ddd;border-radius:4px;font-size:14px;background:#fff;}'

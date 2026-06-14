@@ -5063,6 +5063,61 @@ div.ktp_header > * {
                             </fieldset>
                         </td>
                     </tr>
+
+                    <tr>
+                        <th scope="row"><?php echo esc_html__( '管理画面 IP 制限', 'ktpwp' ); ?></th>
+                        <td>
+                            <?php
+                            $current_ip = class_exists( 'KTPWP_Security' )
+                                ? KTPWP_Security::get_instance()->get_client_ip()
+                                : ( isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '' );
+                            ?>
+                            <fieldset>
+                                <label>
+                                    <input type="checkbox" name="ktpwp_admin_ip_restriction_enabled" value="1"
+                                           <?php checked( $current_settings['admin_ip_restriction_enabled'], '1' ); ?> />
+                                    <?php echo esc_html__( '許可 IP 以外から wp-admin / wp-login.php へのアクセスを拒否する', 'ktpwp' ); ?>
+                                </label>
+                                <p class="description">
+                                    <?php echo esc_html__( '現在のアクセス元 IP:', 'ktpwp' ); ?>
+                                    <code><?php echo esc_html( $current_ip !== '' ? $current_ip : __( '取得できません', 'ktpwp' ) ); ?></code>
+                                </p>
+                                <label for="ktpwp_admin_allowed_ips"><?php echo esc_html__( '許可 IP アドレス', 'ktpwp' ); ?></label><br>
+                                <textarea name="ktpwp_admin_allowed_ips" id="ktpwp_admin_allowed_ips" rows="5" class="large-text code"><?php echo esc_textarea( $current_settings['admin_allowed_ips'] ); ?></textarea>
+                                <p class="description">
+                                    <?php echo esc_html__( '1 行に 1 件。IPv4 / IPv6、CIDR（例: 203.0.113.0/24）に対応。有効化する前に自分の IP を必ず追加してください。', 'ktpwp' ); ?>
+                                </p>
+                            </fieldset>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row"><?php echo esc_html__( '管理画面 Basic 認証', 'ktpwp' ); ?></th>
+                        <td>
+                            <fieldset>
+                                <label>
+                                    <input type="checkbox" name="ktpwp_admin_basic_auth_enabled" value="1"
+                                           <?php checked( $current_settings['admin_basic_auth_enabled'], '1' ); ?> />
+                                    <?php echo esc_html__( 'IP 制限に該当しないアクセス、または IP 制限が使えない環境向けに Basic 認証を要求する', 'ktpwp' ); ?>
+                                </label>
+                                <p class="description">
+                                    <?php echo esc_html__( '許可 IP からのアクセスは Basic 認証なしで通過します。IP 制限を無効にした場合は、管理画面全体で Basic 認証が必要になります。', 'ktpwp' ); ?>
+                                </p>
+                                <p>
+                                    <label for="ktpwp_admin_basic_auth_user"><?php echo esc_html__( 'ユーザー名', 'ktpwp' ); ?></label><br>
+                                    <input type="text" name="ktpwp_admin_basic_auth_user" id="ktpwp_admin_basic_auth_user" class="regular-text"
+                                           value="<?php echo esc_attr( $current_settings['admin_basic_auth_user'] ); ?>" autocomplete="off">
+                                </p>
+                                <p>
+                                    <label for="ktpwp_admin_basic_auth_pass"><?php echo esc_html__( 'パスワード', 'ktpwp' ); ?></label><br>
+                                    <input type="password" name="ktpwp_admin_basic_auth_pass" id="ktpwp_admin_basic_auth_pass" class="regular-text" value="" autocomplete="new-password">
+                                </p>
+                                <p class="description">
+                                    <?php echo esc_html__( 'パスワードを空欄のまま保存すると、現在のパスワードを維持します。', 'ktpwp' ); ?>
+                                </p>
+                            </fieldset>
+                        </td>
+                    </tr>
                 </table>
                 
                 <?php submit_button(); ?>
@@ -5111,6 +5166,23 @@ div.ktp_header > * {
                         ?>
                     </td>
                 </tr>
+                <tr>
+                    <th scope="row"><?php echo esc_html__( '管理画面アクセス保護', 'ktpwp' ); ?></th>
+                    <td>
+                        <?php
+                        $admin_protection = array();
+                        if ( $current_settings['admin_ip_restriction_enabled'] === '1' ) {
+                            $admin_protection[] = esc_html__( 'IP 制限: 有効', 'ktpwp' );
+                        }
+                        if ( $current_settings['admin_basic_auth_enabled'] === '1' ) {
+                            $admin_protection[] = esc_html__( 'Basic 認証: 有効', 'ktpwp' );
+                        }
+                        echo ! empty( $admin_protection )
+                            ? esc_html( implode( ' / ', $admin_protection ) )
+                            : esc_html__( '無効', 'ktpwp' );
+                        ?>
+                    </td>
+                </tr>
             </table>
             
             <h2><?php echo esc_html__( '推奨設定（wp-config.php）', 'ktpwp' ); ?></h2>
@@ -5150,6 +5222,29 @@ define( 'WP_DEBUG_DISPLAY', false );
         $disable_rest_api_restriction = isset( $_POST['ktpwp_disable_rest_api_restriction'] ) ? '1' : '0';
         update_option( 'ktpwp_disable_rest_api_restriction', $disable_rest_api_restriction );
 
+        // 管理画面 IP 制限
+        $admin_ip_restriction_enabled = isset( $_POST['ktpwp_admin_ip_restriction_enabled'] ) ? '1' : '0';
+        $admin_allowed_ips            = isset( $_POST['ktpwp_admin_allowed_ips'] )
+            ? sanitize_textarea_field( wp_unslash( $_POST['ktpwp_admin_allowed_ips'] ) )
+            : '';
+        update_option( 'ktpwp_admin_ip_restriction_enabled', $admin_ip_restriction_enabled );
+        update_option( 'ktpwp_admin_allowed_ips', $admin_allowed_ips );
+
+        // 管理画面 Basic 認証
+        $admin_basic_auth_enabled = isset( $_POST['ktpwp_admin_basic_auth_enabled'] ) ? '1' : '0';
+        $admin_basic_auth_user    = isset( $_POST['ktpwp_admin_basic_auth_user'] )
+            ? sanitize_user( wp_unslash( $_POST['ktpwp_admin_basic_auth_user'] ), true )
+            : '';
+        update_option( 'ktpwp_admin_basic_auth_enabled', $admin_basic_auth_enabled );
+        update_option( 'ktpwp_admin_basic_auth_user', $admin_basic_auth_user );
+
+        $admin_basic_auth_pass_raw = isset( $_POST['ktpwp_admin_basic_auth_pass'] )
+            ? (string) wp_unslash( $_POST['ktpwp_admin_basic_auth_pass'] )
+            : '';
+        if ( $admin_basic_auth_pass_raw !== '' ) {
+            update_option( 'ktpwp_admin_basic_auth_pass', wp_hash_password( $admin_basic_auth_pass_raw ) );
+        }
+
         // 設定保存メッセージ
         add_action(
             'admin_notices',
@@ -5173,6 +5268,10 @@ define( 'WP_DEBUG_DISPLAY', false );
             'debug_log_enabled' => get_option( 'ktpwp_debug_log_enabled', '0' ),
             'rest_api_restricted' => get_option( 'ktpwp_rest_api_restricted', '1' ),
             'disable_rest_api_restriction' => get_option( 'ktpwp_disable_rest_api_restriction', '0' ),
+            'admin_ip_restriction_enabled' => get_option( 'ktpwp_admin_ip_restriction_enabled', '0' ),
+            'admin_allowed_ips' => get_option( 'ktpwp_admin_allowed_ips', '' ),
+            'admin_basic_auth_enabled' => get_option( 'ktpwp_admin_basic_auth_enabled', '0' ),
+            'admin_basic_auth_user' => get_option( 'ktpwp_admin_basic_auth_user', '' ),
         );
     }
 
