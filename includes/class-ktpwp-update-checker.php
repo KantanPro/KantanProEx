@@ -890,7 +890,8 @@ class KTPWP_Update_Checker {
         
         // 更新チェック実行
         $this->clear_plugin_cache();
-        $update_available = $this->check_github_updates();
+        $this->check_github_updates();
+        $status = $this->resolve_header_update_status();
         $debug_info = array(
             'current_version' => $this->current_version,
             'github_repo' => $this->github_repo,
@@ -898,16 +899,19 @@ class KTPWP_Update_Checker {
             'update_available' => get_option( 'ktpwp_update_available' ),
         );
         
-        if ( $update_available && is_array($update_available) ) {
+        if ( $status['has_update'] ) {
             wp_send_json_success( array(
                 'message' => __( '新しいバージョンが利用可能です！', 'ktpwp' ),
                 'reload' => true,
+                'has_update' => true,
+                'update_data' => $status['update_data'],
                 'debug_info' => $debug_info
             ) );
         } else {
             wp_send_json_success( array(
                 'message' => __( '最新バージョンです。', 'ktpwp' ),
                 'reload' => false,
+                'has_update' => false,
                 'debug_info' => $debug_info
             ) );
         }
@@ -936,6 +940,11 @@ class KTPWP_Update_Checker {
             $data = $this->get_latest_github_release();
             if ( ! $data ) {
                 error_log( 'KantanPro: GitHub Release情報を取得できませんでした' );
+                $existing = get_option( 'ktpwp_update_available', false );
+                if ( is_array( $existing ) && $this->has_header_update_badge() ) {
+                    error_log( 'KantanPro: GitHub 取得失敗のため保存済み更新情報を維持します' );
+                    return $existing;
+                }
                 return false;
             }
             
@@ -2012,21 +2021,18 @@ class KTPWP_Update_Checker {
             
             // 更新チェック実行
             error_log( 'KantanPro: 更新チェック実行開始' );
-            $this->clear_plugin_cache();
-            $update_available = $this->check_github_updates();
-            error_log( 'KantanPro: 更新チェック結果: ' . ( $update_available ? 'true' : 'false' ) );
+            $this->clear_plugin_cache_for_update_check();
+            $this->check_github_updates();
+            $status = $this->resolve_header_update_status();
+            error_log( 'KantanPro: 更新チェック結果 has_update=' . ( $status['has_update'] ? 'true' : 'false' ) );
+            error_log( 'KantanPro: 保存された更新データ: ' . print_r( get_option( 'ktpwp_update_available', false ), true ) );
             
-            // 更新データを取得して詳細ログを出力
-            $update_data = get_option( 'ktpwp_update_available', false );
-            error_log( 'KantanPro: 保存された更新データ: ' . print_r( $update_data, true ) );
-            
-            if ( $update_available && is_array($update_available) ) {
-                $update_data = get_option( 'ktpwp_update_available', false );
-                error_log( 'KantanPro: 更新あり - 更新データ: ' . print_r( $update_data, true ) );
+            if ( $status['has_update'] ) {
+                error_log( 'KantanPro: 更新あり - 更新データ: ' . print_r( $status['update_data'], true ) );
                 wp_send_json_success( array(
                     'message' => __( '新しいバージョンが利用可能です！', 'ktpwp' ),
                     'has_update' => true,
-                    'update_data' => $update_data
+                    'update_data' => $status['update_data']
                 ) );
             } else {
                 error_log( 'KantanPro: 更新なし' );
@@ -2080,6 +2086,42 @@ class KTPWP_Update_Checker {
         delete_option( 'ktpwp_last_frontend_check' );
         
         error_log( 'KantanPro: プラグイン情報キャッシュとKantanPro固有キャッシュをクリアしました' );
+    }
+
+    /**
+     * 手動更新チェック用の軽量キャッシュクリア（保存済みの更新情報は維持）
+     *
+     * GitHub 再取得に失敗した場合でも、バッジ用の ktpwp_update_available を先に消さない。
+     */
+    public function clear_plugin_cache_for_update_check() {
+        wp_clean_plugins_cache();
+        delete_site_transient( 'update_plugins' );
+        delete_transient( 'update_plugins' );
+        delete_transient( 'ktpwp_last_update_check' );
+        delete_transient( 'ktpwp_last_force_check' );
+        error_log( 'KantanPro: 更新チェック用キャッシュをクリアしました（更新情報オプションは維持）' );
+    }
+
+    /**
+     * ヘッダー更新チェック後のレスポンス用データ
+     *
+     * @return array{ has_update: bool, update_data: array|false }
+     */
+    private function resolve_header_update_status() {
+        $update_data = get_option( 'ktpwp_update_available', false );
+        $has_update  = $this->has_header_update_badge();
+
+        if ( $has_update && is_array( $update_data ) ) {
+            return array(
+                'has_update'  => true,
+                'update_data' => $update_data,
+            );
+        }
+
+        return array(
+            'has_update'  => false,
+            'update_data' => false,
+        );
     }
 
     /**

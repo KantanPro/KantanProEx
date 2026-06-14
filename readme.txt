@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.45
+Stable tag: 1.3.46
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,13 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.46 - 2026年06月15日 =
+* ヘッダー更新ベルクリック時に「最新バージョンです」と誤表示される不具合を修正
+* 更新チェック時に保存済み更新情報を消さない軽量キャッシュクリアを追加
+* バッジ表示とクリック時の更新判定を has_header_update_badge で統一
+* GitHub 取得失敗時は有効な保存済み更新情報を維持
+* 更新チェック後のローディング復帰時にバッジ表示を再同期
 
 = 1.3.45 - 2026年06月15日 =
 * WEB受注の見積決済整合性を改善（今回請求／定期参考の分離）
