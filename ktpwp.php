@@ -690,6 +690,11 @@ if ( ! defined( 'KTPWP_PLUGIN_DIR' ) ) {
     define( 'KTPWP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 }
 
+$ktpwp_composer_autoload = __DIR__ . '/vendor/autoload.php';
+if ( is_readable( $ktpwp_composer_autoload ) ) {
+    require_once $ktpwp_composer_autoload;
+}
+
 if ( ! defined( 'MY_PLUGIN_VERSION' ) ) {
     define( 'MY_PLUGIN_VERSION', KANTANPRO_PLUGIN_VERSION );
 }
@@ -999,6 +1004,9 @@ if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
         'KTPWP_Order_Contract_Draft_Resolver' => 'includes/class-ktpwp-order-contract-draft-resolver.php',
         'KTPWP_Order_Contract_Conversion' => 'includes/class-ktpwp-order-contract-conversion.php',
         'KTPWP_Order_Contract_UI' => 'includes/class-ktpwp-order-contract-ui.php',
+        'KTPWP_Stripe_Billing'    => 'includes/class-ktpwp-stripe-billing.php',
+        'KTPWP_Stripe_Subscription' => 'includes/class-ktpwp-stripe-subscription.php',
+        'KTPWP_Contract_Invoice_Mail' => 'includes/class-ktpwp-contract-invoice-mail.php',
     );
 
     foreach ( $classes as $class_name => $file_path ) {
@@ -1092,6 +1100,24 @@ function ktpwp_init_contract_reminder_mail() {
     }
 }
 
+/**
+ * Stripe 請求連携を初期化
+ */
+function ktpwp_init_stripe_billing() {
+    if ( class_exists( 'KTPWP_Stripe_Billing' ) ) {
+        KTPWP_Stripe_Billing::boot();
+    }
+}
+
+/**
+ * 定期契約の請求メール自動送信 Cron を初期化
+ */
+function ktpwp_init_contract_invoice_mail() {
+    if ( class_exists( 'KTPWP_Contract_Invoice_Mail' ) ) {
+        KTPWP_Contract_Invoice_Mail::boot();
+    }
+}
+
 
 
 /**
@@ -1149,6 +1175,8 @@ function ktpwp_init_image_optimizer() {
 add_action( 'plugins_loaded', 'ktpwp_init_hook_manager', 0 );
 add_action( 'plugins_loaded', 'ktpwp_init_update_checker' );
 add_action( 'plugins_loaded', 'ktpwp_init_contract_reminder_mail' );
+add_action( 'plugins_loaded', 'ktpwp_init_stripe_billing' );
+add_action( 'plugins_loaded', 'ktpwp_init_contract_invoice_mail' );
 add_action( 'plugins_loaded', 'ktpwp_init_cache' );
 add_action( 'plugins_loaded', 'ktpwp_init_image_optimizer' );
 add_action(

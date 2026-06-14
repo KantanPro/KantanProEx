@@ -1547,6 +1547,13 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 			if ( $order_id > 0 ) {
 				$order_data = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `{$table_name}` WHERE id = %d", $order_id ) );
 
+				if ( $order_data && class_exists( 'KTPWP_Stripe_Billing' ) ) {
+					$stripe_billing = KTPWP_Stripe_Billing::get_instance();
+					if ( $stripe_billing->sync_order_payment_from_stripe( (int) $order_data->id ) ) {
+						$order_data = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `{$table_name}` WHERE id = %d", $order_id ) );
+					}
+				}
+
 				if ( $order_data ) {
 					// 現在表示中の受注書IDをセッションに記憶（確実に保存）
 					$_SESSION['ktp_last_order_id'] = $order_id;
@@ -1843,7 +1850,9 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					}
 
 					$contact_name_raw = '';
-					if ( ! empty( $order_data->user_name ) ) {
+					if ( class_exists( 'KTPWP_Department_Manager' ) ) {
+						$contact_name_raw = KTPWP_Department_Manager::resolve_contact_name_for_order( $order_data );
+					} elseif ( ! empty( $order_data->user_name ) ) {
 						$contact_name_raw = $order_data->user_name;
 					} elseif ( ! empty( $order_data->client_id ) ) {
 						$client_contact = $wpdb->get_var(
@@ -1859,13 +1868,17 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					$selected_department = null;
 					if ( class_exists( 'KTPWP_Department_Manager' ) ) {
 						$selected_department = KTPWP_Department_Manager::resolve_department_for_order( $order_data );
-						if ( $selected_department && trim( (string) $selected_department->contact_person ) !== '' ) {
-							$contact_name_raw = $selected_department->contact_person;
-						}
 					}
 
 					$parent_company_name = $display_customer_name;
-					if ( $client && ! empty( $client->company_name ) ) {
+					if ( class_exists( 'KTPWP_Department_Manager' ) ) {
+						$parent_company_name = KTPWP_Department_Manager::resolve_parent_company_name_for_order(
+							$order_data,
+							$client,
+							$display_customer_name,
+							$selected_department
+						);
+					} elseif ( $client && ! empty( $client->company_name ) ) {
 						$parent_company_name = sanitize_text_field( $client->company_name );
 					}
 

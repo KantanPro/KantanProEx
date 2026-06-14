@@ -1898,7 +1898,7 @@ class KTPWP_Shortcodes {
                     <h4 class="ktpwp-public-product-order-form__title" id="ktpwp-public-product-detail-title"><?php echo esc_html__( 'お問い合わせ', 'ktpwp' ); ?></h4>
                     <input type="hidden" name="service_id" value="" />
                     <p class="ktpwp-public-product-order-form__field">
-                        <label for="ktpwp-pp-company"><?php echo esc_html__( '会社名', 'ktpwp' ); ?></label>
+                        <label for="ktpwp-pp-company"><?php echo esc_html__( '会社名', 'ktpwp' ); ?> <span class="ktpwp-public-product-order-form__optional"><?php echo esc_html__( '任意', 'ktpwp' ); ?></span></label>
                         <input type="text" id="ktpwp-pp-company" name="company_name" autocomplete="organization" />
                     </p>
                     <p class="ktpwp-public-product-order-form__field">

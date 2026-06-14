@@ -64,8 +64,8 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				);
 			}
 
-			$company_name = isset( $form['company_name'] ) ? sanitize_text_field( $form['company_name'] ) : '';
-			$contact_name = isset( $form['contact_name'] ) ? sanitize_text_field( $form['contact_name'] ) : '';
+			$company_name = trim( isset( $form['company_name'] ) ? sanitize_text_field( $form['company_name'] ) : '' );
+			$contact_name = trim( isset( $form['contact_name'] ) ? sanitize_text_field( $form['contact_name'] ) : '' );
 			$email        = isset( $form['email'] ) ? sanitize_email( $form['email'] ) : '';
 			$phone        = isset( $form['phone'] ) ? sanitize_text_field( $form['phone'] ) : '';
 			$message      = isset( $form['message'] ) ? sanitize_textarea_field( $form['message'] ) : '';
@@ -107,11 +107,9 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				}
 			}
 
-			$customer_name = $company_name !== '' ? $company_name : $contact_name;
-
 			$resolved = $this->find_or_create_client(
 				array(
-					'company_name' => $company_name !== '' ? $company_name : $customer_name,
+					'company_name' => $company_name,
 					'name'         => $contact_name,
 					'email'        => $email,
 					'phone'        => $phone,
@@ -130,6 +128,9 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 					'message' => __( 'お客様情報の保存に失敗しました。', 'ktpwp' ),
 				);
 			}
+
+			// 受注の会社名は顧客マスタの登録会社名。担当者名はフォームのお名前。
+			$customer_name = $this->resolve_order_customer_name( $client_id, $company_name, $contact_name );
 
 			$service_name = isset( $service->service_name ) ? sanitize_text_field( (string) $service->service_name ) : '';
 			$project_name = $service_name;
@@ -324,6 +325,37 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 		}
 
 		/**
+		 * 会社名未入力の新規顧客用プレースホルダー（未設定#1, 未設定#2 …）。
+		 *
+		 * @return string
+		 */
+		private function allocate_unset_company_name() {
+			global $wpdb;
+
+			$table  = $wpdb->prefix . 'ktp_client';
+			$prefix = '未設定#';
+			$max    = 0;
+
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$names = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT company_name FROM {$table} WHERE company_name LIKE %s",
+					$wpdb->esc_like( $prefix ) . '%'
+				)
+			);
+
+			if ( is_array( $names ) ) {
+				foreach ( $names as $name ) {
+					if ( preg_match( '/^未設定#(\d+)$/', (string) $name, $matches ) === 1 ) {
+						$max = max( $max, (int) $matches[1] );
+					}
+				}
+			}
+
+			return $prefix . (string) ( $max + 1 );
+		}
+
+		/**
 		 * 公開中のサービスを取得する。
 		 *
 		 * @param int $service_id サービス ID。
@@ -362,7 +394,7 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				if ( $existing ) {
 					$client_id = (int) $existing->id;
 
-					if ( ! $this->identity_matches_client( $existing, $company_name, $contact_name ) ) {
+					if ( $this->should_use_inquiry_department( $existing, $company_name ) ) {
 						$department_id = $this->find_or_create_department_for_client( $client_id, $company_name, $contact_name, $email );
 						$department_id = $department_id ? (int) $department_id : null;
 					}
@@ -386,7 +418,7 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 			}
 
 			$client_data = array(
-				'company_name'  => isset( $data['company_name'] ) ? sanitize_text_field( $data['company_name'] ) : '',
+				'company_name'  => $company_name !== '' ? $company_name : $this->allocate_unset_company_name(),
 				'name'          => isset( $data['name'] ) ? sanitize_text_field( $data['name'] ) : '',
 				'email'         => $email,
 				'memo'          => implode( "\n", $memo_parts ),
@@ -412,24 +444,57 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 		}
 
 		/**
-		 * 既存顧客とフォーム入力の会社名・担当者名が一致するか。
+		 * 受注に保存する会社名（顧客マスタの登録会社名を優先）。
 		 *
-		 * @param object $client       ktp_client 行。
-		 * @param string $company_name 会社名。
-		 * @param string $contact_name 担当者名。
-		 * @return bool
+		 * @param int    $client_id    顧客 ID。
+		 * @param string $form_company フォームの会社名。
+		 * @param string $form_contact フォームの担当者名。
+		 * @return string
 		 */
-		private function identity_matches_client( $client, $company_name, $contact_name ) {
-			$existing_company = isset( $client->company_name ) ? (string) $client->company_name : '';
-			$existing_contact = '';
-			if ( isset( $client->representative_name ) && trim( (string) $client->representative_name ) !== '' ) {
-				$existing_contact = (string) $client->representative_name;
-			} elseif ( isset( $client->name ) ) {
-				$existing_contact = (string) $client->name;
+		private function resolve_order_customer_name( $client_id, $form_company, $form_contact ) {
+			global $wpdb;
+
+			$client_id = (int) $client_id;
+			if ( $client_id > 0 ) {
+				$table_name = $wpdb->prefix . 'ktp_client';
+				$registered_company = $wpdb->get_var(
+					$wpdb->prepare(
+						"SELECT company_name FROM {$table_name} WHERE id = %d",
+						$client_id
+					)
+				);
+				if ( is_string( $registered_company ) && trim( $registered_company ) !== '' ) {
+					return sanitize_text_field( trim( $registered_company ) );
+				}
 			}
 
-			return $this->normalized_equal( $company_name, $existing_company )
-				&& $this->normalized_equal( $contact_name, $existing_contact );
+			$form_company = trim( sanitize_text_field( (string) $form_company ) );
+			if ( $form_company !== '' ) {
+				return $form_company;
+			}
+
+			return sanitize_text_field( (string) $form_contact );
+		}
+
+		/**
+		 * フォーム会社名を部署として使うか（登録会社名と異なる場合のみ）。
+		 *
+		 * @param object $client       ktp_client 行。
+		 * @param string $form_company フォームの会社名。
+		 * @return bool
+		 */
+		private function should_use_inquiry_department( $client, $form_company ) {
+			$form_company = trim( sanitize_text_field( (string) $form_company ) );
+			if ( $form_company === '' ) {
+				return false;
+			}
+
+			$registered_company = trim( (string) ( $client->company_name ?? '' ) );
+			if ( $registered_company === '' ) {
+				return false;
+			}
+
+			return ! $this->normalized_equal( $form_company, $registered_company );
 		}
 
 		/**
@@ -457,6 +522,26 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 			$email        = sanitize_email( (string) $email );
 
 			if ( $client_id <= 0 || $contact_name === '' || $email === '' ) {
+				return false;
+			}
+
+			if ( trim( $company_name ) === '' ) {
+				return false;
+			}
+
+			global $wpdb;
+			$client_table = $wpdb->prefix . 'ktp_client';
+			$registered_company = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT company_name FROM {$client_table} WHERE id = %d",
+					$client_id
+				)
+			);
+			if (
+				is_string( $registered_company )
+				&& trim( $registered_company ) !== ''
+				&& $this->normalized_equal( $company_name, $registered_company )
+			) {
 				return false;
 			}
 

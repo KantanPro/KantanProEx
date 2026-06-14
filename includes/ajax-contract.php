@@ -104,6 +104,13 @@ function ktp_get_contract_ajax() {
 		wp_send_json_error( __( '契約が見つかりません。', 'ktpwp' ) );
 	}
 
+	if ( class_exists( 'KTPWP_Stripe_Subscription' ) ) {
+		$stripe_status = KTPWP_Stripe_Subscription::get_instance()->get_subscription_status_for_contract( $contract_id );
+		if ( is_array( $stripe_status ) ) {
+			$payload['stripe_subscription'] = $stripe_status;
+		}
+	}
+
 	wp_send_json_success( $payload );
 }
 
@@ -136,6 +143,47 @@ function ktp_delete_contract_ajax() {
 	wp_send_json_success( array( 'message' => __( '定期契約を削除しました。', 'ktpwp' ) ) );
 }
 
+/**
+ * カード登録 Setup Checkout URL 発行
+ */
+function ktp_create_contract_setup_checkout_ajax() {
+	if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ?? '' ) ), 'ktp_contract_nonce' ) ) {
+		wp_send_json_error( __( 'セキュリティチェックに失敗しました。', 'ktpwp' ) );
+	}
+
+	if ( ! ktpwp_contract_ajax_can_manage() ) {
+		wp_send_json_error( __( '権限がありません。', 'ktpwp' ) );
+	}
+
+	$contract_id = absint( $_POST['contract_id'] ?? 0 );
+	$client_id   = absint( $_POST['client_id'] ?? 0 );
+
+	if ( $contract_id <= 0 || $client_id <= 0 || ! class_exists( 'KTPWP_Contract_DB' ) || ! class_exists( 'KTPWP_Stripe_Subscription' ) ) {
+		wp_send_json_error( __( '契約が見つかりません。', 'ktpwp' ) );
+	}
+
+	$db       = KTPWP_Contract_DB::get_instance();
+	$contract = $db->get_contract_by_id( $contract_id );
+
+	if ( ! $contract || (int) $contract->client_id !== $client_id ) {
+		wp_send_json_error( __( '契約が見つかりません。', 'ktpwp' ) );
+	}
+
+	$result = KTPWP_Stripe_Subscription::get_instance()->issue_setup_checkout_for_contract( $contract_id );
+
+	if ( is_wp_error( $result ) ) {
+		wp_send_json_error( $result->get_error_message() );
+	}
+
+	wp_send_json_success(
+		array(
+			'url'     => (string) ( $result['url'] ?? '' ),
+			'message' => __( 'カード登録リンクを発行しました。', 'ktpwp' ),
+		)
+	);
+}
+
 add_action( 'wp_ajax_ktp_save_contract', 'ktp_save_contract_ajax' );
 add_action( 'wp_ajax_ktp_get_contract', 'ktp_get_contract_ajax' );
 add_action( 'wp_ajax_ktp_delete_contract', 'ktp_delete_contract_ajax' );
+add_action( 'wp_ajax_ktp_create_contract_setup_checkout', 'ktp_create_contract_setup_checkout_ajax' );

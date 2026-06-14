@@ -513,6 +513,12 @@ if ( ! class_exists( 'KTPWP_Contract_Billing' ) ) {
 				if ( 'pending' !== $row['status'] ) {
 					continue;
 				}
+
+				if ( class_exists( 'KTPWP_Stripe_Subscription' )
+					&& KTPWP_Stripe_Subscription::get_instance()->contract_uses_subscription( (int) $row['contract_id'] ) ) {
+					continue;
+				}
+
 				$result = $this->generate_order_for_contract( (int) $row['contract_id'], $period );
 				if ( is_wp_error( $result ) ) {
 					$errors[] = $row['contract_name'] . ': ' . $result->get_error_message();
@@ -586,6 +592,7 @@ if ( ! class_exists( 'KTPWP_Contract_Billing' ) ) {
 			}
 
 			if ( $include_initial ) {
+				$fees = $this->contract_db->get_initial_fees_by_contract_id( (int) $contract->id );
 				foreach ( $fees as $fee ) {
 					$fee_tax = ( $fee->tax_rate !== null && $fee->tax_rate !== '' ) ? (float) $fee->tax_rate : null;
 					$this->insert_invoice_line(

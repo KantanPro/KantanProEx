@@ -816,11 +816,11 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 						$content .= " - <span class='project_name'>{$project_name}</span>";
 					}
 					$content .= " - {$time}";
-					// 前払いラベル（前入金済 / EC受注）
+					// 受注経路ラベル（WEB受注 / 前入金済 / EC受注 等）
 					if ( class_exists( 'KTPWP_Payment_Timing' ) ) {
-						$prepay_label = KTPWP_Payment_Timing::get_prepay_label( $order, null );
-						if ( $prepay_label !== '' ) {
-							$content .= ' <span class="ktp-prepay-badge" style="display:inline-block;margin-left:6px;padding:2px 8px;font-size:11px;background:#e3f2fd;color:#1565c0;border-radius:4px;">' . esc_html( $prepay_label ) . '</span>';
+						$source_label = KTPWP_Payment_Timing::get_inbound_source_label( $order, null );
+						if ( $source_label !== '' ) {
+							$content .= ' <span class="ktp-prepay-badge" style="display:inline-block;margin-left:6px;padding:2px 8px;font-size:11px;background:#e3f2fd;color:#1565c0;border-radius:4px;">' . esc_html( $source_label ) . '</span>';
 						}
 					}
 					if ( $order_has_contract_id && isset( $order->contract_id ) && (int) $order->contract_id > 0 ) {

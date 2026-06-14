@@ -372,6 +372,10 @@ if ( ! class_exists( 'KTPWP_Contract_DB' ) ) {
 				}
 			}
 
+			if ( $existing && isset( $existing->status ) && $existing->status !== $status && class_exists( 'KTPWP_Stripe_Billing' ) ) {
+				KTPWP_Stripe_Billing::get_instance()->on_contract_status_changed( $contract_id, (string) $existing->status, $status );
+			}
+
 			return $contract_id;
 		}
 

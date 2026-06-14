@@ -1990,6 +1990,115 @@ form > .create-order-btn {
   padding-top: 16px;
 }
 
+.ktp-contract-list-table__stripe {
+  font-size: 11px;
+  line-height: 1.4;
+  min-width: 88px;
+}
+
+.ktp-contract-stripe-cell__next {
+  color: #666;
+  font-size: 10px;
+}
+
+.ktp-contract-stripe-status {
+  border-radius: 4px;
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+}
+
+.ktp-contract-stripe-status--active,
+.ktp-contract-stripe-status--trialing {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.ktp-contract-stripe-status--past_due,
+.ktp-contract-stripe-status--unpaid,
+.ktp-contract-stripe-status--needs_card {
+  background: #fff3e0;
+  color: #ef6c00;
+}
+
+.ktp-contract-stripe-status--canceled,
+.ktp-contract-stripe-status--incomplete_expired {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.ktp-contract-stripe-status--not_started,
+.ktp-contract-stripe-status--incomplete {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.ktp-contract-stripe-block {
+  background: #f8fbff;
+  border: 1px solid #c5d9f0;
+  border-radius: 8px;
+  margin-top: 16px;
+  padding: 14px 16px;
+}
+
+.ktp-contract-stripe-block__title {
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+
+.ktp-contract-stripe-block__body {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.ktp-contract-stripe-block__body dl {
+  display: grid;
+  gap: 4px 12px;
+  grid-template-columns: 120px 1fr;
+  margin: 0;
+}
+
+.ktp-contract-stripe-block__body dt {
+  color: #666;
+  font-weight: 600;
+  margin: 0;
+}
+
+.ktp-contract-stripe-block__body dd {
+  margin: 0;
+  word-break: break-all;
+}
+
+.ktp-contract-stripe-block__setup {
+  border-top: 1px solid #dbe8f7;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.ktp-contract-stripe-block__url-wrap {
+  margin-top: 10px;
+}
+
+.ktp-contract-stripe-block__url-wrap label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.ktp-contract-stripe-block__url-row {
+  align-items: stretch;
+  display: flex;
+  gap: 8px;
+}
+
+.ktp-contract-stripe-block__url-row input[type="text"] {
+  flex: 1;
+  font-size: 12px;
+  min-width: 0;
+}
+
 /* 定期契約ボタン（顧客タブの請求書発行・更新ボタンと同系統） */
 .ktp-contract-section .ktp-contract-action-btn {
   align-items: center;

@@ -969,11 +969,11 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 						if ( ! empty( $completion_date ) ) {
 							$order_info .= ' <span style="color: #666; margin-left: 12px;">' . esc_html__( '完了日：', 'ktpwp' ) . $completion_date . '</span>';
 						}
-						// 前払いラベル（前入金済 / EC受注）
+						// 受注経路ラベル（WEB受注 / 前入金済 / EC受注 等）
 						if ( class_exists( 'KTPWP_Payment_Timing' ) ) {
-							$prepay_label = KTPWP_Payment_Timing::get_prepay_label( $order, null );
-							if ( $prepay_label !== '' ) {
-								$order_info .= ' <span class="ktp-prepay-badge" style="display:inline-block;margin-left:6px;padding:2px 8px;font-size:11px;background:#e3f2fd;color:#1565c0;border-radius:4px;">' . esc_html( $prepay_label ) . '</span>';
+							$source_label = KTPWP_Payment_Timing::get_inbound_source_label( $order, null );
+							if ( $source_label !== '' ) {
+								$order_info .= ' <span class="ktp-prepay-badge" style="display:inline-block;margin-left:6px;padding:2px 8px;font-size:11px;background:#e3f2fd;color:#1565c0;border-radius:4px;">' . esc_html( $source_label ) . '</span>';
 							}
 						}
 						$order_info .= ' <span style="float:right;" class="status-' . $progress . '">' . $progress_label . '</span>';

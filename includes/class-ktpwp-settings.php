@@ -2576,6 +2576,24 @@ class KTPWP_Settings {
                             }
                         }
 
+                        // Stripe 請求連携
+                        if ( isset( $wp_settings_sections['ktp-general']['stripe_billing_setting_section'] ) ) {
+                            $section = $wp_settings_sections['ktp-general']['stripe_billing_setting_section'];
+                            echo '<h2>' . esc_html( $section['title'] ) . '</h2>';
+                            if ( $section['callback'] ) {
+                                call_user_func( $section['callback'], $section );
+                            }
+                            if ( isset( $wp_settings_fields['ktp-general']['stripe_billing_setting_section'] ) ) {
+                                echo '<table class="form-table">';
+                                foreach ( $wp_settings_fields['ktp-general']['stripe_billing_setting_section'] as $field ) {
+                                    echo '<tr><th scope="row">' . esc_html( $field['title'] ) . '</th><td>';
+                                    call_user_func( $field['callback'], $field['args'] );
+                                    echo '</td></tr>';
+                                }
+                                echo '</table>';
+                            }
+                        }
+
                         // 日本郵便 郵便番号・デジタルアドレスAPI（顧客フォームの住所自動入力）
                         if ( isset( $wp_settings_sections['ktp-general']['japanpost_api_setting_section'] ) ) {
                             $section = $wp_settings_sections['ktp-general']['japanpost_api_setting_section'];
@@ -3115,6 +3133,79 @@ class KTPWP_Settings {
                 array( 'KTPWP_Contract_Reminder_Mail', 'render_body_field' ),
                 'ktp-general',
                 'contract_reminder_setting_section'
+            );
+        }
+
+        if ( class_exists( 'KTPWP_Stripe_Billing' ) ) {
+            add_settings_section(
+                'stripe_billing_setting_section',
+                __( 'Stripe 請求連携', 'ktpwp' ),
+                array( 'KTPWP_Stripe_Billing', 'render_settings_section_info' ),
+                'ktp-general'
+            );
+
+            add_settings_field(
+                'stripe_enabled',
+                __( '有効化', 'ktpwp' ),
+                array( 'KTPWP_Stripe_Billing', 'render_enabled_field' ),
+                'ktp-general',
+                'stripe_billing_setting_section'
+            );
+
+            add_settings_field(
+                'stripe_test_mode',
+                __( 'テストモード', 'ktpwp' ),
+                array( 'KTPWP_Stripe_Billing', 'render_test_mode_field' ),
+                'ktp-general',
+                'stripe_billing_setting_section'
+            );
+
+            add_settings_field(
+                'stripe_secret_key_test',
+                __( 'Secret Key（テスト）', 'ktpwp' ),
+                array( 'KTPWP_Stripe_Billing', 'render_secret_key_test_field' ),
+                'ktp-general',
+                'stripe_billing_setting_section'
+            );
+
+            add_settings_field(
+                'stripe_secret_key_live',
+                __( 'Secret Key（本番）', 'ktpwp' ),
+                array( 'KTPWP_Stripe_Billing', 'render_secret_key_live_field' ),
+                'ktp-general',
+                'stripe_billing_setting_section'
+            );
+
+            add_settings_field(
+                'stripe_webhook_secret_test',
+                __( 'Webhook Secret（テスト）', 'ktpwp' ),
+                array( 'KTPWP_Stripe_Billing', 'render_webhook_secret_test_field' ),
+                'ktp-general',
+                'stripe_billing_setting_section'
+            );
+
+            add_settings_field(
+                'stripe_webhook_secret_live',
+                __( 'Webhook Secret（本番）', 'ktpwp' ),
+                array( 'KTPWP_Stripe_Billing', 'render_webhook_secret_live_field' ),
+                'ktp-general',
+                'stripe_billing_setting_section'
+            );
+
+            add_settings_field(
+                'stripe_days_until_due',
+                __( '支払期日', 'ktpwp' ),
+                array( 'KTPWP_Stripe_Billing', 'render_days_until_due_field' ),
+                'ktp-general',
+                'stripe_billing_setting_section'
+            );
+
+            add_settings_field(
+                'contract_invoice_auto_enabled',
+                __( '定期請求メール自動送信', 'ktpwp' ),
+                array( 'KTPWP_Stripe_Billing', 'render_contract_invoice_auto_field' ),
+                'ktp-general',
+                'stripe_billing_setting_section'
             );
         }
 
@@ -4041,6 +4132,48 @@ class KTPWP_Settings {
 
         if ( array_key_exists( 'bank_transfer_account_holder_kana', $input ) ) {
             $new_input['bank_transfer_account_holder_kana'] = sanitize_text_field( wp_unslash( (string) $input['bank_transfer_account_holder_kana'] ) );
+        }
+
+        $existing = get_option( 'ktp_general_settings', array() );
+        if ( ! is_array( $existing ) ) {
+            $existing = array();
+        }
+
+        $new_input['stripe_enabled'] = ! empty( $input['stripe_enabled'] );
+        $new_input['stripe_test_mode'] = ! empty( $input['stripe_test_mode'] );
+        $new_input['contract_invoice_auto_enabled'] = ! empty( $input['contract_invoice_auto_enabled'] );
+
+        if ( isset( $input['stripe_days_until_due'] ) ) {
+            $new_input['stripe_days_until_due'] = max( 1, min( 90, absint( $input['stripe_days_until_due'] ) ) );
+        } elseif ( isset( $existing['stripe_days_until_due'] ) ) {
+            $new_input['stripe_days_until_due'] = max( 1, min( 90, absint( $existing['stripe_days_until_due'] ) ) );
+        }
+
+        $stripe_secret_fields = array(
+            'stripe_secret_key_test',
+            'stripe_secret_key_live',
+            'stripe_webhook_secret_test',
+            'stripe_webhook_secret_live',
+        );
+        foreach ( $stripe_secret_fields as $field ) {
+            if ( array_key_exists( $field, $input ) ) {
+                $value = trim( sanitize_text_field( wp_unslash( (string) $input[ $field ] ) ) );
+                if ( $value !== '' ) {
+                    $new_input[ $field ] = $value;
+                } elseif ( isset( $existing[ $field ] ) ) {
+                    $new_input[ $field ] = $existing[ $field ];
+                }
+            } elseif ( isset( $existing[ $field ] ) ) {
+                $new_input[ $field ] = $existing[ $field ];
+            }
+        }
+
+        if ( ! $new_input['stripe_enabled'] ) {
+            $test_key = trim( (string) ( $new_input['stripe_secret_key_test'] ?? '' ) );
+            $live_key = trim( (string) ( $new_input['stripe_secret_key_live'] ?? '' ) );
+            if ( $test_key !== '' || $live_key !== '' ) {
+                $new_input['stripe_enabled'] = true;
+            }
         }
 
         return $new_input;

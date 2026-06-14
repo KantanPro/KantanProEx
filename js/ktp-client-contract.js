@@ -98,6 +98,7 @@
         setInitialFeesEditable(true);
         setRecurringItemsEditable(true);
         setContractCoreFieldsEditable(true);
+        updateStripeBlock(null);
     }
 
     function createRecurringRow(itemName, amount, taxRate) {
@@ -391,6 +392,131 @@
         setInitialFeesEditable(!firstBilled);
         setRecurringItemsEditable(!firstBilled);
         setContractCoreFieldsEditable(!firstBilled);
+        updateStripeBlock(contract.stripe_subscription || null);
+    }
+
+    function updateStripeBlock(stripeData) {
+        var block = qs('#ktp-contract-stripe-block');
+        var statusEl = qs('#ktp-contract-stripe-status');
+        var setupWrap = qs('#ktp-contract-stripe-setup');
+        var urlWrap = qs('#ktp-contract-setup-url-wrap');
+        var urlInput = qs('#ktp-contract-setup-url');
+        var setupBtn = qs('#ktp-contract-setup-link-btn');
+        var config = getConfig();
+
+        if (!block || !config || !config.stripe_enabled) {
+            return;
+        }
+
+        if (!stripeData || stripeData.applicable === false) {
+            block.style.display = 'none';
+            return;
+        }
+
+        block.style.display = 'block';
+
+        if (statusEl) {
+            var html = '<dl>';
+            html += '<dt>' + escapeHtml(t('ステータス', 'ステータス')) + '</dt>';
+            html += '<dd><span class="ktp-contract-stripe-status ktp-contract-stripe-status--' + escapeAttr(stripeData.status || 'unknown') + '">' + escapeHtml(stripeData.status_label || '—') + '</span></dd>';
+
+            if (stripeData.subscription_id) {
+                html += '<dt>' + escapeHtml(t('Subscription ID', 'Subscription ID')) + '</dt>';
+                html += '<dd>' + escapeHtml(stripeData.subscription_id) + '</dd>';
+            }
+
+            if (stripeData.next_billing_date) {
+                html += '<dt>' + escapeHtml(t('次回請求日', '次回請求日')) + '</dt>';
+                html += '<dd>' + escapeHtml(stripeData.next_billing_date) + '</dd>';
+            }
+
+            html += '</dl>';
+            statusEl.innerHTML = html;
+        }
+
+        var showSetup = !!stripeData.needs_setup_link;
+        if (setupWrap) {
+            setupWrap.style.display = showSetup ? 'block' : 'none';
+        }
+        if (setupBtn) {
+            setupBtn.disabled = false;
+        }
+
+        if (urlWrap && urlInput) {
+            if (stripeData.setup_url) {
+                urlWrap.style.display = 'block';
+                urlInput.value = stripeData.setup_url;
+            } else {
+                urlWrap.style.display = 'none';
+                urlInput.value = '';
+            }
+        }
+    }
+
+    function createSetupCheckoutLink(config) {
+        var contractId = (qs('#ktp-contract-id') || {}).value || '0';
+        if (parseInt(contractId, 10) <= 0) {
+            alert(t('契約を保存してからカード登録リンクを発行してください。', '契約を保存してからカード登録リンクを発行してください。'));
+            return;
+        }
+
+        var setupBtn = qs('#ktp-contract-setup-link-btn');
+        if (setupBtn) {
+            setupBtn.disabled = true;
+        }
+
+        postFormData(config, {
+            action: 'ktp_create_contract_setup_checkout',
+            nonce: config.nonce,
+            contract_id: contractId,
+            client_id: config.client_id
+        }).then(function (result) {
+            if (setupBtn) {
+                setupBtn.disabled = false;
+            }
+            if (!result.success) {
+                alert(result.data || t('リンクの発行に失敗しました。', 'リンクの発行に失敗しました。'));
+                return;
+            }
+            var urlWrap = qs('#ktp-contract-setup-url-wrap');
+            var urlInput = qs('#ktp-contract-setup-url');
+            if (urlInput && result.data && result.data.url) {
+                urlInput.value = result.data.url;
+            }
+            if (urlWrap) {
+                urlWrap.style.display = 'block';
+            }
+            if (typeof showSuccessNotification === 'function') {
+                showSuccessNotification(result.data.message || t('カード登録リンクを発行しました。', 'カード登録リンクを発行しました。'));
+            }
+        }).catch(function () {
+            if (setupBtn) {
+                setupBtn.disabled = false;
+            }
+            alert(t('リンクの発行に失敗しました。', 'リンクの発行に失敗しました。'));
+        });
+    }
+
+    function copySetupUrl() {
+        var urlInput = qs('#ktp-contract-setup-url');
+        if (!urlInput || !urlInput.value) {
+            return;
+        }
+
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            navigator.clipboard.writeText(urlInput.value).then(function () {
+                if (typeof showSuccessNotification === 'function') {
+                    showSuccessNotification(t('URLをコピーしました。', 'URLをコピーしました。'));
+                }
+            }).catch(function () {
+                urlInput.select();
+                document.execCommand('copy');
+            });
+            return;
+        }
+
+        urlInput.select();
+        document.execCommand('copy');
     }
 
     function saveContract(config) {
@@ -496,6 +622,18 @@
             addRecurringBtn.addEventListener('click', function () {
                 createRecurringRow('', '', '');
             });
+        }
+
+        var setupLinkBtn = qs('#ktp-contract-setup-link-btn');
+        if (setupLinkBtn) {
+            setupLinkBtn.addEventListener('click', function () {
+                createSetupCheckoutLink(config);
+            });
+        }
+
+        var setupCopyBtn = qs('#ktp-contract-setup-url-copy-btn');
+        if (setupCopyBtn) {
+            setupCopyBtn.addEventListener('click', copySetupUrl);
         }
 
         var recurringBody = qs('#ktp-contract-recurring-items-body');

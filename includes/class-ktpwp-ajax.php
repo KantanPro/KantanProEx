@@ -1663,6 +1663,44 @@ class KTPWP_Ajax {
 	}
 
 	/**
+	 * 受注の担当者名・会社名から宛先ラベルを組み立てる（例: アットサイン 野中-foo@example.com）。
+	 *
+	 * @param object      $client ktp_client 行。
+	 * @param object      $order  ktp_order 行。
+	 * @param string      $email  メールアドレス。
+	 * @return string
+	 */
+	private function ktpwp_order_mail_format_order_contact_label( $client, $order, $email ) {
+		$contact = '';
+		if ( class_exists( 'KTPWP_Department_Manager' ) ) {
+			$contact = KTPWP_Department_Manager::resolve_contact_name_for_order( $order );
+		}
+		if ( $contact === '' ) {
+			$contact = trim( str_replace( array( "\0", "\r", "\n", "\t" ), '', (string) ( $order->user_name ?? '' ) ) );
+		}
+		if ( $contact === '' || filter_var( $contact, FILTER_VALIDATE_EMAIL ) ) {
+			$contact = trim( str_replace( array( "\0", "\r", "\n", "\t" ), '', (string) ( $client->representative_name ?? $client->name ?? '' ) ) );
+		}
+		if ( $contact === '' || filter_var( $contact, FILTER_VALIDATE_EMAIL ) ) {
+			$contact = 'ご担当者';
+		}
+
+		$company = '';
+		if ( class_exists( 'KTPWP_Department_Manager' ) ) {
+			$display = trim( (string) ( $order->customer_name ?? '' ) );
+			$company = KTPWP_Department_Manager::resolve_parent_company_name_for_order( $order, $client, $display, null );
+		} elseif ( ! empty( $client->company_name ) ) {
+			$company = trim( (string) $client->company_name );
+		}
+
+		if ( $company !== '' ) {
+			return $company . ' ' . $contact . '-' . $email;
+		}
+
+		return $contact . '-' . $email;
+	}
+
+	/**
 	 * 宛先候補の表示ラベル（部署名 担当者-メール 等）。
 	 *
 	 * @param object|null $client ktp_client 行。
@@ -1681,11 +1719,20 @@ class KTPWP_Ajax {
 				ktpwp_safe_create_department_table();
 			}
 			$order_department = KTPWP_Department_Manager::resolve_department_for_order( $order );
-			if ( $order_department && ! empty( $order_department->email ) ) {
+			if (
+				$order_department
+				&& ! KTPWP_Department_Manager::is_bogus_inquiry_department( $order_department )
+				&& ! empty( $order_department->email )
+			) {
 				$order_dept_email = trim( str_replace( array( "\0", "\r", "\n", "\t" ), '', (string) $order_department->email ) );
 				if ( $order_dept_email !== '' && strtolower( $order_dept_email ) === $email_lc ) {
 					return $this->ktpwp_order_mail_format_department_label( $order_department, $email );
 				}
+			}
+
+			$client_email = trim( str_replace( array( "\0", "\r", "\n", "\t" ), '', (string) ( $client->email ?? '' ) ) );
+			if ( $client_email !== '' && strtolower( $client_email ) === $email_lc ) {
+				return $this->ktpwp_order_mail_format_order_contact_label( $client, $order, $email );
 			}
 		}
 
@@ -1694,6 +1741,9 @@ class KTPWP_Ajax {
 				ktpwp_safe_create_department_table();
 			}
 			foreach ( KTPWP_Department_Manager::get_departments_by_client( (int) $client->id ) as $dept ) {
+				if ( KTPWP_Department_Manager::is_bogus_inquiry_department( $dept ) ) {
+					continue;
+				}
 				$dept_email = trim( str_replace( array( "\0", "\r", "\n", "\t" ), '', (string) ( $dept->email ?? '' ) ) );
 				if ( $dept_email === '' || strtolower( $dept_email ) !== $email_lc ) {
 					continue;
@@ -1716,6 +1766,10 @@ class KTPWP_Ajax {
 			return $contact . '-' . $email;
 		}
 		if ( $client_email !== '' && strtolower( $client_email ) === $email_lc ) {
+			if ( $order ) {
+				return $this->ktpwp_order_mail_format_order_contact_label( $client, $order, $email );
+			}
+
 			$contact = trim( str_replace( array( "\0", "\r", "\n", "\t" ), '', (string) ( $client->representative_name ?? $client->name ?? '' ) ) );
 			if ( $contact === '' || filter_var( $contact, FILTER_VALIDATE_EMAIL ) ) {
 				$contact = 'ご担当者';
@@ -1888,6 +1942,22 @@ class KTPWP_Ajax {
 					$order_id
 				)
 			);
+
+			if ( ! $order ) {
+				throw new Exception( '受注書が見つかりません。' );
+			}
+
+			if ( class_exists( 'KTPWP_Stripe_Billing' ) ) {
+				$stripe_billing = KTPWP_Stripe_Billing::get_instance();
+				if ( $stripe_billing->sync_order_payment_from_stripe( (int) $order->id ) ) {
+					$order = $wpdb->get_row(
+						$wpdb->prepare(
+							"SELECT * FROM `{$table_name}` WHERE id = %d",
+							$order_id
+						)
+					);
+				}
+			}
 
 			if ( ! $order ) {
 				throw new Exception( '受注書が見つかりません。' );
@@ -2271,20 +2341,25 @@ class KTPWP_Ajax {
 
 			if ( class_exists( 'KTPWP_Department_Manager' ) ) {
 				$selected_department = KTPWP_Department_Manager::resolve_department_for_order( $order );
+				$contact_name        = KTPWP_Department_Manager::resolve_contact_name_for_order( $order );
+				$parent_company_name = KTPWP_Department_Manager::resolve_parent_company_name_for_order(
+					$order,
+					$client,
+					$customer_name,
+					$selected_department
+				);
+
+				if ( $contact_name !== '' ) {
+					$user_display = sprintf( __( '%s 様', 'ktpwp' ), $contact_name );
+				}
+
 				if ( $selected_department ) {
-					$parent_company_name = ( ! empty( $client->company_name ) )
-						? sanitize_text_field( $client->company_name )
-						: $customer_name;
 					$department_mail_line = KTPWP_Department_Manager::department_name_for_mail_addressee(
 						$selected_department->department_name
 					);
-					$contact_person = sanitize_text_field( $selected_department->contact_person );
-
 					$customer_display = $parent_company_name . "\n" . $department_mail_line;
-					$user_display     = sprintf(
-						__( '%s 様', 'ktpwp' ),
-						$contact_person !== '' ? $contact_person : $user_name
-					);
+				} else {
+					$customer_display = $parent_company_name;
 				}
 			}
 
@@ -2302,11 +2377,38 @@ class KTPWP_Ajax {
 				$invoice_list
 			);
 
-            // 見積り（進捗1）メール：振込先が入力されていれば本文に追加
-            if ( 1 === $progress && class_exists( 'KTPWP_Settings' ) ) {
+            // 見積り（進捗1）: Web受注は Stripe、それ以外は振込先
+            if ( 1 === $progress && class_exists( 'KTPWP_Stripe_Billing' ) ) {
+                $stripe_billing = KTPWP_Stripe_Billing::get_instance();
+                if ( ! $stripe_billing->should_apply_to_order( $order ) && ! $stripe_billing->should_hide_bank_transfer( $order ) && class_exists( 'KTPWP_Settings' ) ) {
+                    $bank_plain = KTPWP_Settings::get_bank_transfer_plain_text();
+                    if ( $bank_plain !== '' ) {
+                        $body .= "\n\n" . $bank_plain;
+                    }
+                }
+            } elseif ( 1 === $progress && class_exists( 'KTPWP_Settings' ) ) {
                 $bank_plain = KTPWP_Settings::get_bank_transfer_plain_text();
                 if ( $bank_plain !== '' ) {
                     $body .= "\n\n" . $bank_plain;
+                }
+            }
+
+            // 請求書（進捗4）: Stripe 決済リンク（定期契約・Web受注は振込非表示）
+            if ( 4 === $progress && class_exists( 'KTPWP_Stripe_Billing' ) ) {
+                $stripe_billing = KTPWP_Stripe_Billing::get_instance();
+                if ( ! $stripe_billing->should_apply_to_order( $order ) && ! $stripe_billing->should_hide_bank_transfer( $order ) && class_exists( 'KTPWP_Settings' ) ) {
+                    $bank_plain = KTPWP_Settings::get_bank_transfer_plain_text();
+                    if ( $bank_plain !== '' ) {
+                        $body .= "\n\n" . $bank_plain;
+                    }
+                }
+            } elseif ( 4 === $progress && class_exists( 'KTPWP_Settings' ) ) {
+                $is_contract_order = isset( $order->contract_id ) && (int) $order->contract_id > 0;
+                if ( ! $is_contract_order ) {
+                    $bank_plain = KTPWP_Settings::get_bank_transfer_plain_text();
+                    if ( $bank_plain !== '' ) {
+                        $body .= "\n\n" . $bank_plain;
+                    }
                 }
             }
 
@@ -2319,6 +2421,13 @@ class KTPWP_Ajax {
             }
 
             $body   .= "\n\n--\n{$my_company}";
+
+            if ( class_exists( 'KTPWP_Stripe_Billing' ) ) {
+                $stripe_billing = KTPWP_Stripe_Billing::get_instance();
+                if ( $stripe_billing->should_apply_to_order( $order ) ) {
+                    $body = $stripe_billing->append_preview_to_body( $order, $body );
+                }
+            }
 
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 				error_log( 'KTPWP Ajax get_email_content: Preparing JSON response - to: ' . $to . ', subject: ' . $subject );
@@ -2507,6 +2616,15 @@ class KTPWP_Ajax {
 					$order_id
 				)
 			);
+
+			if ( $order_row && class_exists( 'KTPWP_Stripe_Billing' ) ) {
+				$stripe_result = KTPWP_Stripe_Billing::get_instance()->finalize_and_append_to_body( $order_row, $body );
+				if ( is_wp_error( $stripe_result ) ) {
+					throw new Exception( $stripe_result->get_error_message() );
+				}
+				$body = $stripe_result;
+			}
+
 			$client_row = null;
 			if ( $order_row && ! empty( $order_row->client_id ) ) {
 				$client_row = $wpdb->get_row(
@@ -2678,6 +2796,11 @@ class KTPWP_Ajax {
 						null,
 						$bcc_list !== array() ? $bcc_list : null
 					);
+				}
+
+				if ( $order_row && isset( $order_row->progress ) && (int) $order_row->progress === 4
+					&& class_exists( 'KTPWP_Contract_Invoice_Mail' ) ) {
+					KTPWP_Contract_Invoice_Mail::get_instance()->mark_sent_for_order( $order_id );
 				}
 
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {

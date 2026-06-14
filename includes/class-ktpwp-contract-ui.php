@@ -54,6 +54,7 @@ if ( ! class_exists( 'KTPWP_Contract_UI' ) ) {
 			$fee_presets       = KTPWP_Contract_DB::get_initial_fee_presets();
 			$status_labels     = $this->get_status_labels();
 			$billing_day_opts  = $this->get_billing_day_options();
+			$stripe_enabled    = class_exists( 'KTPWP_Stripe_Billing' ) && KTPWP_Stripe_Billing::is_enabled();
 
 			$html  = '<div class="ktp-contract-section" id="ktp-contract-section" data-client-id="' . esc_attr( (string) $client_id ) . '">';
 			$html .= '<h4 class="ktp-contract-section__title">' . esc_html__( '■ 定期契約', 'ktpwp' ) . '</h4>';
@@ -74,11 +75,11 @@ if ( ! class_exists( 'KTPWP_Contract_UI' ) ) {
 			}
 
 			$html .= '<div id="ktp-contract-list-wrap">';
-			$html .= $this->render_contract_list_table( $contracts, $recurring_services, $status_labels );
+			$html .= $this->render_contract_list_table( $contracts, $recurring_services, $status_labels, $stripe_enabled );
 			$html .= '</div>';
 
 			$html .= '<div id="ktp-contract-form-wrap" class="ktp-contract-form-wrap" style="display:none;">';
-			$html .= $this->render_contract_form( $client_id, $recurring_services, $fee_presets, $status_labels, $billing_day_opts );
+			$html .= $this->render_contract_form( $client_id, $recurring_services, $fee_presets, $status_labels, $billing_day_opts, $stripe_enabled );
 			$html .= '</div>';
 
 			$html .= '</div>';
@@ -92,9 +93,10 @@ if ( ! class_exists( 'KTPWP_Contract_UI' ) ) {
 		 * @param array<int, object>        $contracts          契約一覧。
 		 * @param array<int, object>        $recurring_services 定期サービス。
 		 * @param array<string, string>     $status_labels      状態ラベル。
+		 * @param bool                      $stripe_enabled     Stripe 有効か。
 		 * @return string
 		 */
-		private function render_contract_list_table( $contracts, $recurring_services, $status_labels ) {
+		private function render_contract_list_table( $contracts, $recurring_services, $status_labels, $stripe_enabled = false ) {
 			$service_map = array();
 			foreach ( $recurring_services as $service ) {
 				$service_map[ (int) $service->id ] = $service;
@@ -112,6 +114,9 @@ if ( ! class_exists( 'KTPWP_Contract_UI' ) ) {
 			$html .= '<th>' . esc_html__( 'サイクル', 'ktpwp' ) . '</th>';
 			$html .= '<th>' . esc_html__( '請求日', 'ktpwp' ) . '</th>';
 			$html .= '<th>' . esc_html__( '状態', 'ktpwp' ) . '</th>';
+			if ( $stripe_enabled ) {
+				$html .= '<th>' . esc_html__( 'Stripe', 'ktpwp' ) . '</th>';
+			}
 			$html .= '<th>' . esc_html__( '操作', 'ktpwp' ) . '</th>';
 			$html .= '</tr></thead><tbody>';
 
@@ -133,6 +138,11 @@ if ( ! class_exists( 'KTPWP_Contract_UI' ) ) {
 				$html .= '<td>' . esc_html( $cycle_label ) . '</td>';
 				$html .= '<td>' . esc_html( $this->format_billing_day_label( (int) $contract->billing_day ) ) . '</td>';
 				$html .= '<td><span class="ktp-contract-status ktp-contract-status--' . esc_attr( $contract->status ) . '">' . esc_html( $status ) . '</span></td>';
+				if ( $stripe_enabled ) {
+					$html .= '<td class="ktp-contract-list-table__stripe">';
+					$html .= $this->render_list_stripe_cell( $contract );
+					$html .= '</td>';
+				}
 				$html .= '<td class="ktp-contract-list-table__actions">';
 				$html .= $this->render_action_button(
 					array(
@@ -170,9 +180,10 @@ if ( ! class_exists( 'KTPWP_Contract_UI' ) ) {
 		 * @param array<int, string>    $fee_presets        初回費用プリセット。
 		 * @param array<string, string> $status_labels      状態ラベル。
 		 * @param array<int, string>    $billing_day_opts   請求日選択肢。
+		 * @param bool                  $stripe_enabled     Stripe 有効か。
 		 * @return string
 		 */
-		private function render_contract_form( $client_id, $recurring_services, $fee_presets, $status_labels, $billing_day_opts ) {
+		private function render_contract_form( $client_id, $recurring_services, $fee_presets, $status_labels, $billing_day_opts, $stripe_enabled = false ) {
 			$html  = '<h5 class="ktp-contract-form__heading" id="ktp-contract-form-heading">' . esc_html__( '定期契約を追加', 'ktpwp' ) . '</h5>';
 			$html .= '<input type="hidden" id="ktp-contract-id" value="0">';
 			$html .= '<input type="hidden" id="ktp-contract-client-id" value="' . esc_attr( (string) $client_id ) . '">';
@@ -277,6 +288,10 @@ if ( ! class_exists( 'KTPWP_Contract_UI' ) ) {
 			$html .= $this->render_recurring_items_block();
 
 			$html .= $this->render_initial_fees_block( $fee_presets );
+
+			if ( $stripe_enabled ) {
+				$html .= $this->render_stripe_subscription_block();
+			}
 
 			$html .= '<div class="button ktp-contract-form__actions">';
 			$html .= $this->render_action_button(
@@ -421,6 +436,85 @@ if ( ! class_exists( 'KTPWP_Contract_UI' ) ) {
 			$options[99] = __( '末日', 'ktpwp' );
 
 			return $options;
+		}
+
+		/**
+		 * 一覧の Stripe 列
+		 *
+		 * @param object $contract 契約行。
+		 * @return string
+		 */
+		private function render_list_stripe_cell( $contract ) {
+			if ( ! class_exists( 'KTPWP_Stripe_Subscription' ) ) {
+				return '—';
+			}
+
+			$stripe = KTPWP_Stripe_Subscription::get_instance();
+			if ( ! $stripe->contract_applies_to_stripe_subscription( $contract ) ) {
+				return '<span class="ktp-contract-stripe-cell ktp-contract-stripe-cell--na">—</span>';
+			}
+
+			$status = $stripe->get_subscription_status_for_contract( (int) $contract->id );
+			if ( ! is_array( $status ) || empty( $status['applicable'] ) ) {
+				return '<span class="ktp-contract-stripe-cell ktp-contract-stripe-cell--na">—</span>';
+			}
+
+			$label = isset( $status['status_label'] ) ? (string) $status['status_label'] : '';
+			$code  = isset( $status['status'] ) ? (string) $status['status'] : '';
+
+			$html  = '<span class="ktp-contract-stripe-status ktp-contract-stripe-status--' . esc_attr( $code !== '' ? $code : 'unknown' ) . '">';
+			$html .= esc_html( $label !== '' ? $label : '—' );
+			$html .= '</span>';
+
+			if ( ! empty( $status['next_billing_date'] ) ) {
+				$html .= '<br><span class="ktp-contract-stripe-cell__next">';
+				/* translators: %s: date */
+				$html .= esc_html( sprintf( __( '次回: %s', 'ktpwp' ), $status['next_billing_date'] ) );
+				$html .= '</span>';
+			}
+
+			return $html;
+		}
+
+		/**
+		 * 編集フォーム内 Stripe Subscription ブロック
+		 *
+		 * @return string
+		 */
+		private function render_stripe_subscription_block() {
+			$html  = '<div class="ktp-contract-stripe-block" id="ktp-contract-stripe-block" style="display:none;">';
+			$html .= '<h5 class="ktp-contract-stripe-block__title">' . esc_html__( 'Stripe サブスクリプション', 'ktpwp' ) . '</h5>';
+			$html .= '<div class="ktp-contract-stripe-block__body" id="ktp-contract-stripe-status">';
+			$html .= '<p class="ktp-contract-stripe-block__loading">' . esc_html__( '読み込み中…', 'ktpwp' ) . '</p>';
+			$html .= '</div>';
+			$html .= '<div class="ktp-contract-stripe-block__setup" id="ktp-contract-stripe-setup" style="display:none;">';
+			$html .= $this->render_action_button(
+				array(
+					'id'    => 'ktp-contract-setup-link-btn',
+					'class' => 'ktp-contract-action-btn--primary ktp-contract-action-btn--sm',
+					'icon'  => 'link',
+					'label' => __( 'カード登録リンクを発行', 'ktpwp' ),
+				)
+			);
+			$html .= '<div class="ktp-contract-stripe-block__url-wrap" id="ktp-contract-setup-url-wrap" style="display:none;">';
+			$html .= '<label for="ktp-contract-setup-url">' . esc_html__( 'カード登録 URL', 'ktpwp' ) . '</label>';
+			$html .= '<div class="ktp-contract-stripe-block__url-row">';
+			$html .= '<input type="text" id="ktp-contract-setup-url" readonly>';
+			$html .= $this->render_action_button(
+				array(
+					'id'    => 'ktp-contract-setup-url-copy-btn',
+					'class' => 'ktp-contract-action-btn--secondary ktp-contract-action-btn--sm',
+					'icon'  => 'content_copy',
+					'label' => __( 'コピー', 'ktpwp' ),
+				)
+			);
+			$html .= '</div>';
+			$html .= '<p class="description">' . esc_html__( '顧客に送付してカード登録後、自動でサブスクリプションが開始されます。', 'ktpwp' ) . '</p>';
+			$html .= '</div>';
+			$html .= '</div>';
+			$html .= '</div>';
+
+			return $html;
 		}
 
 		/**

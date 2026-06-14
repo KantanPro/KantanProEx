@@ -74,9 +74,10 @@ if ( ! class_exists( 'KTPWP_Order_Contract_Conversion' ) ) {
 		 * @param array<int, array<string, mixed>> $recurring_items  定期明細。
 		 * @param bool                             $link_order       案件を請求案件として紐付けるか。
 		 * @param string|null                      $billing_period   請求月 YYYY-MM。
+		 * @param array<string, mixed>             $options          追加オプション。
 		 * @return int|\WP_Error 契約 ID またはエラー。
 		 */
-		public function convert( $order_id, $contract_data, $initial_fees = array(), $recurring_items = array(), $link_order = true, $billing_period = null ) {
+		public function convert( $order_id, $contract_data, $initial_fees = array(), $recurring_items = array(), $link_order = true, $billing_period = null, $options = array() ) {
 			global $wpdb;
 
 			$order_id = absint( $order_id );
@@ -142,6 +143,22 @@ if ( ! class_exists( 'KTPWP_Order_Contract_Conversion' ) ) {
 					$service_id = isset( $save_data['service_id'] ) ? (int) $save_data['service_id'] : 0;
 					if ( $service_id > 0 ) {
 						KTPWP_Contract_Service_Public_Availability::close_stale_public_inquiries_for_service( $service_id );
+					}
+				}
+
+				if ( class_exists( 'KTPWP_Stripe_Subscription' ) ) {
+					$subscription_options = is_array( $options ) ? $options : array();
+					if ( ! empty( $subscription_options['skip_subscription_start'] ) && ! empty( $subscription_options['subscription_id'] ) ) {
+						KTPWP_Stripe_Subscription::get_instance()->attach_subscription_to_contract(
+							(int) $contract_id,
+							(string) $subscription_options['subscription_id'],
+							$order_id
+						);
+					} elseif ( empty( $subscription_options['skip_subscription_start'] ) ) {
+						$result = KTPWP_Stripe_Subscription::get_instance()->maybe_start_for_contract( (int) $contract_id, $order_id );
+						if ( is_wp_error( $result ) && defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+							error_log( 'KTPWP Stripe Subscription start: ' . $result->get_error_message() );
+						}
 					}
 				}
 

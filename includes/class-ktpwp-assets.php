@@ -551,9 +551,10 @@ class KTPWP_Assets {
                         }
 
                         return array(
-                            'ajax_url'  => admin_url( 'admin-ajax.php' ),
-                            'nonce'     => wp_create_nonce( 'ktp_contract_nonce' ),
-                            'client_id' => $client_id,
+                            'ajax_url'       => admin_url( 'admin-ajax.php' ),
+                            'nonce'          => wp_create_nonce( 'ktp_contract_nonce' ),
+                            'client_id'      => $client_id,
+                            'stripe_enabled' => class_exists( 'KTPWP_Stripe_Billing' ) && KTPWP_Stripe_Billing::is_enabled(),
                         );
                     },
                 ),

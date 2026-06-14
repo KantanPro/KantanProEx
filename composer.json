@@ -1,6 +1,7 @@
 {
   "name": "your-name/your-plugin",
   "require": {
+    "stripe/stripe-php": "^17.0"
   },
   "require-dev": {
     "squizlabs/php_codesniffer": "*",
