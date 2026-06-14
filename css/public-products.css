@@ -658,6 +658,12 @@
 	transition: box-shadow 0.15s ease;
 }
 
+/* カテゴリ絞り込み: display:flex / table-row 等より優先して非表示にする */
+.ktpwp-public-product-item[hidden],
+.ktpwp-public-product-item.ktpwp-public-product-item--filtered-out {
+	display: none !important;
+}
+
 .ktpwp-public-product-item.is-active {
 	box-shadow: 0 0 0 2px #6366f1;
 }

@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.40
+Stable tag: 1.3.41
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,13 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.41 - 2026年06月14日 =
+* 公開商品 [ktpwp_public_products] のカテゴリー絞り込みが効かなくなる不具合を修正
+* v1.3.40 で追加した display:flex が [hidden] による非表示を上書きしていた問題に対応
+* 絞り込み非表示用 CSS（display: none !important）を追加
+* datalist 選択時の完全一致判定・blur イベント・フィルター用クラスを JS に追加
+* 計2ファイル・約45行増・4行減（v1.3.40…HEAD）
 
 = 1.3.40 - 2026年06月14日 =
 * [ktpwp_public_products] 各商品ブロック下部に「問い合わす」ボタンを追加
