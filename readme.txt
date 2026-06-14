@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.42
+Stable tag: 1.3.43
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,18 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.43 - 2026年06月14日 =
+* Stripe 請求連携機能を追加（一般設定で有効化・テスト/本番キー・Webhook 設定）
+* WEB 受注の見積メール決済・入金反映・進捗更新を Stripe Invoice で連携
+* 定期契約の 2 回目以降を Stripe Subscription で自動引き落とし
+* 初回費用なしの定額 WEB 受注は見積決済後に Subscription を即時開始
+* 契約変換後の Subscription 開始・Setup Checkout によるカード登録リンク発行に対応
+* 契約画面に Subscription ステータス表示（一覧・編集フォーム）を追加
+* 定期契約請求メールの自動送信 Cron を追加
+* 受注・顧客・契約テーブルに Stripe 関連カラムのマイグレーションを追加
+* Stripe PHP SDK（Composer）読み込みを追加
+* 計26ファイル・4453行増・104行減（v1.3.42…HEAD）
 
 = 1.3.42 - 2026年06月14日 =
 * プラグイン更新後に一部のサービス画像が古い画像に戻る不具合を修正
