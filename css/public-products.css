@@ -127,22 +127,31 @@
 	grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.ktpwp-public-products-grid__item {
-	background: #fff;
-	border: 1px solid #e2e4e7;
-	border-radius: 8px;
+.ktpwp-public-products-grid__item,
+.ktpwp-public-products-card {
+	background: #e2e8f0;
+	border: 1px solid #c8d2de;
+	box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
 }
 
+.ktpwp-public-products-grid__item {
+	border-radius: 8px;
+}
+
+.ktpwp-public-products-grid__image-wrap,
+.ktpwp-public-products-card__image-wrap {
+	background: #d5dde6;
+	position: relative;
+}
+
 .ktpwp-public-products-grid__image-wrap {
-	background: #f6f7f7;
-	display: flex;
 	align-items: center;
+	display: flex;
 	justify-content: center;
 	padding: 12px 8px 4px;
-	position: relative;
 }
 
 .ktpwp-public-products-grid__image-wrap .ktpwp-public-product-item__image-btn {
@@ -163,7 +172,25 @@
 
 .ktpwp-public-products-grid__body {
 	flex: 1 1 auto;
-	padding: 8px 14px 4px;
+	padding: 10px 14px 12px;
+}
+
+.ktpwp-public-products-grid__item .ktpwp-public-product-item__footer,
+.ktpwp-public-products-card .ktpwp-public-product-item__footer {
+	background: transparent;
+	border-top: 0;
+	margin-top: auto;
+	padding: 4px 14px 14px;
+}
+
+.ktpwp-public-products-card .ktpwp-public-product-item__footer {
+	padding: 4px 18px 18px;
+}
+
+.ktpwp-public-products-grid__item .ktpwp-public-product-item__inquire-btn,
+.ktpwp-public-products-card .ktpwp-public-product-item__inquire-btn {
+	border-radius: 6px;
+	min-height: 2.75rem;
 }
 
 .ktpwp-public-products-grid__name {
@@ -291,6 +318,11 @@
 	line-height: 1.25;
 	margin-top: 0.25rem;
 	padding: 0.2rem 0.45rem 0.18rem;
+}
+
+.ktpwp-public-products-grid__initial-fees,
+.ktpwp-public-products-card__initial-fees {
+	border-color: #c8d2de;
 }
 
 .ktpwp-public-products-grid__initial-fees__label,
@@ -475,20 +507,12 @@
 }
 
 .ktpwp-public-products-card {
-	background: #fff;
-	border: 1px solid #e2e4e7;
 	border-radius: 12px;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-	display: flex;
-	flex-direction: column;
-	overflow: hidden;
 }
 
 .ktpwp-public-products-card__image-wrap {
-	background: linear-gradient(135deg, #f8fafc, #eef2ff);
 	padding: 20px;
 	text-align: center;
-	position: relative;
 }
 
 .ktpwp-public-products-card__image {
@@ -668,14 +692,15 @@
 	box-shadow: 0 0 0 2px #6366f1;
 }
 
+.ktpwp-public-products-grid__item.ktpwp-public-product-item.is-active,
+.ktpwp-public-products-card.ktpwp-public-product-item.is-active {
+	box-shadow: 0 0 0 2px #6366f1, 0 2px 8px rgba(15, 23, 42, 0.1);
+}
+
 .ktpwp-public-product-item__footer {
 	flex-shrink: 0;
 	margin-top: auto;
 	padding: 8px 14px 12px;
-}
-
-.ktpwp-public-products-card .ktpwp-public-product-item__footer {
-	padding: 0 18px 18px;
 }
 
 .ktpwp-public-product-item__inquire-wrap--table {
@@ -722,10 +747,6 @@
 	text-align: center;
 	vertical-align: middle;
 	white-space: nowrap;
-}
-
-.ktpwp-public-products-card.ktpwp-public-product-item.is-active {
-	box-shadow: 0 0 0 2px #6366f1, 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 /* 詳細・お申し込み（モーダル） */
