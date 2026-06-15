@@ -431,7 +431,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				'unit'         => $original_data->unit,
 				'memo'         => $original_data->memo,
 				'category'     => $original_data->category,
-				'is_public'    => isset( $original_data->is_public ) ? (int) $original_data->is_public : 0,
+				'is_public'    => 0,
 				'image_url'    => $original_data->image_url,
 				'frequency'    => $original_data->frequency,
 				'search_field' => $original_data->service_name . esc_html__( ' (複製)', 'ktpwp' ) . ', ' . $original_data->price . ', ' . ( $original_data->tax_rate ?? '' ) . ', ' . $original_data->unit . ', ' . $original_data->category,
