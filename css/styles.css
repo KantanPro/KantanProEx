@@ -2671,12 +2671,18 @@ form > .create-order-btn {
 }
 
 .ktp-service-list-table.ktp-list-table--service .col-price-unit {
+  overflow: visible;
   text-align: right;
-  width: 16%;
+  white-space: nowrap;
+  width: 22%;
 }
 
 .ktp-service-list-table.ktp-list-table--service .col-category {
-  width: 21%;
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 15%;
 }
 
 .ktp-service-list-table.ktp-list-table--service .col-frequency {
