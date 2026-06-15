@@ -1551,7 +1551,8 @@ class KTPWP_Ajax {
 			wp_send_json_error( __( 'この操作を行う権限がありません。', 'ktpwp' ) );
 		}
 
-		if ( ! check_ajax_referer( 'ktp_ajax_nonce', 'nonce', false ) ) {
+		$nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
+		if ( empty( $nonce ) || ( ! wp_verify_nonce( $nonce, 'ktp_ajax_nonce' ) && ! wp_verify_nonce( $nonce, 'ktpwp_ajax_nonce' ) ) ) {
 			wp_send_json_error( __( 'セキュリティチェックに失敗しました', 'ktpwp' ) );
 		}
 

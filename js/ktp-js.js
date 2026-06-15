@@ -1,3 +1,90 @@
+(function () {
+    function getKtpAjaxConfig() {
+        return window.ktpwp_ajax || window.ktp_ajax_object || {};
+    }
+
+    function getKtpAjaxNonce() {
+        var ajaxConfig = getKtpAjaxConfig();
+        return ajaxConfig.nonce
+            || (ajaxConfig.nonces && ajaxConfig.nonces.general)
+            || window.ktpwp_ajax_nonce
+            || window.ktp_ajax_nonce
+            || '';
+    }
+
+    window.ktpDuplicateServiceViaAjax = function (button) {
+        if (!button || button.disabled) {
+            return;
+        }
+
+        var serviceId = button.getAttribute('data-service-id');
+        if (!serviceId) {
+            return;
+        }
+
+        var ajaxConfig = getKtpAjaxConfig();
+        var ajaxUrl = ajaxConfig.ajax_url || window.ajaxurl;
+        var nonce = getKtpAjaxNonce();
+        if (!ajaxUrl || !nonce) {
+            if (typeof showErrorNotification === 'function') {
+                showErrorNotification(button.getAttribute('data-error-message') || '複製に失敗しました。');
+            }
+            return;
+        }
+
+        button.disabled = true;
+
+        var body = new URLSearchParams();
+        body.set('action', 'ktp_duplicate_service');
+        body.set('nonce', nonce);
+        body.set('data_id', serviceId);
+
+        fetch(ajaxUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+            },
+            body: body.toString()
+        })
+            .then(function (response) { return response.json(); })
+            .then(function (json) {
+                if (!json || !json.success) {
+                    var message = (json && json.data) ? json.data : (button.getAttribute('data-error-message') || '複製に失敗しました。');
+                    if (typeof showErrorNotification === 'function') {
+                        showErrorNotification(message);
+                    }
+                    button.disabled = false;
+                    return;
+                }
+
+                if (typeof showSuccessNotification === 'function') {
+                    showSuccessNotification(button.getAttribute('data-success-message') || '複製しました。');
+                }
+
+                var redirectUrl = json.data && json.data.redirect_url;
+                if (redirectUrl) {
+                    window.location.href = redirectUrl;
+                }
+            })
+            .catch(function () {
+                if (typeof showErrorNotification === 'function') {
+                    showErrorNotification(button.getAttribute('data-error-message') || '複製に失敗しました。');
+                }
+                button.disabled = false;
+            });
+    };
+
+    document.addEventListener('click', function (e) {
+        var duplicateBtn = e.target.closest('.ktp-service-duplicate-btn');
+        if (!duplicateBtn) {
+            return;
+        }
+        e.preventDefault();
+        window.ktpDuplicateServiceViaAjax(duplicateBtn);
+    });
+})();
+
 document.addEventListener('DOMContentLoaded', function () {
     // デバッグモードの設定
     window.ktpDebugMode = window.ktpDebugMode || false;
@@ -310,6 +397,12 @@ document.addEventListener('DOMContentLoaded', function () {
         var tabName = getCurrentTabName();
         var params = new URLSearchParams(window.location.search);
 
+        // 追加・検索モード中はタブ状態の自動復元で上書きしない
+        var queryPost = params.get('query_post');
+        if (queryPost === 'istmode' || queryPost === 'srcmode') {
+            return false;
+        }
+
         if (tabUrlHasSavedState(tabName, params)) {
             return false;
         }
@@ -513,82 +606,6 @@ document.addEventListener('DOMContentLoaded', function () {
     function deleteCookie(name) {
         document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
     }
-
-    function getAjaxConfig() {
-        return window.ktpwp_ajax || window.ktp_ajax_object || {};
-    }
-
-    function duplicateServiceViaAjax(button) {
-        if (!button || button.disabled) {
-            return;
-        }
-
-        var serviceId = button.getAttribute('data-service-id');
-        if (!serviceId) {
-            return;
-        }
-
-        var ajaxConfig = getAjaxConfig();
-        var ajaxUrl = ajaxConfig.ajax_url || window.ajaxurl;
-        var nonce = (ajaxConfig.nonces && ajaxConfig.nonces.general) || window.ktpwp_ajax_nonce || '';
-        if (!ajaxUrl || !nonce) {
-            if (typeof showErrorNotification === 'function') {
-                showErrorNotification(button.getAttribute('data-error-message') || '複製に失敗しました。');
-            }
-            return;
-        }
-
-        button.disabled = true;
-
-        var body = new URLSearchParams();
-        body.set('action', 'ktp_duplicate_service');
-        body.set('nonce', nonce);
-        body.set('data_id', serviceId);
-
-        fetch(ajaxUrl, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-            },
-            body: body.toString()
-        })
-            .then(function (response) { return response.json(); })
-            .then(function (json) {
-                if (!json || !json.success) {
-                    var message = (json && json.data) ? json.data : (button.getAttribute('data-error-message') || '複製に失敗しました。');
-                    if (typeof showErrorNotification === 'function') {
-                        showErrorNotification(message);
-                    }
-                    button.disabled = false;
-                    return;
-                }
-
-                if (typeof showSuccessNotification === 'function') {
-                    showSuccessNotification(button.getAttribute('data-success-message') || '複製しました。');
-                }
-
-                var redirectUrl = json.data && json.data.redirect_url;
-                if (redirectUrl) {
-                    window.location.href = redirectUrl;
-                }
-            })
-            .catch(function () {
-                if (typeof showErrorNotification === 'function') {
-                    showErrorNotification(button.getAttribute('data-error-message') || '複製に失敗しました。');
-                }
-                button.disabled = false;
-            });
-    }
-
-    document.addEventListener('click', function (e) {
-        var duplicateBtn = e.target.closest('.ktp-service-duplicate-btn');
-        if (!duplicateBtn) {
-            return;
-        }
-        e.preventDefault();
-        duplicateServiceViaAjax(duplicateBtn);
-    });
 
     // スクロールタイマーを保存する変数（グローバルスコープ）
     window.scrollTimeouts = [];
@@ -1144,6 +1161,7 @@ document.addEventListener('DOMContentLoaded', function () {
             ktpCostSetupEventListeners();
         }
     }
+
 });
 
 // グローバル関数：スタッフチャットトグルをテスト

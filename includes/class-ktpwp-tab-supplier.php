@@ -1315,22 +1315,25 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 					}
 				}
 				$data_forms .= "<div class='button'>";
-				// 追加実行ボタン
+				// 追加実行ボタン（顧客タブと同じスタイル）
 				$data_forms .= "<input type='hidden' name='query_post' value='insert'>";
 				$data_forms .= "<input type='hidden' name='data_id' value=''>";
-				$data_forms .= '<button type="submit" name="send_post" title="' . esc_attr__( '追加実行', 'ktpwp' ) . '"><span class="material-symbols-outlined">select_check_box</span></button>';
-				// キャンセルボタン（JavaScriptでリダイレクト）
-				global $wp;
-				$current_page_id = get_queried_object_id();
-				$base_page_url = get_permalink( $current_page_id );
-				if ( ! $base_page_url ) {
-					$base_page_url = home_url( add_query_arg( array(), $wp->request ) );
-				}
-				$cancel_url = add_query_arg( array( 'tab_name' => $name ), $base_page_url );
-				$data_forms .= '<button type="button" onclick="window.location.href=\"' . esc_js( $cancel_url ) . '\"" title="' . esc_attr__( 'キャンセル', 'ktpwp' ) . '"><span class="material-symbols-outlined">disabled_by_default</span></button>';
-				$data_forms .= '<div class="add"></div>';
-				$data_forms .= '</div>';
+				$data_forms .= '<button type="submit" name="send_post" title="' . esc_attr__( '追加実行', 'ktpwp' ) . '" class="insert-submit-btn">'
+					. '<span class="material-symbols-outlined">select_check_box</span>'
+					. esc_html__( '追加実行', 'ktpwp' ) . '</button>';
 				$data_forms .= '</form>';
+
+				// キャンセルボタン（独立したフォーム・顧客タブと同じスタイル）
+				$data_forms .= '<form method="post" action="' . esc_url( $form_action_base_url ) . '" style="display:inline-block;margin-left:10px;">';
+				if ( function_exists( 'wp_nonce_field' ) ) {
+					$data_forms .= wp_nonce_field( 'ktp_supplier_action', 'ktp_supplier_nonce', true, false );
+				}
+				$data_forms .= '<input type="hidden" name="query_post" value="update">';
+				$data_forms .= '<button type="submit" title="' . esc_attr__( 'キャンセル', 'ktpwp' ) . '" style="background-color: #666 !important; margin-left: 10px;">'
+					. '<span class="material-symbols-outlined">disabled_by_default</span>'
+					. esc_html__( 'キャンセル', 'ktpwp' ) . '</button>';
+				$data_forms .= '</form>';
+				$data_forms .= '</div>';
 			}
 
 			// 空のフォームを表示(検索モードの場合)

@@ -129,20 +129,25 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					error_log( 'KTPWP Service: Request URI: ' . $_SERVER['REQUEST_URI'] );
 				}
 
-				// istmode（追加モード）の場合は update_table を呼ばない
 				$query_post = isset( $_POST['query_post'] ) ? sanitize_text_field( $_POST['query_post'] ) : '';
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 					error_log( 'KTPWP Service: Extracted query_post: "' . $query_post . '"' );
 				}
 
-				if ( $query_post !== 'istmode' ) {
-					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-						error_log( 'KTPWP Service: Calling update_table with query_post: "' . $query_post . '"' );
-					}
-					$this->update_table( $name );
-				} elseif ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-						error_log( 'KTPWP Service: Skipping update_table for istmode' );
+				// 追加・検索モードは GET へリダイレクト（タブ状態復元で上書きされないよう PRG）
+				if ( in_array( $query_post, array( 'istmode', 'srcmode' ), true ) ) {
+					$redirect_url = add_query_arg(
+						array(
+							'tab_name'   => $name,
+							'query_post' => $query_post,
+						),
+						KTPWP_Main::get_current_page_base_url()
+					);
+					wp_safe_redirect( $redirect_url );
+					exit;
 				}
+
+				$this->update_table( $name );
 			}
 
 			// GETパラメータからのメッセージをフローティングアラート（JS通知）で表示（他タブと統一・安全な出力）
@@ -213,10 +218,14 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				$search_mode = true;
 				$search_message = isset( $_SESSION['ktp_service_search_message'] ) ? $_SESSION['ktp_service_search_message'] : '';
 			}
-			// 本番等でセッションがリダイレクト後に引き継がれない場合の対策: URL の no_results=1 で検索フォーム＋該当なしを表示
-			if ( ! $search_mode && $_SERVER['REQUEST_METHOD'] === 'GET' && isset( $_GET['query_post'] ) && $_GET['query_post'] === 'srcmode' && isset( $_GET['no_results'] ) && $_GET['no_results'] === '1' ) {
+			// 本番等でセッションがリダイレクト後に引き継がれない場合の対策: GET の query_post=srcmode で検索フォームを表示
+			if ( ! $search_mode && $_SERVER['REQUEST_METHOD'] === 'GET' && isset( $_GET['query_post'] ) && $_GET['query_post'] === 'srcmode' ) {
 				$search_mode = true;
-				$search_message = esc_html__( '該当するサービスが見つかりませんでした。条件を変更して再検索してください。', 'ktpwp' );
+				if ( isset( $_GET['no_results'] ) && $_GET['no_results'] === '1' ) {
+					$search_message = esc_html__( '該当するサービスが見つかりませんでした。条件を変更して再検索してください。', 'ktpwp' );
+				} elseif ( $search_message === '' ) {
+					$search_message = esc_html__( '検索モードです。条件を入力して検索してください。', 'ktpwp' );
+				}
 			}
 
 			// JS通知は他タブと統一のため廃止（noticeのみ）
@@ -501,10 +510,6 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				}
 			}
 
-			// デバッグ: タブクリック時の動作をログに記録
-			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			}
-
 			// 初期化
 			$data_id = '';
 			$time = '';
@@ -778,23 +783,26 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				$data_forms .= $this->render_service_contract_fields_scripts();
 
 				$data_forms .= "<div class='button'>";
-				// 追加実行ボタン
+				// 追加実行ボタン（顧客タブと同じスタイル）
 				$data_forms .= "<input type='hidden' name='query_post' value='new'>";
 				$data_forms .= "<input type='hidden' name='data_id' value=''>";
 				$data_forms .= "<input type='hidden' name='action_type' value='create_new'>";
-				$data_forms .= '<button type="submit" name="send_post" value="create" title="' . esc_attr__( '追加実行', 'ktpwp' ) . '"><span class="material-symbols-outlined">select_check_box</span></button>';
+				$data_forms .= '<button type="submit" name="send_post" value="create" title="' . esc_attr__( '追加実行', 'ktpwp' ) . '" class="insert-submit-btn">'
+					. '<span class="material-symbols-outlined">select_check_box</span>'
+					. esc_html__( '追加実行', 'ktpwp' ) . '</button>';
 				$data_forms .= '</form>';
 
-				// キャンセルボタン（独立したフォーム）
+				// キャンセルボタン（独立したフォーム・顧客タブと同じスタイル）
 				$data_forms .= "<form method='post' action='' style='display:inline-block;margin-left:10px;'>";
 				if ( function_exists( 'wp_nonce_field' ) ) {
 					$data_forms .= wp_nonce_field( 'ktp_service_action', '_ktp_service_nonce', true, false );
 				}
 				$data_forms .= "<input type='hidden' name='query_post' value='update'>";
 				$data_forms .= "<input type='hidden' name='action_type' value='cancel'>";
-				$data_forms .= '<button type="submit" name="send_post" value="cancel" title="' . esc_attr__( 'キャンセル', 'ktpwp' ) . '"><span class="material-symbols-outlined">disabled_by_default</span></button>';
+				$data_forms .= '<button type="submit" title="' . esc_attr__( 'キャンセル', 'ktpwp' ) . '" style="background-color: #666 !important; margin-left: 10px;">'
+					. '<span class="material-symbols-outlined">disabled_by_default</span>'
+					. esc_html__( 'キャンセル', 'ktpwp' ) . '</button>';
 				$data_forms .= '</form>';
-				$data_forms .= '<div class="add"></div>';
 				$data_forms .= '</div>';
 			} else {
 				// 通常モード：既存の詳細フォーム表示

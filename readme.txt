@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.53
+Stable tag: 1.3.54
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,12 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.54 - 2026年06月15日 =
+* サービス複製が動作しない不具合を修正（Ajax nonce の不一致を解消）
+* サービス複製処理をグローバルスコープに移動し、クリックハンドラを安定化
+* サービス追加・検索モードがタブ状態復元で上書きされる不具合を修正（PRG リダイレクトと JS スキップ）
+* サービス・協力会社の追加モードボタンを顧客タブと統一（追加実行・キャンセル）
 
 = 1.3.53 - 2026年06月15日 =
 * サービス詳細の複製ボタンだけ大きく表示される不具合を修正（他ボタンと同じ form ラッパーに統一）
