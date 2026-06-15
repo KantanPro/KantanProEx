@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.58
+Stable tag: 1.3.59
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,10 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.59 - 2026年06月15日 =
+* 業務画面用スクリプトがホーム等の他ページで読み込まれないよう修正（タブ状態復元による ?progress= 付与を防止）
+* 業務画面（[ktpwp_all_tab] 等）のみで KantanPro 用 CSS/JS を読み込むよう変更
 
 = 1.3.58 - 2026年06月15日 =
 * 公開商品のお問い合わせフォームで、サービスごとに数量を「変更可能」か「1に固定」かを選べるよう追加

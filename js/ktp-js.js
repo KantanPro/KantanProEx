@@ -104,6 +104,11 @@
 })();
 
 document.addEventListener('DOMContentLoaded', function () {
+    // 業務画面（[ktpwp_all_tab]）以外ではタブ状態復元等を実行しない
+    if (!document.querySelector('.tabs.ktp_plugin_container')) {
+        return;
+    }
+
     // デバッグモードの設定
     window.ktpDebugMode = window.ktpDebugMode || false;
     

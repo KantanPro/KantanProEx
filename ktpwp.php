@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.3.58
+ * Version: 1.3.59
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -4477,6 +4477,53 @@ function ktpwp_ensure_shortcodes_registered() {
 }
 add_action( 'init', 'ktpwp_ensure_shortcodes_registered', 20 );
 
+/**
+ * フロントで KantanPro 業務画面（[ktpwp_all_tab] 等）が表示されているか判定する。
+ *
+ * 公開商品ショートコード（ktpwp_public_products）のみのページは対象外。
+ *
+ * @return bool
+ */
+function ktpwp_is_frontend_kantanpro_app_page() {
+    if ( is_admin() ) {
+        return false;
+    }
+
+    if ( isset( $_GET['tab_name'] ) && (string) wp_unslash( $_GET['tab_name'] ) !== '' ) {
+        return true;
+    }
+
+    global $post;
+    if ( ! $post instanceof WP_Post ) {
+        return false;
+    }
+
+    $content = (string) $post->post_content;
+    if ( $content === '' ) {
+        return false;
+    }
+
+    $shortcodes = array( 'kantanAllTab', 'ktpwp_all_tab', 'kantanpro_ex', 'ktpwp_login_error' );
+    foreach ( $shortcodes as $shortcode ) {
+        if ( has_shortcode( $content, $shortcode ) ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * フロントで KantanPro 業務画面向け CSS/JS を読み込むか。
+ *
+ * @return bool
+ */
+function ktpwp_should_enqueue_frontend_assets() {
+    $load = ktpwp_is_frontend_kantanpro_app_page();
+
+    return (bool) apply_filters( 'ktpwp_should_enqueue_frontend_assets', $load );
+}
+
 function ktpwp_scripts_and_styles( $hook = '' ) {
     // 管理画面ではフロント用 JS/CSS・Google CDN の jQuery を読み込まない。
     // コアの jQuery / メニュー用スクリプトを上書きすると、ダッシュボードなど左メニューのサブメニューが表示されなくなる。
@@ -4501,6 +4548,10 @@ function ktpwp_scripts_and_styles( $hook = '' ) {
             wp_enqueue_style( 'ktpwp-site-health-reset', plugins_url( 'css/site-health-reset.css', __FILE__ ) . '?v=' . time(), array(), KANTANPRO_PLUGIN_VERSION, 'all' );
         }
 
+        return;
+    }
+
+    if ( ! ktpwp_should_enqueue_frontend_assets() ) {
         return;
     }
 

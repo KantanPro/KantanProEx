@@ -128,44 +128,16 @@ class KTPWP_Assets {
      *
      * @return bool
      */
-    private function is_kantanpro_page() {
-        // メインクエリの判定（front-end のみ）
-        if ( is_admin() ) {
-            return false;
-        }
-
-        // タブ切替等でクエリ文字列に tab_name が付いている場合は KantanPro ページと判断
-        if ( isset( $_GET['tab_name'] ) && $_GET['tab_name'] !== '' ) {
-            return true;
-        }
-
-        // post content にショートコードが含まれているかで判定
-        global $post;
-        if ( ! $post instanceof WP_Post ) {
-            return false;
-        }
-        $content = (string) $post->post_content;
-        if ( $content === '' ) {
-            return false;
-        }
-
-        $shortcodes = array( 'kantanAllTab', 'ktpwp_all_tab', 'kantanpro_ex', 'ktpwp_login_error' );
-        foreach ( $shortcodes as $sc ) {
-            if ( has_shortcode( $content, $sc ) ) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /**
      * フロントで KantanPro の CSS/JS を読み込むか（テーマや子テーマで拡張可能）
      *
      * @return bool
      */
     private function should_enqueue_frontend_assets() {
-        $load = $this->is_kantanpro_page();
+        $load = function_exists( 'ktpwp_is_frontend_kantanpro_app_page' )
+            ? ktpwp_is_frontend_kantanpro_app_page()
+            : false;
+
         return (bool) apply_filters( 'ktpwp_should_enqueue_frontend_assets', $load, $this );
     }
 
