@@ -68,6 +68,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				is_public TINYINT(1) NOT NULL DEFAULT 0,
 				contract_billing_cycle VARCHAR(20) NOT NULL DEFAULT 'none',
 				stock INT UNSIGNED NOT NULL DEFAULT 1,
+				public_quantity_fixed TINYINT(1) NOT NULL DEFAULT 0,
 				PRIMARY KEY  (id)
 			) {$charset_collate};";
 
@@ -132,6 +133,9 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				? KTPWP_Contract_Billing_Cycle::sanitize( isset( $_POST['contract_billing_cycle'] ) ? wp_unslash( $_POST['contract_billing_cycle'] ) : '' )
 				: 'none';
 			$stock = isset( $_POST['stock'] ) ? max( 0, absint( $_POST['stock'] ) ) : 1;
+			$public_quantity_fixed = self::sanitize_public_quantity_fixed(
+				isset( $_POST['public_quantity_fixed'] ) ? wp_unslash( $_POST['public_quantity_fixed'] ) : null
+			);
 
 			// Create search field value
 			$search_field_value = implode(
@@ -178,11 +182,18 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 							$data['stock'] = $stock;
 						}
 
+						if ( $this->service_table_has_public_quantity_fixed_column( $table_name ) ) {
+							$data['public_quantity_fixed'] = $public_quantity_fixed;
+						}
+
 						$format = array( '%s', '%f', '%f', '%s', '%s', '%s', '%d', '%s' );
 						if ( isset( $data['contract_billing_cycle'] ) ) {
 							$format[] = '%s';
 						}
 						if ( isset( $data['stock'] ) ) {
+							$format[] = '%d';
+						}
+						if ( isset( $data['public_quantity_fixed'] ) ) {
 							$format[] = '%d';
 						}
 
@@ -267,6 +278,9 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				? KTPWP_Contract_Billing_Cycle::sanitize( isset( $_POST['contract_billing_cycle'] ) ? wp_unslash( $_POST['contract_billing_cycle'] ) : '' )
 				: 'none';
 			$stock = isset( $_POST['stock'] ) ? max( 0, absint( $_POST['stock'] ) ) : 1;
+			$public_quantity_fixed = self::sanitize_public_quantity_fixed(
+				isset( $_POST['public_quantity_fixed'] ) ? wp_unslash( $_POST['public_quantity_fixed'] ) : null
+			);
 
 			// 検索フィールド値を作成
 			$search_field_value = implode(
@@ -306,6 +320,11 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 
 			if ( $this->service_table_has_stock_column( $table_name ) ) {
 				$insert_data['stock'] = $stock;
+				$insert_format[] = '%d';
+			}
+
+			if ( $this->service_table_has_public_quantity_fixed_column( $table_name ) ) {
+				$insert_data['public_quantity_fixed'] = $public_quantity_fixed;
 				$insert_format[] = '%d';
 			}
 
@@ -448,6 +467,13 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 
 			if ( $this->service_table_has_stock_column( $table_name ) ) {
 				$duplicate_data['stock'] = isset( $original_data->stock ) ? max( 0, absint( $original_data->stock ) ) : 1;
+				$duplicate_format[] = '%d';
+			}
+
+			if ( $this->service_table_has_public_quantity_fixed_column( $table_name ) ) {
+				$duplicate_data['public_quantity_fixed'] = isset( $original_data->public_quantity_fixed )
+					? self::sanitize_public_quantity_fixed( $original_data->public_quantity_fixed )
+					: 0;
 				$duplicate_format[] = '%d';
 			}
 
@@ -1382,6 +1408,51 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			$cache[ $table_name ] = is_array( $columns ) && in_array( 'stock', $columns, true );
 
 			return $cache[ $table_name ];
+		}
+
+		/**
+		 * サービステーブルに public_quantity_fixed カラムがあるか確認する。
+		 *
+		 * @param string $table_name テーブル名。
+		 * @return bool
+		 */
+		private function service_table_has_public_quantity_fixed_column( $table_name ) {
+			global $wpdb;
+
+			static $cache = array();
+
+			if ( isset( $cache[ $table_name ] ) ) {
+				return $cache[ $table_name ];
+			}
+
+			$columns = $wpdb->get_col( "SHOW COLUMNS FROM `{$table_name}`" );
+			$cache[ $table_name ] = is_array( $columns ) && in_array( 'public_quantity_fixed', $columns, true );
+
+			return $cache[ $table_name ];
+		}
+
+		/**
+		 * 公開フォームの数量固定フラグを正規化する。
+		 *
+		 * @param mixed $raw POST 値など。
+		 * @return int 0=変更可能, 1=1固定
+		 */
+		public static function sanitize_public_quantity_fixed( $raw ) {
+			return isset( $raw ) && '1' === (string) $raw ? 1 : 0;
+		}
+
+		/**
+		 * 公開フォームで数量を1固定とするサービスか判定する。
+		 *
+		 * @param object|null $service サービスレコード。
+		 * @return bool
+		 */
+		public static function is_public_quantity_fixed( $service ) {
+			if ( ! is_object( $service ) || ! isset( $service->public_quantity_fixed ) ) {
+				return false;
+			}
+
+			return (int) $service->public_quantity_fixed === 1;
 		}
 
 		/**

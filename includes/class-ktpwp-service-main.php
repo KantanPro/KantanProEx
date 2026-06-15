@@ -523,6 +523,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			$is_public = 0;
 			$contract_billing_cycle = class_exists( 'KTPWP_Contract_Billing_Cycle' ) ? KTPWP_Contract_Billing_Cycle::NONE : 'none';
 			$stock = 1;
+			$public_quantity_fixed = 0;
 			$query_id = 0;
 
 			// 追加モード以外の場合のみデータを取得
@@ -591,6 +592,9 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 						? KTPWP_Contract_Billing_Cycle::sanitize( $row->contract_billing_cycle )
 						: ( class_exists( 'KTPWP_Contract_Billing_Cycle' ) ? KTPWP_Contract_Billing_Cycle::NONE : 'none' );
 					$stock = isset( $row->stock ) ? max( 0, absint( $row->stock ) ) : 1;
+					$public_quantity_fixed = class_exists( 'KTPWP_Service_DB' )
+						? KTPWP_Service_DB::sanitize_public_quantity_fixed( $row->public_quantity_fixed ?? null )
+						: 0;
 				}
 			}
 			  			// 表示するフォーム要素を定義
@@ -773,6 +777,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				}
 
 				$data_forms .= $this->render_is_public_checkbox_field( 0 );
+				$data_forms .= $this->render_public_quantity_mode_field( 0 );
 				$default_cycle = class_exists( 'KTPWP_Contract_Billing_Cycle' ) ? KTPWP_Contract_Billing_Cycle::NONE : 'none';
 				$data_forms .= $this->render_stock_field( 1 );
 				$data_forms .= $this->render_contract_billing_cycle_field( $default_cycle );
@@ -986,6 +991,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					}
 				}
 				$data_forms .= $this->render_is_public_checkbox_field( (int) $is_public );
+				$data_forms .= $this->render_public_quantity_mode_field( (int) $public_quantity_fixed );
 				$cycle_value = class_exists( 'KTPWP_Contract_Billing_Cycle' )
 					? KTPWP_Contract_Billing_Cycle::sanitize( $contract_billing_cycle )
 					: 'none';
@@ -1504,6 +1510,34 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				. '<span class="ktpwp-service-public-field__text">' . esc_html__( 'サイトに公開', 'ktpwp' ) . '</span>'
 				. '</label>'
 				. '</div>';
+		}
+
+		/**
+		 * 公開フォームの数量設定フィールドの HTML を返す。
+		 *
+		 * @param int $public_quantity_fixed 0=変更可能, 1=1固定。
+		 * @return string
+		 */
+		private function render_public_quantity_mode_field( $public_quantity_fixed ) {
+			$fixed = (int) $public_quantity_fixed === 1;
+			$html  = $this->render_service_contract_fields_styles();
+			$html .= '<div class="ktpwp-service-field-block ktpwp-service-field-block--public-quantity">';
+			$html .= '<div class="ktpwp-service-field-block__label">';
+			$html .= '<span class="ktpwp-service-field-block__label-text ktpwp-service-field-block__section-title">' . esc_html__( '公開フォームの数量', 'ktpwp' ) . '</span>';
+			$html .= '<span class="ktpwp-service-field-block__hint">' . esc_html__( 'サイト公開時のお問い合わせフォームで、数量を入力させるか1に固定するかを選びます。', 'ktpwp' ) . '</span>';
+			$html .= '</div>';
+			$html .= '<div class="ktpwp-service-field-block__control ktpwp-service-field-block__control--radio">';
+			$html .= '<label class="ktpwp-service-radio-option">';
+			$html .= '<input type="radio" name="public_quantity_fixed" value="0"' . checked( ! $fixed, true, false ) . '>';
+			$html .= '<span>' . esc_html__( '変更可能（数量欄を表示）', 'ktpwp' ) . '</span>';
+			$html .= '</label>';
+			$html .= '<label class="ktpwp-service-radio-option">';
+			$html .= '<input type="radio" name="public_quantity_fixed" value="1"' . checked( $fixed, true, false ) . '>';
+			$html .= '<span>' . esc_html__( '1に固定（数量欄を非表示）', 'ktpwp' ) . '</span>';
+			$html .= '</label>';
+			$html .= '</div></div>';
+
+			return $html;
 		}
 
 		/**

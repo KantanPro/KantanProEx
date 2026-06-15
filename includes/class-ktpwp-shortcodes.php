@@ -1504,6 +1504,9 @@ class KTPWP_Shortcodes {
             'is_sold_out'                  => $availability_state === 'sold_out',
             'is_pending'                   => $availability_state === 'pending',
             'status_label'                 => $status_label,
+            'quantity_fixed'               => class_exists( 'KTPWP_Service_DB' )
+                ? KTPWP_Service_DB::is_public_quantity_fixed( $service )
+                : false,
         );
     }
 
@@ -1916,7 +1919,7 @@ class KTPWP_Shortcodes {
                         <label for="ktpwp-pp-phone"><?php echo esc_html__( '電話番号', 'ktpwp' ); ?></label>
                         <input type="tel" id="ktpwp-pp-phone" name="phone" autocomplete="tel" />
                     </p>
-                    <p class="ktpwp-public-product-order-form__field">
+                    <p class="ktpwp-public-product-order-form__field ktpwp-public-product-order-form__field--quantity">
                         <label for="ktpwp-pp-quantity"><?php echo esc_html__( '数量', 'ktpwp' ); ?></label>
                         <input type="number" id="ktpwp-pp-quantity" name="quantity" min="1" step="1" value="1" />
                     </p>

@@ -69,7 +69,14 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 			$email        = isset( $form['email'] ) ? sanitize_email( $form['email'] ) : '';
 			$phone        = isset( $form['phone'] ) ? sanitize_text_field( $form['phone'] ) : '';
 			$message      = isset( $form['message'] ) ? sanitize_textarea_field( $form['message'] ) : '';
-			$quantity     = isset( $form['quantity'] ) ? floatval( $form['quantity'] ) : 1;
+			if ( class_exists( 'KTPWP_Service_DB' ) && KTPWP_Service_DB::is_public_quantity_fixed( $service ) ) {
+				$quantity = 1;
+			} else {
+				$quantity = isset( $form['quantity'] ) ? floatval( $form['quantity'] ) : 1;
+				if ( $quantity < 1 ) {
+					$quantity = 1;
+				}
+			}
 
 			if ( $contact_name === '' ) {
 				return array(
@@ -83,10 +90,6 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 					'success' => false,
 					'message' => __( '有効なメールアドレスを入力してください。', 'ktpwp' ),
 				);
-			}
-
-			if ( $quantity < 1 ) {
-				$quantity = 1;
 			}
 
 			if ( class_exists( 'KTPWP_Contract_Service_Public_Availability' ) ) {

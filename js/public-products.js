@@ -483,7 +483,26 @@
 				'ktpwp-public-product-order-form__message ktpwp-public-product-order-form__message--' + (type || 'info');
 		}
 
-		function openDetail(el, options) {
+		function syncQuantityField(product) {
+		if (!form) {
+			return;
+		}
+
+		var field = qs(form, '.ktpwp-public-product-order-form__field--quantity');
+		if (!field) {
+			return;
+		}
+
+		var fixed = product && product.quantity_fixed === true;
+		field.hidden = fixed;
+
+		var qty = qs(field, 'input[name="quantity"]');
+		if (qty) {
+			qty.value = '1';
+		}
+	}
+
+	function openDetail(el, options) {
 			options = options || {};
 			var product = parseProduct(el);
 			if (!product || !product.id) {
@@ -503,6 +522,7 @@
 				if (qty) {
 					qty.value = '1';
 				}
+				syncQuantityField(product);
 				form.hidden = !acceptanceOpen;
 			}
 
