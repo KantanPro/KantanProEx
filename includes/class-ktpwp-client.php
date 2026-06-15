@@ -76,8 +76,8 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 				'<option value="project_name" ' . selected( $order_sort_by, 'project_name', false ) . '>' . esc_html__( '案件名', 'ktpwp' ) . '</option>' .
 				'</select>' .
 				'<select id="' . esc_attr( 'ktp-' . $name . '-order-sort-order' ) . '" name="order_sort_order">' .
-				'<option value="ASC" ' . selected( $order_sort_order, 'ASC', false ) . '>' . esc_html__( '昇順', 'ktpwp' ) . '</option>' .
 				'<option value="DESC" ' . selected( $order_sort_order, 'DESC', false ) . '>' . esc_html__( '降順', 'ktpwp' ) . '</option>' .
+				'<option value="ASC" ' . selected( $order_sort_order, 'ASC', false ) . '>' . esc_html__( '昇順', 'ktpwp' ) . '</option>' .
 				'</select>' .
 				'<button type="submit" style="margin-left:5px;padding:4px 8px;background:#f0f0f0;border:1px solid #ccc;border-radius:3px;cursor:pointer;" title="' . esc_attr__( '適用', 'ktpwp' ) . '">' .
 				( class_exists( 'KTPWP_SVG_Icons' ) ? KTPWP_SVG_Icons::get_icon( 'check', array( 'style' => 'font-size:18px;line-height:18px;vertical-align:middle;' ) ) : '<span class="material-symbols-outlined" style="font-size:18px;line-height:18px;vertical-align:middle;">check</span>' ) .
@@ -346,11 +346,11 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 
 			// ソート順の取得（デフォルトはIDの降順）
 			$sort_by = 'id';
-			$sort_order = 'DESC';
+			$sort_order = class_exists( 'KTPWP_List_Table' ) ? KTPWP_List_Table::default_sort_order() : 'DESC';
 
 			// 注文履歴用のソート順（デフォルトは日付の降順）
 			$order_sort_by = 'time';
-			$order_sort_order = 'DESC';
+			$order_sort_order = class_exists( 'KTPWP_List_Table' ) ? KTPWP_List_Table::default_sort_order() : 'DESC';
 
 			if ( isset( $_GET['sort_by'] ) ) {
 				$sort_by = sanitize_text_field( $_GET['sort_by'] );
@@ -362,9 +362,9 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 			}
 
 			if ( isset( $_GET['sort_order'] ) ) {
-				$sort_order_param = strtoupper( sanitize_text_field( $_GET['sort_order'] ) );
-				// ASCかDESCのみ許可
-				$sort_order = ( $sort_order_param === 'ASC' ) ? 'ASC' : 'DESC';
+				$sort_order = class_exists( 'KTPWP_List_Table' )
+					? KTPWP_List_Table::sanitize_sort_order( sanitize_text_field( $_GET['sort_order'] ) )
+					: 'DESC';
 			}
 
 			// 注文履歴のソート順を取得
@@ -378,9 +378,17 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 			}
 
 			if ( isset( $_GET['order_sort_order'] ) ) {
-				$order_sort_order_param = strtoupper( sanitize_text_field( $_GET['order_sort_order'] ) );
-				// ASCかDESCのみ許可
-				$order_sort_order = ( $order_sort_order_param === 'ASC' ) ? 'ASC' : 'DESC';
+				$order_sort_order = class_exists( 'KTPWP_List_Table' )
+					? KTPWP_List_Table::sanitize_sort_order( sanitize_text_field( $_GET['order_sort_order'] ) )
+					: 'DESC';
+			}
+
+			// リスト表示前に頻度を加算（一覧に反映させる）
+			if ( $view_mode !== 'order_history' && isset( $_GET['data_id'] ) && $_GET['data_id'] !== '' && ( ! defined( 'DOING_AJAX' ) || ! DOING_AJAX ) && ( ! function_exists( 'ktpwp_should_skip_frequency_on_view' ) || ! ktpwp_should_skip_frequency_on_view() ) ) {
+				$view_record_id = filter_input( INPUT_GET, 'data_id', FILTER_SANITIZE_NUMBER_INT );
+				if ( $view_record_id > 0 && function_exists( 'ktpwp_increment_record_frequency_on_view' ) ) {
+					ktpwp_increment_record_frequency_on_view( 'client', (int) $view_record_id );
+				}
 			}
 
 			// 現在のページのURLを生成（動的パーマリンク取得）
@@ -721,11 +729,6 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 								'label'    => __( '頻度', 'ktpwp' ),
 								'sort_key' => 'frequency',
 							),
-							array(
-								'class'    => 'col-status',
-								'label'    => __( 'ステータス', 'ktpwp' ),
-								'sort_key' => 'client_status',
-							),
 						),
 						array(
 							'base_url'      => $base_page_url,
@@ -734,7 +737,8 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 							'preserve_args' => KTPWP_List_Table::preserved_query_args(
 								array( 'query_post', 'send_post' )
 							),
-						)
+						),
+						'ktp-list-table--party'
 					);
 
 					foreach ( $post_row as $row ) {
@@ -777,9 +781,6 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 
 						$is_excluded = ( $client_status === '対象外' || $client_status === 'Inactive' );
 						$row_class   = $is_excluded ? 'ktp-data-list-row--excluded' : '';
-						$status_cell = $is_excluded
-							? '<span class="ktp-data-list-status-excluded">' . esc_html__( '対象外', 'ktpwp' ) . '</span>'
-							: esc_html( $client_status );
 
 						// カテゴリーが空の場合は何も表示しない
 						$display_category = ! empty( $category ) ? $category : '';
@@ -791,7 +792,6 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 							. '<td class="col-contact">' . $user_name . '</td>'
 							. '<td class="col-category">' . esc_html( $display_category ) . '</td>'
 							. '<td class="col-frequency">' . $frequency . '</td>'
-							. '<td class="col-status">' . $status_cell . '</td>'
 							. '</tr>';
 					}
 

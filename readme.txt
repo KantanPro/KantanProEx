@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.46
+Stable tag: 1.3.47
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,15 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.47 - 2026年06月15日 =
+* 顧客・サービス・協力会社リストのソート初期値を降順に統一
+* 利用頻度カウントを共通化し、一覧表示・詳細表示・職能操作時に正しく加算
+* タブ復帰時にソート順など前回の表示状態を復元
+* 顧客リストのステータス列を非表示に変更
+* 固定ページの標準コンテンツ幅を1400pxに変更（新規インストール時に自動適用）
+* デザイン設定に固定ページごとのコンテンツ幅設定を追加
+* 顧客・サービス・協力会社リスト表のカラム幅を標準幅1400px向けに調整
 
 = 1.3.46 - 2026年06月15日 =
 * ヘッダー更新ベルクリック時に「最新バージョンです」と誤表示される不具合を修正

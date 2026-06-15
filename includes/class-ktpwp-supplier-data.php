@@ -194,12 +194,16 @@ if ( ! class_exists( 'KTPWP_Supplier_Data' ) ) {
 
 					if ( count( $results ) === 1 ) {
 						$found_id = (int) $results[0]->id;
-						$wpdb->query(
-							$wpdb->prepare(
-								"UPDATE {$table_name} SET frequency = frequency + 1 WHERE id = %d",
-								$found_id
-							)
-						);
+						if ( function_exists( 'ktpwp_increment_record_frequency' ) ) {
+							ktpwp_increment_record_frequency( 'supplier', $found_id );
+						} else {
+							$wpdb->query(
+								$wpdb->prepare(
+									"UPDATE {$table_name} SET frequency = COALESCE(frequency, 0) + 1 WHERE id = %d",
+									$found_id
+								)
+							);
+						}
 
 						$cookie_name = 'ktp_' . $tab_name . '_id';
 						setcookie( $cookie_name, (string) $found_id, time() + ( 86400 * 30 ), '/' );
@@ -380,6 +384,10 @@ if ( ! class_exists( 'KTPWP_Supplier_Data' ) ) {
                         });
                         </script>';
 						} else {
+							if ( function_exists( 'ktpwp_increment_record_frequency' ) ) {
+								ktpwp_increment_record_frequency( 'supplier', $data_id );
+							}
+
 							$cookie_name = 'ktp_' . $tab_name . '_id';
 							setcookie( $cookie_name, $data_id, time() + ( 86400 * 30 ), '/' );
 

@@ -603,12 +603,16 @@ if ( ! class_exists( 'KTPWP_Client_DB' ) ) {
 				}
 
 				if ( $result !== false ) {
-					$wpdb->query(
-                        $wpdb->prepare(
-                            "UPDATE $table_name SET frequency = frequency + 1 WHERE id = %d",
-                            $data_id
-                        )
-                    );
+					if ( function_exists( 'ktpwp_increment_record_frequency' ) ) {
+						ktpwp_increment_record_frequency( 'client', $data_id );
+					} else {
+						$wpdb->query(
+							$wpdb->prepare(
+								"UPDATE $table_name SET frequency = COALESCE(frequency, 0) + 1 WHERE id = %d",
+								$data_id
+							)
+						);
+					}
 
 					if ( isset( $_GET['sort_by'] ) || isset( $_GET['sort_order'] ) ) {
 						wp_redirect( remove_query_arg( 'message', wp_get_referer() ) );
@@ -674,12 +678,16 @@ if ( ! class_exists( 'KTPWP_Client_DB' ) ) {
 				if ( count( $results ) === 1 ) {
 					$found_id = $results[0]->id;
 
-					$wpdb->query(
-                        $wpdb->prepare(
-                            "UPDATE $table_name SET frequency = frequency + 1 WHERE id = %d",
-                            $found_id
-                        )
-                    );
+					if ( function_exists( 'ktpwp_increment_record_frequency' ) ) {
+						ktpwp_increment_record_frequency( 'client', $found_id );
+					} else {
+						$wpdb->query(
+							$wpdb->prepare(
+								"UPDATE $table_name SET frequency = COALESCE(frequency, 0) + 1 WHERE id = %d",
+								$found_id
+							)
+						);
+					}
 
 					$cookie_name = 'ktp_' . $tab_name . '_id';
 					setcookie( $cookie_name, $found_id, time() + ( 86400 * 30 ), '/' );

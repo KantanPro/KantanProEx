@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.3.46
+ * Version: 1.3.47
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -1568,6 +1568,10 @@ function ktpwp_initialize_new_installation() {
         ktpwp_safe_add_order_client_department_column();
 
         ktpwp_ensure_order_auxiliary_tables();
+
+        if ( class_exists( 'KTPWP_Settings' ) ) {
+            KTPWP_Settings::seed_default_page_content_widths();
+        }
 
         // 3. 新規インストール完了フラグを設定
         update_option( 'ktpwp_new_installation_completed', true );
@@ -5132,7 +5136,10 @@ function KTPWP_Index() {
             // KantanProEX では KTP banner を表示しない
             $before_header_banner = '';
 
-            $return_value = $before_header_banner . $front_message . $tab_view;
+            $layout_attrs = class_exists( 'KTPWP_Settings' )
+                ? KTPWP_Settings::get_page_layout_wrapper_attributes()
+                : 'class="ktpwp-page-layout"';
+            $return_value = '<div ' . $layout_attrs . '>' . $before_header_banner . $front_message . $tab_view . '</div>';
 
             // 出力 HTML 内の /plugins/KantanPro/ を KantanProEX に統一（src/data-src 等に旧パスが残る取りこぼし対策）
             if ( defined( 'KANTANPRO_PLUGIN_CANONICAL_DIR' ) ) {
@@ -5932,6 +5939,101 @@ function ktpwp_safe_session_close() {
         return true;
     }
     return false;
+}
+
+/**
+ * 頻度カウント対象テーブル名を返す。
+ *
+ * @param string $entity_key client|supplier|service|supplier_skill
+ * @return string|null
+ */
+function ktpwp_get_frequency_table_name( $entity_key ) {
+    global $wpdb;
+
+    $tables = array(
+        'client'         => $wpdb->prefix . 'ktp_client',
+        'supplier'       => $wpdb->prefix . 'ktp_supplier',
+        'service'        => $wpdb->prefix . 'ktp_service',
+        'supplier_skill' => $wpdb->prefix . 'ktp_supplier_skills',
+    );
+
+    $entity_key = sanitize_key( (string) $entity_key );
+
+    return isset( $tables[ $entity_key ] ) ? $tables[ $entity_key ] : null;
+}
+
+/**
+ * レコードの利用頻度を +1 する。
+ *
+ * @param string $entity_key client|supplier|service|supplier_skill
+ * @param int    $record_id  レコード ID。
+ * @return void
+ */
+function ktpwp_increment_record_frequency( $entity_key, $record_id ) {
+    global $wpdb;
+
+    $record_id = absint( $record_id );
+    if ( $record_id <= 0 ) {
+        return;
+    }
+
+    $table_name = ktpwp_get_frequency_table_name( $entity_key );
+    if ( ! $table_name ) {
+        return;
+    }
+
+    $wpdb->query(
+        $wpdb->prepare(
+            "UPDATE {$table_name} SET frequency = COALESCE(frequency, 0) + 1 WHERE id = %d",
+            $record_id
+        )
+    );
+}
+
+/**
+ * 詳細表示時の頻度加算（同一 URL の再読み込みでは重複しない）。
+ *
+ * @param string $entity_key client|supplier|service|supplier_skill
+ * @param int    $record_id  レコード ID。
+ * @return void
+ */
+function ktpwp_increment_record_frequency_on_view( $entity_key, $record_id ) {
+    if ( defined( 'DOING_AJAX' ) && DOING_AJAX ) {
+        return;
+    }
+
+    $record_id = absint( $record_id );
+    if ( $record_id <= 0 ) {
+        return;
+    }
+
+    ktpwp_safe_session_start();
+
+    $uri_hash    = md5( isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '' );
+    $session_key = 'ktp_freq_view_' . sanitize_key( (string) $entity_key );
+    $dedup_token = sanitize_key( (string) $entity_key ) . ':' . $record_id . ':' . $uri_hash;
+
+    if ( isset( $_SESSION[ $session_key ] ) && $_SESSION[ $session_key ] === $dedup_token ) {
+        return;
+    }
+
+    ktpwp_increment_record_frequency( $entity_key, $record_id );
+    $_SESSION[ $session_key ] = $dedup_token;
+}
+
+/**
+ * GET 表示時の頻度加算をスキップするか（更新・検索リダイレクト直後は POST 側で加算済み）。
+ *
+ * @return bool
+ */
+function ktpwp_should_skip_frequency_on_view() {
+    if ( ! isset( $_GET['message'] ) ) {
+        return false;
+    }
+
+    $message = sanitize_key( wp_unslash( (string) $_GET['message'] ) );
+
+    return in_array( $message, array( 'updated', 'found' ), true );
 }
 
 /**

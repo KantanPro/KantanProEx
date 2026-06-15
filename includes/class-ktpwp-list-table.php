@@ -21,11 +21,16 @@ if ( ! class_exists( 'KTPWP_List_Table' ) ) {
 		 *
 		 * @param array<int, array<string, string>> $columns      列定義（class, label, sort_key 任意）。
 		 * @param array<string, mixed>              $sort_context  ソート用コンテキスト（空ならヘッダーは非リンク）。
+		 * @param string                            $table_class   表への追加クラス（例: ktp-list-table--party）。
 		 * @return string
 		 */
-		public static function open( array $columns, array $sort_context = array() ) {
+		public static function open( array $columns, array $sort_context = array(), $table_class = '' ) {
 			$html = '<div class="ktp-service-list-table-wrap">';
-			$html .= '<table class="ktp-service-list-table widefat striped">';
+			$table_classes = 'ktp-service-list-table widefat striped';
+			if ( $table_class !== '' ) {
+				$table_classes .= ' ' . sanitize_html_class( (string) $table_class );
+			}
+			$html .= '<table class="' . esc_attr( $table_classes ) . '">';
 			$html .= '<thead><tr>';
 
 			foreach ( $columns as $column ) {
@@ -78,6 +83,25 @@ if ( ! class_exists( 'KTPWP_List_Table' ) ) {
 		}
 
 		/**
+		 * デフォルトのソート順。
+		 *
+		 * @return string
+		 */
+		public static function default_sort_order() {
+			return 'DESC';
+		}
+
+		/**
+		 * ソート順を正規化する（明示的な ASC 以外は降順）。
+		 *
+		 * @param string $sort_order 入力値。
+		 * @return string ASC または DESC。
+		 */
+		public static function sanitize_sort_order( $sort_order ) {
+			return strtoupper( trim( (string) $sort_order ) ) === 'ASC' ? 'ASC' : self::default_sort_order();
+		}
+
+		/**
 		 * 列ヘッダー用のソート URL を組み立てる。
 		 *
 		 * @param string               $base_url      ベース URL。
@@ -88,7 +112,7 @@ if ( ! class_exists( 'KTPWP_List_Table' ) ) {
 		 * @return string
 		 */
 		public static function sort_url( $base_url, $sort_key, $current_by, $current_order, array $preserve_args = array() ) {
-			$order = ( $sort_key === $current_by && 'ASC' === $current_order ) ? 'DESC' : 'ASC';
+			$order = ( $sort_key === $current_by && 'DESC' === $current_order ) ? 'ASC' : 'DESC';
 
 			$args = array_merge(
 				$preserve_args,
@@ -167,7 +191,7 @@ if ( ! class_exists( 'KTPWP_List_Table' ) ) {
 				(string) $sort_context['base_url'],
 				$sort_key,
 				isset( $sort_context['sort_by'] ) ? (string) $sort_context['sort_by'] : '',
-				isset( $sort_context['sort_order'] ) ? (string) $sort_context['sort_order'] : 'DESC',
+				isset( $sort_context['sort_order'] ) ? (string) $sort_context['sort_order'] : self::default_sort_order(),
 				isset( $sort_context['preserve_args'] ) && is_array( $sort_context['preserve_args'] ) ? $sort_context['preserve_args'] : array()
 			);
 

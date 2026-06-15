@@ -62,7 +62,7 @@ if ( ! class_exists( 'KTPWP_Service_UI' ) ) {
 
 			// ソート順の取得（デフォルトはIDの降順 - 新しい順）
 			$sort_by = 'id';
-			$sort_order = 'DESC';
+			$sort_order = class_exists( 'KTPWP_List_Table' ) ? KTPWP_List_Table::default_sort_order() : 'DESC';
 
 			if ( isset( $_GET['sort_by'] ) ) {
 				$sort_by = sanitize_text_field( $_GET['sort_by'] );
@@ -74,9 +74,9 @@ if ( ! class_exists( 'KTPWP_Service_UI' ) ) {
 			}
 
 			if ( isset( $_GET['sort_order'] ) ) {
-				$sort_order_param = strtoupper( sanitize_text_field( $_GET['sort_order'] ) );
-				// ASCかDESCのみ許可
-				$sort_order = ( $sort_order_param === 'ASC' ) ? 'ASC' : 'DESC';
+				$sort_order = class_exists( 'KTPWP_List_Table' )
+					? KTPWP_List_Table::sanitize_sort_order( sanitize_text_field( $_GET['sort_order'] ) )
+					: 'DESC';
 			}
 
 			// 現在のページのURLを生成（動的パーマリンク取得）

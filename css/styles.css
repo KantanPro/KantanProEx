@@ -1686,6 +1686,7 @@ form > .create-order-btn {
 .ktp-service-list-table {
   border-collapse: collapse;
   margin: 0;
+  table-layout: fixed;
   width: 100%;
 }
 
@@ -1757,7 +1758,6 @@ form > .create-order-btn {
 .ktp-service-list-table .col-public {
   text-align: center;
   white-space: nowrap;
-  width: 4.5em;
 }
 
 .ktp-service-public-badge {
@@ -2614,6 +2614,63 @@ form > .create-order-btn {
   width: 3.5em;
 }
 
+/* 顧客・協力会社リスト（標準幅 1400px 向け） */
+.ktp-service-list-table.ktp-list-table--party .col-id {
+  width: 5%;
+}
+
+.ktp-service-list-table.ktp-list-table--party .col-company {
+  width: 38%;
+}
+
+.ktp-service-list-table.ktp-list-table--party .col-contact {
+  width: 16%;
+}
+
+.ktp-service-list-table.ktp-list-table--party .col-category {
+  width: 26%;
+}
+
+.ktp-service-list-table.ktp-list-table--party .col-frequency {
+  text-align: center;
+  width: 10%;
+}
+
+/* サービスリスト（リスト欄は画面幅の約50%・標準1400px時は約660px） */
+.ktp-service-list-table.ktp-list-table--service .col-id {
+  width: 5%;
+}
+
+.ktp-service-list-table.ktp-list-table--service .col-image {
+  width: 7%;
+}
+
+.ktp-service-list-table.ktp-list-table--service .col-name {
+  width: 24%;
+}
+
+.ktp-service-list-table.ktp-list-table--service .col-public {
+  width: 8%;
+}
+
+.ktp-service-list-table.ktp-list-table--service .col-contract {
+  width: 9%;
+}
+
+.ktp-service-list-table.ktp-list-table--service .col-price-unit {
+  text-align: right;
+  width: 16%;
+}
+
+.ktp-service-list-table.ktp-list-table--service .col-category {
+  width: 21%;
+}
+
+.ktp-service-list-table.ktp-list-table--service .col-frequency {
+  text-align: center;
+  width: 10%;
+}
+
 .ktp-service-list-table .col-image {
   line-height: 0;
   text-align: center;
@@ -2656,8 +2713,15 @@ form > .create-order-btn {
 .ktp-service-list-table .col-name,
 .ktp-service-list-table .col-company {
   font-weight: 600;
-  max-width: 240px;
-  min-width: 120px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ktp-service-list-table .col-contact,
+.ktp-service-list-table .col-category {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2671,6 +2735,10 @@ form > .create-order-btn {
 .ktp-service-list-table .col-contact,
 .ktp-service-list-table .col-status {
   white-space: nowrap;
+}
+
+.ktp-service-list-table .col-frequency {
+  text-align: center;
 }
 
 .ktp-service-list-table .col-price-unit .ktp-service-price-unit-sep {

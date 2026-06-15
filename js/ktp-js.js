@@ -216,6 +216,137 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
     
+    // =============================
+    // タブ表示状態の記憶（ソート・ページ・選択ID 等）
+    // =============================
+    var TAB_STATE_PREFIX = 'ktp_tab_state_';
+    var TAB_STATE_KEYS = {
+        list: ['progress', 'page_start', 'page_stage', 'flg', 'list_type'],
+        order: ['order_id'],
+        client: ['data_id', 'sort_by', 'sort_order', 'page_start', 'page_stage', 'view_mode', 'order_sort_by', 'order_sort_order'],
+        service: ['data_id', 'sort_by', 'sort_order', 'page_start', 'page_stage'],
+        supplier: ['data_id', 'sort_by', 'sort_order', 'page_start', 'page_stage', 'skills_sort_by', 'skills_sort_order', 'skills_page'],
+        report: ['report_type', 'period', 'tax_year']
+    };
+
+    function extractTabState(tabName, urlParams) {
+        var state = {};
+        var keys = TAB_STATE_KEYS[tabName] || [];
+        keys.forEach(function (key) {
+            var val = urlParams.get(key);
+            if (val !== null && val !== '') {
+                state[key] = val;
+            }
+        });
+        return state;
+    }
+
+    function saveTabState(tabName, state) {
+        if (!tabName) {
+            return;
+        }
+        try {
+            localStorage.setItem(TAB_STATE_PREFIX + tabName, JSON.stringify(state || {}));
+            var cookieValue = encodeURIComponent(JSON.stringify(state || {}));
+            document.cookie = TAB_STATE_PREFIX + tabName + '=' + cookieValue + ';path=/;max-age=2592000;SameSite=Lax';
+            if (window.ktpDebugMode) {
+                console.log('KTPWP: タブ状態を保存しました:', tabName, state);
+            }
+        } catch (e) {
+            if (window.ktpDebugMode) {
+                console.warn('KTPWP: タブ状態の保存に失敗しました:', e);
+            }
+        }
+    }
+
+    function loadTabState(tabName) {
+        try {
+            var raw = localStorage.getItem(TAB_STATE_PREFIX + tabName);
+            if (!raw) {
+                return {};
+            }
+            var parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function saveCurrentTabStateFromUrl() {
+        var tabName = getCurrentTabName();
+        var params = new URLSearchParams(window.location.search);
+        var state = extractTabState(tabName, params);
+
+        if (tabName === 'order') {
+            var orderId = params.get('order_id') || getCurrentOrderId();
+            if (orderId) {
+                state.order_id = orderId;
+            }
+        }
+
+        saveTabState(tabName, state);
+    }
+
+    function tabUrlHasSavedState(tabName, urlParams) {
+        var keys = TAB_STATE_KEYS[tabName] || [];
+        return keys.some(function (key) {
+            return urlParams.has(key);
+        });
+    }
+
+    function restoreTabStateOnLoad() {
+        var tabName = getCurrentTabName();
+        var params = new URLSearchParams(window.location.search);
+
+        if (tabUrlHasSavedState(tabName, params)) {
+            return false;
+        }
+
+        var saved = loadTabState(tabName);
+        if (!saved || Object.keys(saved).length === 0) {
+            return false;
+        }
+
+        var url = new URL(window.location.href);
+        Object.keys(saved).forEach(function (key) {
+            url.searchParams.set(key, saved[key]);
+        });
+
+        if (window.ktpDebugMode) {
+            console.log('KTPWP: タブ状態を復元します:', tabName, saved);
+        }
+
+        window.location.replace(url.toString());
+        return true;
+    }
+
+    function buildTabNavigationUrl(baseHref, targetTabName) {
+        var url = new URL(baseHref, window.location.origin);
+        var keys = TAB_STATE_KEYS[targetTabName] || [];
+
+        keys.forEach(function (key) {
+            url.searchParams.delete(key);
+        });
+        url.searchParams.set('tab_name', targetTabName);
+
+        var saved = loadTabState(targetTabName);
+        Object.keys(saved).forEach(function (key) {
+            url.searchParams.set(key, saved[key]);
+        });
+
+        if (targetTabName === 'order' && saved.order_id) {
+            saveOrderId(saved.order_id);
+        }
+
+        return url.toString();
+    }
+
+    if (restoreTabStateOnLoad()) {
+        return;
+    }
+
+    saveCurrentTabStateFromUrl();
+    
     // ページ読み込み時に無効なIDをクリア
     if (getCurrentTabName() === 'order') {
         // 少し遅延してからクリア処理を実行（DOMの読み込みを待つ）
@@ -228,23 +359,31 @@ document.addEventListener('DOMContentLoaded', function () {
         restoreOrderId();
     }
     
-    // タブ切り替え時の受注書ID保存
+    // タブ切り替え時に表示状態を保存・復元
     var tabLinks = document.querySelectorAll('.tab_item');
     tabLinks.forEach(function(tabLink) {
-        tabLink.addEventListener('click', function() {
+        tabLink.addEventListener('click', function(e) {
             var href = this.getAttribute('href');
-            if (href) {
-                var url = new URL(href, window.location.origin);
-                var tabName = url.searchParams.get('tab_name');
-                
-                // 受注書タブから他のタブに移動する場合、現在の受注書IDを保存
-                if (getCurrentTabName() === 'order' && tabName !== 'order') {
-                    var currentOrderId = getCurrentOrderId();
-                    if (currentOrderId) {
-                        saveOrderId(currentOrderId);
-                    }
+            if (!href) {
+                return;
+            }
+
+            e.preventDefault();
+
+            saveCurrentTabStateFromUrl();
+
+            var url = new URL(href, window.location.origin);
+            var tabName = url.searchParams.get('tab_name') || 'list';
+
+            // 受注書タブから他のタブに移動する場合、現在の受注書IDを保存
+            if (getCurrentTabName() === 'order' && tabName !== 'order') {
+                var currentOrderId = getCurrentOrderId();
+                if (currentOrderId) {
+                    saveOrderId(currentOrderId);
                 }
             }
+
+            window.location.href = buildTabNavigationUrl(href, tabName);
         });
     });
     
@@ -260,8 +399,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (orderId) {
                     saveOrderId(orderId);
                 }
+                saveTabState('order', extractTabState('order', url.searchParams));
             }
         }
+    });
+
+    // タブ内リンク操作後も状態を保存（ソート・ページネーション等）
+    window.addEventListener('pageshow', function () {
+        saveCurrentTabStateFromUrl();
     });
     
     // =============================

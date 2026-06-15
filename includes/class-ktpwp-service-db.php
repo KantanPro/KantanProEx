@@ -186,13 +186,16 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 							$format[] = '%d';
 						}
 
-						$wpdb->update(
+						$update_result = $wpdb->update(
                             $table_name,
                             $data,
                             array( 'id' => $data_id ),
                             $format,
                             array( '%d' )
 						);
+						if ( $update_result !== false ) {
+							$this->increment_frequency( $tab_name, $data_id );
+						}
 						$this->sync_service_recurring_items_from_post( $data_id );
 						$this->sync_service_initial_fees_from_post( $data_id );
 						$this->sync_service_public_availability( $data_id );
@@ -630,7 +633,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 						unset( $_SESSION['ktp_service_search_message'] );
 
 						if ( $result_count === 1 ) {
-							// 1件のみ: その詳細にリダイレクト
+							// 1件のみ: その詳細にリダイレクト（頻度は表示時に加算）
 							$first_result = $search_results[0];
 							$url = add_query_arg(
 								array(
@@ -963,8 +966,10 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 
 			// ORDER句のサニタイズ
 			$args['order'] = strtoupper( $args['order'] );
-			if ( ! in_array( $args['order'], array( 'ASC', 'DESC' ) ) ) {
-				$args['order'] = 'DESC';
+			if ( ! in_array( $args['order'], array( 'ASC', 'DESC' ), true ) ) {
+				$args['order'] = class_exists( 'KTPWP_List_Table' ) ? KTPWP_List_Table::default_sort_order() : 'DESC';
+			} elseif ( class_exists( 'KTPWP_List_Table' ) ) {
+				$args['order'] = KTPWP_List_Table::sanitize_sort_order( $args['order'] );
 			}
 
 			// クエリの構築
@@ -1446,6 +1451,69 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			}
 
 			KTPWP_Service_Initial_Fees::replace_for_service( absint( $service_id ), $sanitized );
+		}
+
+		/**
+		 * サービスの利用頻度を +1 する。
+		 *
+		 * @param string $tab_name   タブ名。
+		 * @param int    $service_id サービス ID。
+		 * @return void
+		 */
+		public function increment_frequency( $tab_name, $service_id ) {
+			if ( function_exists( 'ktpwp_increment_record_frequency' ) ) {
+				ktpwp_increment_record_frequency( 'service', $service_id );
+				return;
+			}
+
+			global $wpdb;
+
+			$service_id = absint( $service_id );
+			if ( $service_id <= 0 || $tab_name === '' ) {
+				return;
+			}
+
+			$table_name = $wpdb->prefix . 'ktp_' . sanitize_key( $tab_name );
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$table_name} SET frequency = COALESCE(frequency, 0) + 1 WHERE id = %d",
+					$service_id
+				)
+			);
+		}
+
+		/**
+		 * リスト選択など GET 表示時に、同一 URL の再読み込みでは重複加算しない。
+		 *
+		 * @param string $tab_name   タブ名。
+		 * @param int    $service_id サービス ID。
+		 * @return void
+		 */
+		public function increment_frequency_on_view( $tab_name, $service_id ) {
+			unset( $tab_name );
+			if ( function_exists( 'ktpwp_increment_record_frequency_on_view' ) ) {
+				ktpwp_increment_record_frequency_on_view( 'service', $service_id );
+				return;
+			}
+
+			$service_id = absint( $service_id );
+			if ( $service_id <= 0 ) {
+				return;
+			}
+
+			if ( function_exists( 'ktpwp_safe_session_start' ) ) {
+				ktpwp_safe_session_start();
+			}
+
+			$uri_hash    = md5( isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '' );
+			$session_key = 'ktp_freq_view_service';
+			$dedup_token = 'service:' . $service_id . ':' . $uri_hash;
+			if ( isset( $_SESSION[ $session_key ] ) && $_SESSION[ $session_key ] === $dedup_token ) {
+				return;
+			}
+
+			$this->increment_frequency( 'service', $service_id );
+			$_SESSION[ $session_key ] = $dedup_token;
 		}
 	}
 }

@@ -232,7 +232,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			// -----------------------------
 			// ソート順の取得（デフォルトはIDの降順 - 新しい順）
 			$sort_by = 'id';
-			$sort_order = 'DESC';
+			$sort_order = class_exists( 'KTPWP_List_Table' ) ? KTPWP_List_Table::default_sort_order() : 'DESC';
 
 			if ( isset( $_GET['sort_by'] ) ) {
 				$sort_by = sanitize_text_field( $_GET['sort_by'] );
@@ -244,9 +244,17 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			}
 
 			if ( isset( $_GET['sort_order'] ) ) {
-				$sort_order_param = strtoupper( sanitize_text_field( $_GET['sort_order'] ) );
-				// ASCかDESCのみ許可
-				$sort_order = ( $sort_order_param === 'ASC' ) ? 'ASC' : 'DESC';
+				$sort_order = class_exists( 'KTPWP_List_Table' )
+					? KTPWP_List_Table::sanitize_sort_order( sanitize_text_field( $_GET['sort_order'] ) )
+					: 'DESC';
+			}
+
+			// リスト表示前に頻度を加算（一覧に反映させる）
+			if ( isset( $_GET['data_id'] ) && $_GET['data_id'] !== '' && ( ! defined( 'DOING_AJAX' ) || ! DOING_AJAX ) && ( ! function_exists( 'ktpwp_should_skip_frequency_on_view' ) || ! ktpwp_should_skip_frequency_on_view() ) ) {
+				$view_record_id = filter_input( INPUT_GET, 'data_id', FILTER_SANITIZE_NUMBER_INT );
+				if ( $view_record_id > 0 && function_exists( 'ktpwp_increment_record_frequency_on_view' ) ) {
+					ktpwp_increment_record_frequency_on_view( 'service', (int) $view_record_id );
+				}
 			}
 
 			// 現在のページのURLを生成（動的パーマリンク取得）
@@ -394,7 +402,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			$results = array(); // ← 追加：未定義エラー防止
 			$list_header = '';
 			$list_footer = '';
-			$hide_tax = ( class_exists( 'KTPWP_Tax_Policy' ) && ( KTPWP_Tax_Policy::is_abolished() || KTPWP_Tax_Policy::hide_tax_columns() ) );
+			$hide_tax = true;
 			if ( $post_row ) {
 				$list_header = $this->render_service_list_table_open( $hide_tax, $base_page_url, $sort_by, $sort_order );
 				foreach ( $post_row as $row ) {
@@ -402,7 +410,6 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					$service_name_raw = isset( $row->service_name ) ? (string) $row->service_name : '';
 					$service_name = esc_html( $service_name_raw );
 					$price = isset( $row->price ) ? floatval( $row->price ) : 0;
-					$tax_rate = isset( $row->tax_rate ) && $row->tax_rate !== null ? floatval( $row->tax_rate ) : null;
 					$unit = isset( $row->unit ) ? esc_html( $row->unit ) : '';
 					$category = esc_html( $row->category );
 					$frequency = esc_html( $row->frequency );
@@ -421,7 +428,6 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 							$item_link_args[ $getKey ] = $getValue;
 						}
 					}
-                    $tax_display = $tax_rate !== null ? intval( $tax_rate ) . '%' : esc_html__( '非課税', 'ktpwp' );
                     $formatted_price = number_format( $price, 0, '.', ',' );
 					$is_public = isset( $row->is_public ) ? (int) $row->is_public : 0;
 					$row_stock = isset( $row->stock ) ? max( 0, absint( $row->stock ) ) : 1;
@@ -437,7 +443,6 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					);
 					$default_thumb_url = $this->db_helper->get_default_image_url();
 					$row_url = esc_url( add_query_arg( $item_link_args, $base_page_url ) );
-					$tax_cell = $hide_tax ? '' : '<td class="col-tax">' . esc_html( $tax_display ) . '</td>';
 					$price_unit_cell = '<td class="col-price-unit">' . $this->render_service_price_unit_display( $price, $unit ) . '</td>';
 					$results[] = '<tr class="ktp-service-list-data-row" data-href="' . $row_url . '" onclick="window.location.href=this.dataset.href">' .
 					'<td class="col-id">' . $id . '</td>' .
@@ -446,7 +451,6 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					'<td class="col-public">' . $this->render_service_public_badge( $is_public, $row_stock, (int) $row->id, $contract_cycle_value ) . '</td>' .
 					$contract_cycle_cell .
 					$price_unit_cell .
-					$tax_cell .
 					'<td class="col-category">' . $category . '</td>' .
 					'<td class="col-frequency">' . $frequency . '</td>' .
 					'</tr><!-- DEBUG: price=' . $price . ' formatted=' . $formatted_price . ' -->';
@@ -1480,7 +1484,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				'sort_key' => 'frequency',
 			);
 
-			return KTPWP_List_Table::open( $columns, $sort_context );
+			return KTPWP_List_Table::open( $columns, $sort_context, 'ktp-list-table--service' );
 		}
 
 		/**

@@ -122,7 +122,10 @@ class KTPWP_Shortcodes {
         ), $atts, 'kantanpro_ex');
 
         ob_start(); // 出力バッファリングを開始
-        echo '<div class="ktpwp-shortcode-container">'; // コンテナ開始
+        $layout_attrs = class_exists( 'KTPWP_Settings' )
+            ? KTPWP_Settings::get_page_layout_wrapper_attributes( 0, array( 'ktpwp-shortcode-container' ) )
+            : 'class="ktpwp-page-layout ktpwp-shortcode-container"';
+        echo '<div ' . $layout_attrs . '>'; // コンテナ開始
 
         try {
             // 各種コンテンツの取得
@@ -1215,7 +1218,7 @@ class KTPWP_Shortcodes {
                 'ids'           => '',
                 'limit'         => '0',
                 'order_by'      => 'id',
-                'order'         => 'ASC',
+                'order'         => 'DESC',
                 'show_image'    => 'yes',
                 'show_price'    => 'yes',
                 'show_unit'     => 'yes',
@@ -1241,7 +1244,7 @@ class KTPWP_Shortcodes {
         $order_by = sanitize_key( $atts['order_by'] );
         $order = strtoupper( sanitize_key( $atts['order'] ) );
         if ( ! in_array( $order, array( 'ASC', 'DESC' ), true ) ) {
-            $order = 'ASC';
+            $order = 'DESC';
         }
 
         $display = array(

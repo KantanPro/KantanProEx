@@ -230,12 +230,16 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 					// 検索結果のIDを取得
 					$id = $results[0]->id;
 					// 頻度の値を+1する
-					$wpdb->query(
-                        $wpdb->prepare(
-                            "UPDATE $table_name SET frequency = frequency + 1 WHERE id = %d",
-                            $id
-                        )
-					);
+					if ( function_exists( 'ktpwp_increment_record_frequency' ) ) {
+						ktpwp_increment_record_frequency( 'supplier', (int) $id );
+					} else {
+						$wpdb->query(
+							$wpdb->prepare(
+								"UPDATE $table_name SET frequency = COALESCE(frequency, 0) + 1 WHERE id = %d",
+								$id
+							)
+						);
+					}
 					// 検索後に更新モードにする
 					$action = 'update';
 					$data_id = $id;
@@ -635,7 +639,7 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 
 			// ソート順の取得（デフォルトはIDの降順）
 			$sort_by = 'id';
-			$sort_order = 'DESC';
+			$sort_order = class_exists( 'KTPWP_List_Table' ) ? KTPWP_List_Table::default_sort_order() : 'DESC';
 
 			if ( isset( $_GET['sort_by'] ) ) {
 				$sort_by = sanitize_text_field( $_GET['sort_by'] );
@@ -647,9 +651,17 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 			}
 
 			if ( isset( $_GET['sort_order'] ) ) {
-				$sort_order_param = strtoupper( sanitize_text_field( $_GET['sort_order'] ) );
-				// ASCかDESCのみ許可
-				$sort_order = ( $sort_order_param === 'ASC' ) ? 'ASC' : 'DESC';
+				$sort_order = class_exists( 'KTPWP_List_Table' )
+					? KTPWP_List_Table::sanitize_sort_order( sanitize_text_field( $_GET['sort_order'] ) )
+					: 'DESC';
+			}
+
+			// リスト表示前に頻度を加算（一覧に反映させる）
+			if ( isset( $_GET['data_id'] ) && $_GET['data_id'] !== '' && ( ! defined( 'DOING_AJAX' ) || ! DOING_AJAX ) && ( ! function_exists( 'ktpwp_should_skip_frequency_on_view' ) || ! ktpwp_should_skip_frequency_on_view() ) ) {
+				$view_record_id = filter_input( INPUT_GET, 'data_id', FILTER_SANITIZE_NUMBER_INT );
+				if ( $view_record_id > 0 && function_exists( 'ktpwp_increment_record_frequency_on_view' ) ) {
+					ktpwp_increment_record_frequency_on_view( 'supplier', (int) $view_record_id );
+				}
 			}
 
 			// 現在のページのURLを生成（動的パーマリンク取得）
@@ -813,7 +825,8 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 						'preserve_args' => KTPWP_List_Table::preserved_query_args(
 							array( 'query_post', 'send_post' )
 						),
-					)
+					),
+					'ktp-list-table--party'
 				);
 
 				foreach ( $post_row as $row ) {
@@ -1032,7 +1045,11 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 
 				// 職能ソート用プルダウンを生成
 				$skills_sort_by = isset( $_GET['skills_sort_by'] ) ? sanitize_text_field( $_GET['skills_sort_by'] ) : 'frequency';
-				$skills_sort_order = isset( $_GET['skills_sort_order'] ) ? sanitize_text_field( $_GET['skills_sort_order'] ) : 'DESC';
+				$skills_sort_order = isset( $_GET['skills_sort_order'] )
+					? ( class_exists( 'KTPWP_List_Table' )
+						? KTPWP_List_Table::sanitize_sort_order( sanitize_text_field( $_GET['skills_sort_order'] ) )
+						: 'DESC' )
+					: ( class_exists( 'KTPWP_List_Table' ) ? KTPWP_List_Table::default_sort_order() : 'DESC' );
 
 				// 現在のURLからソート用プルダウンのアクションURLを生成
 				$skills_sort_url = add_query_arg(
@@ -1062,8 +1079,8 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 					'<option value="frequency" ' . selected( $skills_sort_by, 'frequency', false ) . '>' . esc_html__( '頻度', 'ktpwp' ) . '</option>' .
 					'</select>' .
 					'<select id="' . esc_attr( 'ktp-' . $name . '-skills-sort-order' ) . '" name="skills_sort_order">' .
-					'<option value="ASC" ' . selected( $skills_sort_order, 'ASC', false ) . '>' . esc_html__( '昇順', 'ktpwp' ) . '</option>' .
 					'<option value="DESC" ' . selected( $skills_sort_order, 'DESC', false ) . '>' . esc_html__( '降順', 'ktpwp' ) . '</option>' .
+					'<option value="ASC" ' . selected( $skills_sort_order, 'ASC', false ) . '>' . esc_html__( '昇順', 'ktpwp' ) . '</option>' .
 					'</select>' .
 					'<button type="submit" style="margin-left:5px;padding:4px 8px;background:#f0f0f0;border:1px solid #ccc;border-radius:3px;cursor:pointer;" title="' . esc_attr__( '適用', 'ktpwp' ) . '">' .
 					'<span class="material-symbols-outlined" style="font-size:18px;line-height:18px;vertical-align:middle;">check</span>' .

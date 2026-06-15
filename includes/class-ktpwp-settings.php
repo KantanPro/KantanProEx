@@ -260,6 +260,237 @@ class KTPWP_Settings {
     }
 
     /**
+     * 固定ページ幅の標準値（未設定時のデフォルト）。
+     *
+     * @return string
+     */
+    public static function get_default_page_content_width() {
+        return '1400px';
+    }
+
+    /**
+     * 固定ページのコンテンツ幅プリセット一覧。
+     *
+     * @return array<string, string>
+     */
+    public static function get_page_content_width_presets() {
+        return array(
+            ''       => __( 'デフォルト（テーマの幅）', 'ktpwp' ),
+            '960px'  => __( '狭い（960px）', 'ktpwp' ),
+            '1200px' => __( 'やや狭い（1200px）', 'ktpwp' ),
+            '1400px' => __( '標準（1400px）', 'ktpwp' ),
+            '1600px' => __( 'より広い（1600px）', 'ktpwp' ),
+            '1920px' => __( '最大（1920px）', 'ktpwp' ),
+            'custom' => __( 'カスタム', 'ktpwp' ),
+        );
+    }
+
+    /**
+     * ショートコード設置済み固定ページ向けの標準幅マップを返す。
+     *
+     * @return array<int, string>
+     */
+    public static function build_default_page_content_widths() {
+        $default_width = self::get_default_page_content_width();
+        $widths        = array();
+
+        foreach ( self::get_ktpwp_shortcode_pages() as $page ) {
+            $page_id = (int) $page->ID;
+            if ( $page_id > 0 ) {
+                $widths[ $page_id ] = $default_width;
+            }
+        }
+
+        return $widths;
+    }
+
+    /**
+     * 固定ページ幅の標準値をデザイン設定に書き込む（インストール時・未設定ページの補完）。
+     *
+     * @return void
+     */
+    public static function seed_default_page_content_widths() {
+        $default_widths = self::build_default_page_content_widths();
+        if ( empty( $default_widths ) ) {
+            return;
+        }
+
+        $design_option_name = 'ktp_design_settings';
+        $design             = get_option( $design_option_name, array() );
+        if ( ! is_array( $design ) ) {
+            $design = array();
+        }
+
+        $widths = isset( $design['page_content_widths'] ) && is_array( $design['page_content_widths'] )
+            ? $design['page_content_widths']
+            : array();
+
+        $changed = false;
+        if ( empty( $widths ) ) {
+            $widths  = $default_widths;
+            $changed = true;
+        } else {
+            foreach ( $default_widths as $page_id => $width ) {
+                if ( ! array_key_exists( $page_id, $widths ) ) {
+                    $widths[ $page_id ] = $width;
+                    $changed            = true;
+                }
+            }
+        }
+
+        if ( ! $changed ) {
+            return;
+        }
+
+        $design['page_content_widths'] = $widths;
+        update_option( $design_option_name, $design );
+    }
+
+    /**
+     * ページ幅の CSS 値をサニタイズする。
+     *
+     * @param string $value 入力値。
+     * @return string 空文字または CSS 長さ（例: 1400px）。
+     */
+    public static function sanitize_page_content_width_value( $value ) {
+        $value = trim( (string) $value );
+        if ( $value === '' || $value === 'custom' ) {
+            return '';
+        }
+
+        if ( preg_match( '/^\d+(\.\d+)?(px|rem|%)$/i', $value ) ) {
+            return strtolower( $value );
+        }
+
+        if ( preg_match( '/^\d+(\.\d+)?$/', $value ) ) {
+            return $value . 'px';
+        }
+
+        return '';
+    }
+
+    /**
+     * 固定ページに設定されたコンテンツ幅を取得する。
+     *
+     * @param int $page_id 固定ページ ID。
+     * @return string 空文字または CSS 長さ。
+     */
+    public static function get_page_content_width_for_page( $page_id ) {
+        $page_id = (int) $page_id;
+        if ( $page_id <= 0 || ! self::page_has_ktpwp_shortcode( $page_id ) ) {
+            return '';
+        }
+
+        $design_options = self::get_design_settings();
+        $widths         = isset( $design_options['page_content_widths'] ) && is_array( $design_options['page_content_widths'] )
+            ? $design_options['page_content_widths']
+            : array();
+
+        if ( ! isset( $widths[ $page_id ] ) ) {
+            return self::get_default_page_content_width();
+        }
+
+        $saved = trim( (string) $widths[ $page_id ] );
+        if ( $saved === '' ) {
+            return '';
+        }
+
+        return self::sanitize_page_content_width_value( $saved );
+    }
+
+    /**
+     * 表示中の KantanPro 固定ページ ID を取得する。
+     *
+     * @return int
+     */
+    public static function get_current_ktpwp_page_id() {
+        $page_id = (int) get_queried_object_id();
+        if ( $page_id <= 0 && isset( $_GET['page_id'] ) ) {
+            $page_id = absint( wp_unslash( $_GET['page_id'] ) );
+        }
+
+        return $page_id;
+    }
+
+    /**
+     * ページ幅ラッパー用の HTML 属性文字列を返す。
+     *
+     * @param int      $page_id       固定ページ ID（0 のときは表示中ページ）。
+     * @param string[] $extra_classes 追加 CSS クラス。
+     * @return string
+     */
+    public static function get_page_layout_wrapper_attributes( $page_id = 0, $extra_classes = array() ) {
+        $page_id = (int) $page_id;
+        if ( $page_id <= 0 ) {
+            $page_id = self::get_current_ktpwp_page_id();
+        }
+
+        $classes = array( 'ktpwp-page-layout' );
+        if ( is_array( $extra_classes ) ) {
+            foreach ( $extra_classes as $class_name ) {
+                $class_name = sanitize_html_class( (string) $class_name );
+                if ( $class_name !== '' ) {
+                    $classes[] = $class_name;
+                }
+            }
+        }
+        $attrs   = array(
+            'class' => implode( ' ', $classes ),
+        );
+
+        $width = self::get_page_content_width_for_page( $page_id );
+        if ( $width !== '' ) {
+            $attrs['class'] .= ' ktpwp-page-layout--sized';
+            $attrs['data-ktp-page-id'] = (string) $page_id;
+            $attrs['style']            = 'max-width:' . $width . ';margin-left:auto;margin-right:auto;width:100%;box-sizing:border-box;';
+        }
+
+        $html = '';
+        foreach ( $attrs as $name => $value ) {
+            $html .= ' ' . $name . '="' . esc_attr( $value ) . '"';
+        }
+
+        return ltrim( $html );
+    }
+
+    /**
+     * 固定ページごとのコンテンツ幅 CSS を生成する。
+     *
+     * @param int    $page_id 固定ページ ID。
+     * @param string $width   CSS 長さ。
+     * @return string
+     */
+    private static function build_page_content_width_css( $page_id, $width ) {
+        $page_id = (int) $page_id;
+        $width   = self::sanitize_page_content_width_value( $width );
+        if ( $page_id <= 0 || $width === '' ) {
+            return '';
+        }
+
+        $selector = 'body.page-id-' . $page_id;
+        $targets  = array(
+            $selector . ' #container .content .main',
+            $selector . ' #content .main',
+            $selector . ' .entry-content',
+            $selector . ' .article',
+            $selector . ' #content-in.wrap',
+            $selector . ' .ktpwp-page-layout',
+            $selector . ' .ktpwp-shortcode-container',
+            $selector . ' .ktp-before-header-banner',
+            $selector . ' .ktp_header',
+            $selector . ' .tabs.ktp_plugin_container',
+        );
+
+        return implode( ',', $targets ) . '{'
+            . 'max-width:' . $width . ' !important;'
+            . 'margin-left:auto !important;'
+            . 'margin-right:auto !important;'
+            . 'width:100% !important;'
+            . 'box-sizing:border-box !important;'
+            . '}';
+    }
+
+    /**
      * 一般設定で指定された業務画面ページ ID（0 は未指定）。
      *
      * @return int
@@ -518,6 +749,7 @@ class KTPWP_Settings {
             'odd_row_color' => '#E7EEFD',
             'even_row_color' => '#FFFFFF',
             'header_bg_image' => 'images/default/header_bg_image.png',
+            'page_content_widths' => array(),
             'custom_css' => '',
         );
 
@@ -564,6 +796,8 @@ class KTPWP_Settings {
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_media_scripts' ) );
         add_action( 'wp_head', array( $this, 'output_custom_styles' ) );
         add_action( 'admin_head', array( $this, 'output_custom_styles' ) );
+        add_action( 'wp_head', array( $this, 'output_page_content_width_styles' ), 20 );
+        add_filter( 'body_class', array( $this, 'filter_body_class_for_page_content_width' ) );
         add_action( 'admin_init', array( $this, 'handle_default_settings_actions' ) );
 
 		// データエクスポート/リストア用ハンドラ
@@ -572,6 +806,7 @@ class KTPWP_Settings {
 
         // ロゴマークのデフォルト値チェック
         add_action( 'init', array( $this, 'ensure_logo_default_value' ) );
+        add_action( 'init', array( __CLASS__, 'seed_default_page_content_widths' ), 25 );
 
         // ユーザーアクティビティの追跡
         add_action( 'wp_login', array( $this, 'record_user_last_login' ), 10, 2 );
@@ -702,6 +937,7 @@ class KTPWP_Settings {
             'odd_row_color' => '#E7EEFD',
             'even_row_color' => '#FFFFFF',
             'header_bg_image' => 'images/default/header_bg_image.png',
+            'page_content_widths' => self::build_default_page_content_widths(),
             'custom_css' => '',
         );
 
@@ -737,6 +973,8 @@ class KTPWP_Settings {
                 update_option( $design_option_name, $existing_design );
             }
         }
+
+        self::seed_default_page_content_widths();
 
         // ロゴマークのデフォルト値を設定
         $default_logo = function_exists( 'ktpwp_plugin_asset_url' )
@@ -3570,6 +3808,15 @@ class KTPWP_Settings {
             'design_setting_section'
         );
 
+        // 固定ページごとのコンテンツ幅
+        add_settings_field(
+            'page_content_widths',
+            __( '固定ページの幅', 'ktpwp' ),
+            array( $this, 'page_content_widths_callback' ),
+            'ktp-design',
+            'design_setting_section'
+        );
+
         // カスタムCSS
         add_settings_field(
             'custom_css',
@@ -3678,6 +3925,49 @@ class KTPWP_Settings {
         if ( isset( $input['custom_css'] ) ) {
             $new_input['custom_css'] = wp_strip_all_tags( $input['custom_css'] );
         }
+
+        $existing = get_option( 'ktp_design_settings', array() );
+        $raw_widths = array();
+        if ( isset( $input['page_content_widths'] ) && is_array( $input['page_content_widths'] ) ) {
+            $raw_widths = $input['page_content_widths'];
+        } elseif ( isset( $existing['page_content_widths'] ) && is_array( $existing['page_content_widths'] ) ) {
+            $raw_widths = $existing['page_content_widths'];
+        }
+
+        $custom_widths = array();
+        if ( isset( $input['page_content_width_custom'] ) && is_array( $input['page_content_width_custom'] ) ) {
+            $custom_widths = $input['page_content_width_custom'];
+        }
+
+        $sanitized_widths = array();
+        foreach ( $raw_widths as $page_id => $preset ) {
+            $page_id = absint( $page_id );
+            if ( $page_id <= 0 || ! self::page_has_ktpwp_shortcode( $page_id ) ) {
+                continue;
+            }
+
+            $preset = sanitize_text_field( (string) $preset );
+            if ( $preset === '' || $preset === 'default' ) {
+                continue;
+            }
+
+            if ( $preset === 'custom' ) {
+                $custom_raw = isset( $custom_widths[ $page_id ] ) ? trim( (string) $custom_widths[ $page_id ] ) : '';
+                $width      = self::sanitize_page_content_width_value( $custom_raw );
+                if ( $width === '' ) {
+                    continue;
+                }
+                $sanitized_widths[ $page_id ] = $width;
+                continue;
+            }
+
+            $width = self::sanitize_page_content_width_value( $preset );
+            if ( $width !== '' ) {
+                $sanitized_widths[ $page_id ] = $width;
+            }
+        }
+
+        $new_input['page_content_widths'] = $sanitized_widths;
 
         return $new_input;
     }
@@ -4732,6 +5022,113 @@ class KTPWP_Settings {
     }
 
     /**
+     * 固定ページごとのコンテンツ幅フィールドのコールバック。
+     *
+     * @return void
+     */
+    public function page_content_widths_callback() {
+        $options  = self::get_design_settings();
+        $widths   = isset( $options['page_content_widths'] ) && is_array( $options['page_content_widths'] )
+            ? $options['page_content_widths']
+            : array();
+        $pages    = self::get_ktpwp_shortcode_pages();
+        $presets  = self::get_page_content_width_presets();
+        $preset_keys = array_keys( $presets );
+        ?>
+        <p class="description" style="margin-top:0;">
+            <?php echo esc_html__( 'ショートコードを設置した固定ページごとに、KantanPro 業務画面の表示幅を変更できます。未設定のページは標準（1400px）で表示されます。', 'ktpwp' ); ?>
+        </p>
+        <?php if ( empty( $pages ) ) : ?>
+            <p><?php echo esc_html__( 'ショートコードが設置された公開中の固定ページがありません。', 'ktpwp' ); ?></p>
+        <?php else : ?>
+            <table class="widefat striped" style="max-width:760px;">
+                <thead>
+                    <tr>
+                        <th scope="col"><?php echo esc_html__( '固定ページ', 'ktpwp' ); ?></th>
+                        <th scope="col"><?php echo esc_html__( '表示幅', 'ktpwp' ); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ( $pages as $page ) :
+                        $page_id       = (int) $page->ID;
+                        $saved_width   = isset( $widths[ $page_id ] ) ? self::sanitize_page_content_width_value( (string) $widths[ $page_id ] ) : '';
+                        $selected      = '';
+                        $custom_value  = '';
+
+                        if ( $saved_width !== '' ) {
+                            if ( in_array( $saved_width, $preset_keys, true ) ) {
+                                $selected = $saved_width;
+                            } else {
+                                $selected     = 'custom';
+                                $custom_value = preg_replace( '/[^0-9.]/', '', $saved_width );
+                            }
+                        } else {
+                            $selected = isset( $widths[ $page_id ] ) ? '' : self::get_default_page_content_width();
+                        }
+                        ?>
+                        <tr>
+                            <td>
+                                <strong><?php echo esc_html( $page->post_title ); ?></strong><br>
+                                <span class="description"><?php echo esc_html( sprintf( __( 'ID: %d', 'ktpwp' ), $page_id ) ); ?></span>
+                            </td>
+                            <td>
+                                <select
+                                    id="ktp_page_content_width_<?php echo esc_attr( (string) $page_id ); ?>"
+                                    name="ktp_design_settings[page_content_widths][<?php echo esc_attr( (string) $page_id ); ?>]"
+                                    class="ktp-page-content-width-select"
+                                    data-page-id="<?php echo esc_attr( (string) $page_id ); ?>"
+                                >
+                                    <?php foreach ( $presets as $value => $label ) : ?>
+                                        <option value="<?php echo esc_attr( $value ); ?>" <?php selected( $selected, $value ); ?>>
+                                            <?php echo esc_html( $label ); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <input
+                                    type="number"
+                                    class="ktp-page-content-width-custom"
+                                    data-page-id="<?php echo esc_attr( (string) $page_id ); ?>"
+                                    name="ktp_design_settings[page_content_width_custom][<?php echo esc_attr( (string) $page_id ); ?>]"
+                                    value="<?php echo esc_attr( $custom_value ); ?>"
+                                    min="320"
+                                    max="3840"
+                                    step="1"
+                                    placeholder="<?php echo esc_attr__( '例: 1350', 'ktpwp' ); ?>"
+                                    style="width:120px;max-width:100%;margin-left:8px;<?php echo $selected === 'custom' ? '' : 'display:none;'; ?>"
+                                >
+                                <span class="description ktp-page-content-width-custom-suffix" data-page-id="<?php echo esc_attr( (string) $page_id ); ?>" style="<?php echo $selected === 'custom' ? '' : 'display:none;'; ?>">px</span>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <script>
+            (function () {
+                function toggleCustomWidthInput(select) {
+                    var pageId = select.getAttribute('data-page-id');
+                    var customInput = document.querySelector('.ktp-page-content-width-custom[data-page-id="' + pageId + '"]');
+                    var suffix = document.querySelector('.ktp-page-content-width-custom-suffix[data-page-id="' + pageId + '"]');
+                    var showCustom = select.value === 'custom';
+                    if (customInput) {
+                        customInput.style.display = showCustom ? '' : 'none';
+                    }
+                    if (suffix) {
+                        suffix.style.display = showCustom ? '' : 'none';
+                    }
+                }
+
+                document.querySelectorAll('.ktp-page-content-width-select').forEach(function (select) {
+                    select.addEventListener('change', function () {
+                        toggleCustomWidthInput(select);
+                    });
+                });
+            })();
+            </script>
+        <?php endif; ?>
+        <?php
+    }
+
+    /**
      * カスタムCSSフィールドのコールバック
      *
      * @since 1.0.0
@@ -4943,6 +5340,55 @@ div.ktp_header > * {
     }
 
     /**
+     * 固定ページの幅設定に応じた body_class を付与する。
+     *
+     * @param string[] $classes body クラス一覧。
+     * @return string[]
+     */
+    public function filter_body_class_for_page_content_width( $classes ) {
+        $page_id = self::get_current_ktpwp_page_id();
+        $width   = self::get_page_content_width_for_page( $page_id );
+        if ( $width === '' ) {
+            return $classes;
+        }
+
+        $classes[] = 'ktpwp-has-page-width';
+        $classes[] = 'ktpwp-page-width-' . preg_replace( '/[^0-9]/', '', $width );
+
+        return $classes;
+    }
+
+    /**
+     * 固定ページごとのコンテンツ幅スタイルを出力する。
+     *
+     * @return void
+     */
+    public function output_page_content_width_styles() {
+        if ( is_admin() ) {
+            return;
+        }
+
+        $page_id = self::get_current_ktpwp_page_id();
+        if ( $page_id <= 0 ) {
+            return;
+        }
+
+        $width = self::get_page_content_width_for_page( $page_id );
+        if ( $width === '' ) {
+            return;
+        }
+
+        $custom_css = self::build_page_content_width_css( $page_id, $width );
+        if ( $custom_css === '' ) {
+            return;
+        }
+
+        echo '<style type="text/css" id="ktp-page-content-width-styles">';
+        echo $custom_css;
+        echo '</style>';
+    }
+
+    /**
      * デフォルト設定管理のアクションを処理
      *
      * @since 1.0.0
@@ -4973,6 +5419,7 @@ div.ktp_header > * {
                 'odd_row_color' => '#E7EEFD',
                 'even_row_color' => '#FFFFFF',
                 'header_bg_image' => 'images/default/header_bg_image.png',
+                'page_content_widths' => self::build_default_page_content_widths(),
                 'custom_css' => '',
             );
             update_option( 'ktp_design_settings', $system_defaults );
