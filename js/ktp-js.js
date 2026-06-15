@@ -12,6 +12,23 @@
             || '';
     }
 
+    function getKtpServiceRedirectBase() {
+        try {
+            var url = new URL(window.location.href);
+            var stripKeys = [
+                'tab_name', 'data_id', 'message', 'query_post', 'page_start', 'page_stage',
+                'sort_by', 'sort_order', 'no_results', 'multiple_results',
+                'search_service_name', 'search_category', 'order_id'
+            ];
+            stripKeys.forEach(function (key) {
+                url.searchParams.delete(key);
+            });
+            return url.toString();
+        } catch (e) {
+            return window.location.href;
+        }
+    }
+
     window.ktpDuplicateServiceViaAjax = function (button) {
         if (!button || button.disabled) {
             return;
@@ -38,6 +55,7 @@
         body.set('action', 'ktp_duplicate_service');
         body.set('nonce', nonce);
         body.set('data_id', serviceId);
+        body.set('redirect_base', getKtpServiceRedirectBase());
 
         fetch(ajaxUrl, {
             method: 'POST',

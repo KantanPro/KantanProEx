@@ -1577,7 +1577,8 @@ class KTPWP_Ajax {
 			setcookie( $cookie_name, (string) $new_id, time() + ( 86400 * 30 ), '/' );
 		}
 
-		$base_page_url = class_exists( 'KTPWP_Main' ) ? KTPWP_Main::get_current_page_base_url() : home_url( '/' );
+		$posted_base   = isset( $_POST['redirect_base'] ) ? wp_unslash( $_POST['redirect_base'] ) : '';
+		$base_page_url = class_exists( 'KTPWP_Main' ) ? KTPWP_Main::resolve_page_base_url_for_redirect( $posted_base ) : home_url( '/' );
 		$redirect_url  = add_query_arg(
 			array(
 				'tab_name' => 'service',
@@ -1586,6 +1587,7 @@ class KTPWP_Ajax {
 			),
 			$base_page_url
 		);
+		$redirect_url = remove_query_arg( array( 'query_post', '_ktp_service_nonce', 'send_post' ), $redirect_url );
 
 		wp_send_json_success(
 			array(
