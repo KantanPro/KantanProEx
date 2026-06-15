@@ -860,9 +860,11 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 
 				// 複製ボタン（Ajax で軽量送信。Cookie 肥大化時の 431 回避）
 				if ( $data_id ) {
+					$button_group_html .= '<form style="margin: 0;" onsubmit="return false;">';
 					$button_group_html .= '<button type="button" class="button-style duplicate-submit-btn ktp-service-duplicate-btn" data-service-id="' . esc_attr( (string) $data_id ) . '" data-success-message="' . esc_attr__( '複製しました。', 'ktpwp' ) . '" data-error-message="' . esc_attr__( '複製に失敗しました。', 'ktpwp' ) . '" title="' . esc_attr__( '複製する', 'ktpwp' ) . '">';
 					$button_group_html .= '<span class="material-symbols-outlined">content_copy</span>';
 					$button_group_html .= '</button>';
+					$button_group_html .= '</form>';
 				}
 
 				// 検索モードボタン

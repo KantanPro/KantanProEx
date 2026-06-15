@@ -6602,6 +6602,18 @@ body.ktpwp-modal-open {
     background: #007cba !important;
     color: #fff !important;
   }
+
+  /* 複製ボタンの特別なスタイル */
+  .data_detail_title .duplicate-submit-btn {
+    background: #fff !important;
+    border-color: #6c757d !important;
+    color: #6c757d !important;
+  }
+
+  .data_detail_title .duplicate-submit-btn:hover {
+    background: #6c757d !important;
+    color: #fff !important;
+  }
 }
 
 /* 受注書概要カード（KantanBiz型グリッド） */
