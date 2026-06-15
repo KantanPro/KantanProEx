@@ -253,16 +253,10 @@ if ( ! class_exists( 'KTPWP_Service_UI' ) ) {
                     <span class="dashicons dashicons-edit"></span>
                 </a> ';
 
-					// 複製フォーム
-					$html .= '<form method="post" action="' . esc_url( $base_page_url ) . '" style="display:inline;">';
-					$html .= '<input type="hidden" name="_ktp_service_nonce" value="' . wp_create_nonce( 'ktp_service_action' ) . '">';
-					$html .= '<input type="hidden" name="tab_name" value="' . esc_attr( $name ) . '">';
-					$html .= '<input type="hidden" name="data_id" value="' . esc_attr( $service_id ) . '">';
-					$html .= '<input type="hidden" name="query_post" value="duplicate">';
-					$html .= '<button type="submit" class="button button-small" title="' . esc_attr__( '複製', 'ktpwp' ) . '">
+					// 複製ボタン（Ajax）
+					$html .= '<button type="button" class="button button-small ktp-service-duplicate-btn" data-service-id="' . esc_attr( (string) $service_id ) . '" data-success-message="' . esc_attr__( '複製しました。', 'ktpwp' ) . '" data-error-message="' . esc_attr__( '複製に失敗しました。', 'ktpwp' ) . '" title="' . esc_attr__( '複製', 'ktpwp' ) . '">
                     <span class="dashicons dashicons-admin-page"></span>
-                </button>';
-					$html .= '</form> ';
+                </button> ';
 
 					// 削除フォーム
 					$html .= '<form method="post" action="' . esc_url( $base_page_url ) . '" style="display:inline;" onsubmit="return confirm(\'' . esc_js( __( 'このサービスを削除してもよろしいですか？', 'ktpwp' ) ) . '\');">';

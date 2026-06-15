@@ -141,39 +141,8 @@ class KTPWP_View_Tabs_Class {
      * @return array<string, string>
      */
     private function get_saved_tab_state( $tab_name ) {
-        $allowed_keys = array(
-            'list'     => array( 'progress', 'page_start', 'page_stage', 'flg', 'list_type' ),
-            'order'    => array( 'order_id' ),
-            'client'   => array( 'data_id', 'sort_by', 'sort_order', 'page_start', 'page_stage', 'view_mode', 'order_sort_by', 'order_sort_order' ),
-            'service'  => array( 'data_id', 'sort_by', 'sort_order', 'page_start', 'page_stage' ),
-            'supplier' => array( 'data_id', 'sort_by', 'sort_order', 'page_start', 'page_stage', 'skills_sort_by', 'skills_sort_order', 'skills_page' ),
-            'report'   => array( 'report_type', 'period', 'tax_year' ),
-        );
-
-        $tab_name = sanitize_key( (string) $tab_name );
-        if ( ! isset( $allowed_keys[ $tab_name ] ) ) {
-            return array();
-        }
-
-        $cookie_key = 'ktp_tab_state_' . $tab_name;
-        if ( empty( $_COOKIE[ $cookie_key ] ) ) {
-            return array();
-        }
-
-        $decoded = json_decode( wp_unslash( (string) $_COOKIE[ $cookie_key ] ), true );
-        if ( ! is_array( $decoded ) ) {
-            return array();
-        }
-
-        $state = array();
-        foreach ( $allowed_keys[ $tab_name ] as $param_key ) {
-            if ( ! isset( $decoded[ $param_key ] ) || $decoded[ $param_key ] === '' ) {
-                continue;
-            }
-            $state[ $param_key ] = sanitize_text_field( (string) $decoded[ $param_key ] );
-        }
-
-        return $state;
+        // タブ状態は localStorage で管理（Cookie 肥大化による 431 回避）。
+        return array();
     }
 
     /**

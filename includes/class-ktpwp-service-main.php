@@ -858,19 +858,11 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				$button_group_html .= '</button>';
 				$button_group_html .= '</form>';
 
-				// 複製ボタン
+				// 複製ボタン（Ajax で軽量送信。Cookie 肥大化時の 431 回避）
 				if ( $data_id ) {
-					$form_action_url = add_query_arg(array('tab_name' => $name), $base_page_url);
-					$button_group_html .= '<form method="post" action="' . esc_url( $form_action_url ) . '" style="margin: 0;">';
-					if ( function_exists( 'wp_nonce_field' ) ) {
-						$button_group_html .= wp_nonce_field( 'ktp_service_action', '_ktp_service_nonce', true, false );
-					}
-					$button_group_html .= '<input type="hidden" name="query_post" value="duplicate">';
-					$button_group_html .= '<input type="hidden" name="data_id" value="' . esc_attr( $data_id ) . '">';
-					$button_group_html .= '<button type="submit" name="send_post" title="' . esc_attr__( '複製する', 'ktpwp' ) . '" class="button-style duplicate-submit-btn">';
+					$button_group_html .= '<button type="button" class="button-style duplicate-submit-btn ktp-service-duplicate-btn" data-service-id="' . esc_attr( (string) $data_id ) . '" data-success-message="' . esc_attr__( '複製しました。', 'ktpwp' ) . '" data-error-message="' . esc_attr__( '複製に失敗しました。', 'ktpwp' ) . '" title="' . esc_attr__( '複製する', 'ktpwp' ) . '">';
 					$button_group_html .= '<span class="material-symbols-outlined">content_copy</span>';
 					$button_group_html .= '</button>';
-					$button_group_html .= '</form>';
 				}
 
 				// 検索モードボタン

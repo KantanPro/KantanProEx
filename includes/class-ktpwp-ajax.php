@@ -463,6 +463,11 @@ class KTPWP_Ajax {
 		add_action( 'wp_ajax_ktp_get_service_list', array( $this, 'ajax_get_service_list' ) );
 		add_action( 'wp_ajax_nopriv_ktp_get_service_list', array( $this, 'ajax_get_service_list' ) );
 		$this->registered_handlers[] = 'ktp_get_service_list';
+
+		// サービス複製（軽量 Ajax。Cookie 肥大化環境での 431 回避）
+		add_action( 'wp_ajax_ktp_duplicate_service', array( $this, 'ajax_duplicate_service' ) );
+		add_action( 'wp_ajax_nopriv_ktp_duplicate_service', array( $this, 'ajax_require_login' ) );
+		$this->registered_handlers[] = 'ktp_duplicate_service';
 		
 		if ( class_exists( 'KTPWP_Settings' ) ) {
 			KTPWP_Settings::log_debug( 'サービスAjaxハンドラー登録完了', array( 
@@ -1536,6 +1541,57 @@ class KTPWP_Ajax {
 
 			wp_send_json_success( $response_data );
 		}
+	}
+
+	/**
+	 * Ajax: サービス複製
+	 */
+	public function ajax_duplicate_service() {
+		if ( ! current_user_can( 'edit_posts' ) && ! current_user_can( 'ktpwp_access' ) ) {
+			wp_send_json_error( __( 'この操作を行う権限がありません。', 'ktpwp' ) );
+		}
+
+		if ( ! check_ajax_referer( 'ktp_ajax_nonce', 'nonce', false ) ) {
+			wp_send_json_error( __( 'セキュリティチェックに失敗しました', 'ktpwp' ) );
+		}
+
+		$data_id = isset( $_POST['data_id'] ) ? absint( $_POST['data_id'] ) : 0;
+		if ( $data_id <= 0 ) {
+			wp_send_json_error( __( '複製元のサービス ID が不正です。', 'ktpwp' ) );
+		}
+
+		if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
+			require_once KTPWP_PLUGIN_DIR . 'includes/class-ktpwp-service-db.php';
+		}
+
+		$service_db = KTPWP_Service_DB::get_instance();
+		$result       = $service_db->duplicate_service_record( $data_id );
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( $result->get_error_message() );
+		}
+
+		$new_id = (int) $result['new_id'];
+		$cookie_name = 'ktp_service_id';
+		if ( ! headers_sent() ) {
+			setcookie( $cookie_name, (string) $new_id, time() + ( 86400 * 30 ), '/' );
+		}
+
+		$base_page_url = class_exists( 'KTPWP_Main' ) ? KTPWP_Main::get_current_page_base_url() : home_url( '/' );
+		$redirect_url  = add_query_arg(
+			array(
+				'tab_name' => 'service',
+				'data_id'  => $new_id,
+				'message'  => 'duplicated',
+			),
+			$base_page_url
+		);
+
+		wp_send_json_success(
+			array(
+				'new_id'       => $new_id,
+				'redirect_url' => esc_url_raw( $redirect_url ),
+			)
+		);
 	}
 
 	/**

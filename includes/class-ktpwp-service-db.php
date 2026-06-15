@@ -397,6 +397,90 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 		}
 
 		/**
+		 * サービスを複製する（DB 操作のみ。リダイレクトは呼び出し側）。
+		 *
+		 * @param int $data_id 複製元サービス ID。
+		 * @return array{new_id: int}|WP_Error
+		 */
+		public function duplicate_service_record( $data_id ) {
+			global $wpdb;
+
+			$data_id    = absint( $data_id );
+			$tab_name   = 'service';
+			$table_name = $wpdb->prefix . 'ktp_' . sanitize_key( $tab_name );
+
+			if ( $data_id <= 0 ) {
+				return new WP_Error( 'invalid_id', __( '複製元のサービス ID が不正です。', 'ktpwp' ) );
+			}
+
+			$original_data = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table_name} WHERE id = %d", $data_id ) );
+			if ( ! $original_data ) {
+				return new WP_Error( 'not_found', __( '複製元のサービスが見つかりません。', 'ktpwp' ) );
+			}
+
+			$new_id_query  = "SELECT COALESCE(MAX(id), 0) + 1 as new_id FROM {$table_name}";
+			$new_id_result = $wpdb->get_row( $new_id_query );
+			$new_id        = $new_id_result && isset( $new_id_result->new_id ) ? intval( $new_id_result->new_id ) : 1;
+
+			$duplicate_data = array(
+				'id'           => $new_id,
+				'time'         => current_time( 'mysql' ),
+				'service_name' => $original_data->service_name . esc_html__( ' (複製)', 'ktpwp' ),
+				'price'        => $original_data->price,
+				'tax_rate'     => $original_data->tax_rate,
+				'unit'         => $original_data->unit,
+				'memo'         => $original_data->memo,
+				'category'     => $original_data->category,
+				'is_public'    => isset( $original_data->is_public ) ? (int) $original_data->is_public : 0,
+				'image_url'    => $original_data->image_url,
+				'frequency'    => $original_data->frequency,
+				'search_field' => $original_data->service_name . esc_html__( ' (複製)', 'ktpwp' ) . ', ' . $original_data->price . ', ' . ( $original_data->tax_rate ?? '' ) . ', ' . $original_data->unit . ', ' . $original_data->category,
+			);
+			$duplicate_format = array( '%d', '%s', '%s', '%f', '%f', '%s', '%s', '%s', '%d', '%s', '%d', '%s' );
+
+			if ( $this->service_table_has_contract_billing_cycle_column( $table_name ) ) {
+				$cycle_value = isset( $original_data->contract_billing_cycle ) ? $original_data->contract_billing_cycle : 'none';
+				$duplicate_data['contract_billing_cycle'] = class_exists( 'KTPWP_Contract_Billing_Cycle' )
+					? KTPWP_Contract_Billing_Cycle::sanitize( $cycle_value )
+					: 'none';
+				$duplicate_format[] = '%s';
+			}
+
+			if ( $this->service_table_has_stock_column( $table_name ) ) {
+				$duplicate_data['stock'] = isset( $original_data->stock ) ? max( 0, absint( $original_data->stock ) ) : 1;
+				$duplicate_format[] = '%d';
+			}
+
+			$insert_result = $wpdb->insert(
+				$table_name,
+				$duplicate_data,
+				$duplicate_format
+			);
+
+			if ( $insert_result === false ) {
+				return new WP_Error( 'insert_failed', __( '複製に失敗しました。', 'ktpwp' ) );
+			}
+
+			if ( class_exists( 'KTPWP_Contract_Recurring_Items' ) ) {
+				$recurring_rows = array();
+				foreach ( KTPWP_Contract_Recurring_Items::get_by_service_id( $data_id ) as $item ) {
+					$recurring_rows[] = array(
+						'item_name' => (string) ( $item->item_name ?? '' ),
+						'amount'    => (float) ( $item->amount ?? 0 ),
+						'tax_rate'  => isset( $item->tax_rate ) && $item->tax_rate !== null ? $item->tax_rate : null,
+					);
+				}
+				KTPWP_Contract_Recurring_Items::replace_for_service( $new_id, $recurring_rows );
+			}
+
+			if ( class_exists( 'KTPWP_Service_Initial_Fees' ) ) {
+				KTPWP_Service_Initial_Fees::copy_from_service( $data_id, $new_id );
+			}
+
+			return array( 'new_id' => $new_id );
+		}
+
+		/**
 		 * Handle duplicating a service
 		 *
 		 * @param string $tab_name Table name suffix
@@ -404,104 +488,38 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 		 * @return void
 		 */
 		private function handle_duplicate_service( $tab_name, $data_id ) {
-			global $wpdb;
-			$table_name = $wpdb->prefix . 'ktp_' . sanitize_key( $tab_name );
-
-			// POSTリクエストのみ許可
 			if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
 				wp_die( esc_html__( 'Invalid request method.', 'ktpwp' ) );
 			}
 
-			// nonceを検証
 			if ( ! isset( $_POST['_ktp_service_nonce'] ) || ! wp_verify_nonce( $_POST['_ktp_service_nonce'], 'ktp_service_action' ) ) {
 				wp_die( esc_html__( 'Nonce verification failed.', 'ktpwp' ) );
 			}
 
-			if ( $data_id > 0 ) {
-				// 元のデータを取得
-				$original_data = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table_name} WHERE id = %d", $data_id ) );
-
-				if ( $original_data ) {
-					// 新しいIDを取得（データが完全に0の場合は1から開始）
-					$new_id_query = "SELECT COALESCE(MAX(id), 0) + 1 as new_id FROM {$table_name}";
-					$new_id_result = $wpdb->get_row( $new_id_query );
-					$new_id = $new_id_result && isset( $new_id_result->new_id ) ? intval( $new_id_result->new_id ) : 1;
-
-					// データを複製して挿入
-					$duplicate_data = array(
-							'id' => $new_id,
-							'time' => current_time( 'mysql' ),
-							'service_name' => $original_data->service_name . esc_html__( ' (複製)', 'ktpwp' ),
-							'price' => $original_data->price,
-							'tax_rate' => $original_data->tax_rate,
-							'unit' => $original_data->unit,
-							'memo' => $original_data->memo,
-							'category' => $original_data->category,
-							'is_public' => isset( $original_data->is_public ) ? (int) $original_data->is_public : 0,
-							'image_url' => $original_data->image_url,
-							'frequency' => $original_data->frequency,
-							'search_field' => $original_data->service_name . esc_html__( ' (複製)', 'ktpwp' ) . ', ' . $original_data->price . ', ' . ( $original_data->tax_rate ?? '' ) . ', ' . $original_data->unit . ', ' . $original_data->category,
-					);
-					$duplicate_format = array( '%d', '%s', '%s', '%f', '%f', '%s', '%s', '%s', '%d', '%s', '%d', '%s' );
-
-					if ( $this->service_table_has_contract_billing_cycle_column( $table_name ) ) {
-						$cycle_value = isset( $original_data->contract_billing_cycle ) ? $original_data->contract_billing_cycle : 'none';
-						$duplicate_data['contract_billing_cycle'] = class_exists( 'KTPWP_Contract_Billing_Cycle' )
-							? KTPWP_Contract_Billing_Cycle::sanitize( $cycle_value )
-							: 'none';
-						$duplicate_format[] = '%s';
-					}
-
-					if ( $this->service_table_has_stock_column( $table_name ) ) {
-						$duplicate_data['stock'] = isset( $original_data->stock ) ? max( 0, absint( $original_data->stock ) ) : 1;
-						$duplicate_format[] = '%d';
-					}
-
-					$insert_result = $wpdb->insert(
-                        $table_name,
-                        $duplicate_data,
-                        $duplicate_format
-					);
-
-					if ( $insert_result === false ) {
-						// エラー処理は最小限に
-					} else {
-						if ( class_exists( 'KTPWP_Contract_Recurring_Items' ) ) {
-							$recurring_rows = array();
-							foreach ( KTPWP_Contract_Recurring_Items::get_by_service_id( $data_id ) as $item ) {
-								$recurring_rows[] = array(
-									'item_name' => (string) ( $item->item_name ?? '' ),
-									'amount'    => (float) ( $item->amount ?? 0 ),
-									'tax_rate'  => isset( $item->tax_rate ) && $item->tax_rate !== null ? $item->tax_rate : null,
-								);
-							}
-							KTPWP_Contract_Recurring_Items::replace_for_service( $new_id, $recurring_rows );
-						}
-
-						if ( class_exists( 'KTPWP_Service_Initial_Fees' ) ) {
-							KTPWP_Service_Initial_Fees::copy_from_service( $data_id, $new_id );
-						}
-
-						// 成功時は複製されたレコードにリダイレクト
-						$base_page_url = KTPWP_Main::get_current_page_base_url();
-						$redirect_url = add_query_arg(
-                            array(
-								'tab_name' => $tab_name, // tab_nameを維持
-								'data_id' => $new_id,    // 新しいIDに遷移
-								'message' => 'duplicated', // 複製成功のメッセージパラメータ
-                            ),
-                            $base_page_url
-                        );
-						// 不要なPOST関連パラメータを削除
-						$redirect_url = remove_query_arg( array( 'query_post', '_ktp_service_nonce', 'send_post' ), $redirect_url );
-
-						wp_redirect( esc_url_raw( $redirect_url ) );
-						exit;
-					}
-				}
+			$result = $this->duplicate_service_record( $data_id );
+			if ( is_wp_error( $result ) ) {
+				wp_die( esc_html( $result->get_error_message() ) );
 			}
 
-			$wpdb->query( 'UNLOCK TABLES;' );
+			$new_id = (int) $result['new_id'];
+			$cookie_name = 'ktp_' . sanitize_key( $tab_name ) . '_id';
+			if ( ! headers_sent() ) {
+				setcookie( $cookie_name, (string) $new_id, time() + ( 86400 * 30 ), '/' );
+			}
+
+			$base_page_url = KTPWP_Main::get_current_page_base_url();
+			$redirect_url  = add_query_arg(
+				array(
+					'tab_name' => $tab_name,
+					'data_id'  => $new_id,
+					'message'  => 'duplicated',
+				),
+				$base_page_url
+			);
+			$redirect_url = remove_query_arg( array( 'query_post', '_ktp_service_nonce', 'send_post' ), $redirect_url );
+
+			wp_redirect( esc_url_raw( $redirect_url ) );
+			exit;
 		}
 
 		/**

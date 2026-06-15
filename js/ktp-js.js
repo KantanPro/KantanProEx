@@ -247,8 +247,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         try {
             localStorage.setItem(TAB_STATE_PREFIX + tabName, JSON.stringify(state || {}));
-            var cookieValue = encodeURIComponent(JSON.stringify(state || {}));
-            document.cookie = TAB_STATE_PREFIX + tabName + '=' + cookieValue + ';path=/;max-age=2592000;SameSite=Lax';
             if (window.ktpDebugMode) {
                 console.log('KTPWP: タブ状態を保存しました:', tabName, state);
             }
@@ -258,6 +256,20 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     }
+
+    function clearLegacyTabStateCookies() {
+        if (!document.cookie) {
+            return;
+        }
+        document.cookie.split(';').forEach(function (part) {
+            var name = part.split('=')[0].trim();
+            if (name.indexOf(TAB_STATE_PREFIX) === 0) {
+                document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+            }
+        });
+    }
+
+    clearLegacyTabStateCookies();
 
     function loadTabState(tabName) {
         try {
@@ -501,6 +513,82 @@ document.addEventListener('DOMContentLoaded', function () {
     function deleteCookie(name) {
         document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
     }
+
+    function getAjaxConfig() {
+        return window.ktpwp_ajax || window.ktp_ajax_object || {};
+    }
+
+    function duplicateServiceViaAjax(button) {
+        if (!button || button.disabled) {
+            return;
+        }
+
+        var serviceId = button.getAttribute('data-service-id');
+        if (!serviceId) {
+            return;
+        }
+
+        var ajaxConfig = getAjaxConfig();
+        var ajaxUrl = ajaxConfig.ajax_url || window.ajaxurl;
+        var nonce = (ajaxConfig.nonces && ajaxConfig.nonces.general) || window.ktpwp_ajax_nonce || '';
+        if (!ajaxUrl || !nonce) {
+            if (typeof showErrorNotification === 'function') {
+                showErrorNotification(button.getAttribute('data-error-message') || '複製に失敗しました。');
+            }
+            return;
+        }
+
+        button.disabled = true;
+
+        var body = new URLSearchParams();
+        body.set('action', 'ktp_duplicate_service');
+        body.set('nonce', nonce);
+        body.set('data_id', serviceId);
+
+        fetch(ajaxUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+            },
+            body: body.toString()
+        })
+            .then(function (response) { return response.json(); })
+            .then(function (json) {
+                if (!json || !json.success) {
+                    var message = (json && json.data) ? json.data : (button.getAttribute('data-error-message') || '複製に失敗しました。');
+                    if (typeof showErrorNotification === 'function') {
+                        showErrorNotification(message);
+                    }
+                    button.disabled = false;
+                    return;
+                }
+
+                if (typeof showSuccessNotification === 'function') {
+                    showSuccessNotification(button.getAttribute('data-success-message') || '複製しました。');
+                }
+
+                var redirectUrl = json.data && json.data.redirect_url;
+                if (redirectUrl) {
+                    window.location.href = redirectUrl;
+                }
+            })
+            .catch(function () {
+                if (typeof showErrorNotification === 'function') {
+                    showErrorNotification(button.getAttribute('data-error-message') || '複製に失敗しました。');
+                }
+                button.disabled = false;
+            });
+    }
+
+    document.addEventListener('click', function (e) {
+        var duplicateBtn = e.target.closest('.ktp-service-duplicate-btn');
+        if (!duplicateBtn) {
+            return;
+        }
+        e.preventDefault();
+        duplicateServiceViaAjax(duplicateBtn);
+    });
 
     // スクロールタイマーを保存する変数（グローバルスコープ）
     window.scrollTimeouts = [];
