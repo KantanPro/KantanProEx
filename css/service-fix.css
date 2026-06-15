@@ -81,9 +81,9 @@
     border: 1px solid #e5e7eb;
     border-radius: 4px;
     display: block;
-    height: 48px;
-    object-fit: contain;
-    width: 48px;
+    height: 100%;
+    object-fit: cover;
+    width: 100%;
 }
 
 .ktp-service-list-col {

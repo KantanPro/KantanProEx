@@ -446,7 +446,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					$price_unit_cell = '<td class="col-price-unit">' . $this->render_service_price_unit_display( $price, $unit ) . '</td>';
 					$results[] = '<tr class="ktp-service-list-data-row" data-href="' . $row_url . '" onclick="window.location.href=this.dataset.href">' .
 					'<td class="col-id">' . $id . '</td>' .
-					'<td class="col-image"><span class="ktp-service-list-thumb-wrap"><img src="' . esc_url( $thumb_url ) . '" alt="' . esc_attr( $service_name_raw ) . '" class="ktp-service-list-thumb" loading="lazy" decoding="async" width="40" height="40" onerror="this.src=\'' . esc_url( $default_thumb_url ) . '\'" /></span></td>' .
+					'<td class="col-image"><span class="ktp-service-list-thumb-wrap"><img src="' . esc_url( $thumb_url ) . '" alt="' . esc_attr( $service_name_raw ) . '" class="ktp-service-list-thumb" loading="lazy" decoding="async" onerror="this.src=\'' . esc_url( $default_thumb_url ) . '\'" /></span></td>' .
 					'<td class="col-name">' . $service_name . '</td>' .
 					'<td class="col-public">' . $this->render_service_public_badge( $is_public, $row_stock, (int) $row->id, $contract_cycle_value ) . '</td>' .
 					$contract_cycle_cell .
@@ -905,7 +905,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 
 				// 画像とアップロードフォームのHTML
 				$image_section_html = '<div style="margin-top: 10px;">'; // 画像セクション開始
-				$image_section_html .= '<div class="image"><img src="' . esc_url( $image_url ) . '" alt="' . esc_attr__( 'サービス画像', 'ktpwp' ) . '" class="product-image" onerror="this.src=\'' . esc_url( $default_url ) . '\'" style="width: 100%; height: auto; max-width: 100%;"></div>';
+				$image_section_html .= '<div class="image"><img src="' . esc_url( $image_url ) . '" alt="' . esc_attr__( 'サービス画像', 'ktpwp' ) . '" class="product-image" onerror="this.src=\'' . esc_url( $default_url ) . '\'"></div>';
 				$image_section_html .= '<div class="image_upload_form">';
 
 				// サービス画像アップロードフォーム
@@ -1213,8 +1213,8 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			$image_html = '';
 			if ( ! empty( $image_url ) ) {
 				$image_html = '
-            <div style="text-align: center; margin-bottom: 20px;">
-                <img src="' . esc_url( $image_url ) . '" alt="' . esc_attr( $service_name ) . '" style="max-width: 100%; max-height: 300px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div class="image" style="margin-bottom: 20px;">
+                <img src="' . esc_url( $image_url ) . '" alt="' . esc_attr( $service_name ) . '" class="product-image" style="border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
             </div>';
 			}
 

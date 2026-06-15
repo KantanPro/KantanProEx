@@ -2645,6 +2645,19 @@ form > .create-order-btn {
   width: 7%;
 }
 
+.ktp-service-list-table.ktp-list-table--service .ktp-service-list-thumb-wrap {
+  aspect-ratio: 1 / 1;
+  height: auto;
+  margin: 0;
+  width: 100%;
+}
+
+.ktp-service-list-table.ktp-list-table--service .ktp-service-list-thumb {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
 .ktp-service-list-table.ktp-list-table--service .col-name {
   width: 24%;
 }
@@ -2757,14 +2770,6 @@ form > .create-order-btn {
 .ktp-data-list-status-excluded {
   color: #d63638;
   font-weight: 700;
-}
-
-.ktp-service-list-table .ktp-service-list-thumb {
-  display: block;
-  height: 100%;
-  margin: 0;
-  object-fit: cover;
-  width: 100%;
 }
 
 /* データリストボックスの見出し */
@@ -4032,12 +4037,10 @@ div.ktp-report-print-area {
 
 /* サービス画像のスタイル */
 .product-image {
-  width: 100%; /* div.imageの幅いっぱいに表示 */
-  height: auto; /* 画像の高さを画像に合わせる */
-  max-width: 100%; /* コンテナの幅を超えないようにする */
-  max-height: 320px; /* モバイル時以外は高さ320pxに制限 */
-  object-fit: contain; /* コンテナ内で縦横比を保ちつつ、全体が見えるように調整 */
-  object-position: left; /* 画像を左寄せにする */
+  display: block;
+  height: auto;
+  max-width: 100%;
+  width: 100%;
 }
 
 /* 検索リストボックスのスタイル */

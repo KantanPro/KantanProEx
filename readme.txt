@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.47
+Stable tag: 1.3.48
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,11 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.48 - 2026年06月15日 =
+* サービス画像を常にコンテナ幅いっぱいに表示するよう改善
+* サービスリストのサムネイルを画像列の幅いっぱいに表示（object-fit: cover）
+* サービス詳細の画像表示から max-height 制限を撤廃
 
 = 1.3.47 - 2026年06月15日 =
 * 顧客・サービス・協力会社リストのソート初期値を降順に統一
