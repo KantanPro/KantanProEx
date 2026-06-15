@@ -524,6 +524,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			$contract_billing_cycle = class_exists( 'KTPWP_Contract_Billing_Cycle' ) ? KTPWP_Contract_Billing_Cycle::NONE : 'none';
 			$stock = 1;
 			$public_quantity_fixed = 0;
+			$public_html = '';
 			$query_id = 0;
 
 			// 追加モード以外の場合のみデータを取得
@@ -595,6 +596,9 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					$public_quantity_fixed = class_exists( 'KTPWP_Service_DB' )
 						? KTPWP_Service_DB::sanitize_public_quantity_fixed( $row->public_quantity_fixed ?? null )
 						: 0;
+					$public_html = class_exists( 'KTPWP_Service_DB' )
+						? (string) ( $row->public_html ?? '' )
+						: '';
 				}
 			}
 			  			// 表示するフォーム要素を定義
@@ -778,6 +782,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 
 				$data_forms .= $this->render_is_public_checkbox_field( 0 );
 				$data_forms .= $this->render_public_quantity_mode_field( 0 );
+				$data_forms .= $this->render_public_html_field( '' );
 				$default_cycle = class_exists( 'KTPWP_Contract_Billing_Cycle' ) ? KTPWP_Contract_Billing_Cycle::NONE : 'none';
 				$data_forms .= $this->render_stock_field( 1 );
 				$data_forms .= $this->render_contract_billing_cycle_field( $default_cycle );
@@ -992,6 +997,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				}
 				$data_forms .= $this->render_is_public_checkbox_field( (int) $is_public );
 				$data_forms .= $this->render_public_quantity_mode_field( (int) $public_quantity_fixed );
+				$data_forms .= $this->render_public_html_field( (string) $public_html );
 				$cycle_value = class_exists( 'KTPWP_Contract_Billing_Cycle' )
 					? KTPWP_Contract_Billing_Cycle::sanitize( $contract_billing_cycle )
 					: 'none';
@@ -1535,6 +1541,26 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			$html .= '<input type="radio" name="public_quantity_fixed" value="1"' . checked( $fixed, true, false ) . '>';
 			$html .= '<span>' . esc_html__( '1に固定（数量欄を非表示）', 'ktpwp' ) . '</span>';
 			$html .= '</label>';
+			$html .= '</div></div>';
+
+			return $html;
+		}
+
+		/**
+		 * 公開用HTMLフィールドの HTML を返す。
+		 *
+		 * @param string $public_html 公開用HTML。
+		 * @return string
+		 */
+		private function render_public_html_field( $public_html ) {
+			$html  = $this->render_service_contract_fields_styles();
+			$html .= '<div class="ktpwp-service-field-block ktpwp-service-field-block--public-html">';
+			$html .= '<div class="ktpwp-service-field-block__label">';
+			$html .= '<span class="ktpwp-service-field-block__label-text ktpwp-service-field-block__section-title">' . esc_html__( '公開用HTML', 'ktpwp' ) . '</span>';
+			$html .= '<span class="ktpwp-service-field-block__hint">' . esc_html__( '公開商品カード・詳細に表示するHTMLです。公式LINE友だち追加ボタンなど、リンクや画像タグを記述できます。メモ欄とは別管理です。', 'ktpwp' ) . '</span>';
+			$html .= '</div>';
+			$html .= '<div class="ktpwp-service-field-block__control">';
+			$html .= '<textarea id="public_html" name="public_html" rows="6" class="large-text code" placeholder="' . esc_attr__( '例: LINE友だち追加ボタンのHTML', 'ktpwp' ) . '">' . esc_textarea( $public_html ) . '</textarea>';
 			$html .= '</div></div>';
 
 			return $html;

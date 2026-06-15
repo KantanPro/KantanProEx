@@ -484,6 +484,25 @@
 	word-break: break-word;
 }
 
+.ktpwp-public-products-grid__public-html,
+.ktpwp-public-products-card__public-html {
+	margin: 8px 0 0;
+}
+
+.ktpwp-public-products-grid__public-html img,
+.ktpwp-public-products-card__public-html img,
+.ktpwp-public-product-detail__public-html img {
+	display: block;
+	height: auto;
+	max-width: 100%;
+}
+
+.ktpwp-public-products-grid__public-html a,
+.ktpwp-public-products-card__public-html a,
+.ktpwp-public-product-detail__public-html a {
+	display: inline-block;
+}
+
 /* カード */
 .ktpwp-public-products-cards {
 	display: grid;
@@ -891,6 +910,10 @@ body.ktpwp-public-product-modal-open {
 .ktpwp-public-product-detail__memo-body {
 	white-space: pre-wrap;
 	word-break: break-word;
+}
+
+.ktpwp-public-product-detail__public-html {
+	margin-top: 0.75rem;
 }
 
 .ktpwp-public-product-order-form {

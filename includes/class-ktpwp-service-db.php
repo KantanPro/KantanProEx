@@ -69,6 +69,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				contract_billing_cycle VARCHAR(20) NOT NULL DEFAULT 'none',
 				stock INT UNSIGNED NOT NULL DEFAULT 1,
 				public_quantity_fixed TINYINT(1) NOT NULL DEFAULT 0,
+				public_html TEXT NULL,
 				PRIMARY KEY  (id)
 			) {$charset_collate};";
 
@@ -136,6 +137,9 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			$public_quantity_fixed = self::sanitize_public_quantity_fixed(
 				isset( $_POST['public_quantity_fixed'] ) ? wp_unslash( $_POST['public_quantity_fixed'] ) : null
 			);
+			$public_html = self::sanitize_public_html(
+				isset( $_POST['public_html'] ) ? wp_unslash( $_POST['public_html'] ) : ''
+			);
 
 			// Create search field value
 			$search_field_value = implode(
@@ -186,6 +190,10 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 							$data['public_quantity_fixed'] = $public_quantity_fixed;
 						}
 
+						if ( $this->service_table_has_public_html_column( $table_name ) ) {
+							$data['public_html'] = $public_html;
+						}
+
 						$format = array( '%s', '%f', '%f', '%s', '%s', '%s', '%d', '%s' );
 						if ( isset( $data['contract_billing_cycle'] ) ) {
 							$format[] = '%s';
@@ -195,6 +203,9 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 						}
 						if ( isset( $data['public_quantity_fixed'] ) ) {
 							$format[] = '%d';
+						}
+						if ( isset( $data['public_html'] ) ) {
+							$format[] = '%s';
 						}
 
 						$update_result = $wpdb->update(
@@ -281,6 +292,9 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			$public_quantity_fixed = self::sanitize_public_quantity_fixed(
 				isset( $_POST['public_quantity_fixed'] ) ? wp_unslash( $_POST['public_quantity_fixed'] ) : null
 			);
+			$public_html = self::sanitize_public_html(
+				isset( $_POST['public_html'] ) ? wp_unslash( $_POST['public_html'] ) : ''
+			);
 
 			// 検索フィールド値を作成
 			$search_field_value = implode(
@@ -326,6 +340,11 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			if ( $this->service_table_has_public_quantity_fixed_column( $table_name ) ) {
 				$insert_data['public_quantity_fixed'] = $public_quantity_fixed;
 				$insert_format[] = '%d';
+			}
+
+			if ( $this->service_table_has_public_html_column( $table_name ) ) {
+				$insert_data['public_html'] = $public_html;
+				$insert_format[] = '%s';
 			}
 
 			$insert_result = $wpdb->insert(
@@ -475,6 +494,13 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 					? self::sanitize_public_quantity_fixed( $original_data->public_quantity_fixed )
 					: 0;
 				$duplicate_format[] = '%d';
+			}
+
+			if ( $this->service_table_has_public_html_column( $table_name ) ) {
+				$duplicate_data['public_html'] = isset( $original_data->public_html )
+					? self::sanitize_public_html( $original_data->public_html )
+					: '';
+				$duplicate_format[] = '%s';
 			}
 
 			$insert_result = $wpdb->insert(
@@ -1432,6 +1458,27 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 		}
 
 		/**
+		 * サービステーブルに public_html カラムがあるか確認する。
+		 *
+		 * @param string $table_name テーブル名。
+		 * @return bool
+		 */
+		private function service_table_has_public_html_column( $table_name ) {
+			global $wpdb;
+
+			static $cache = array();
+
+			if ( isset( $cache[ $table_name ] ) ) {
+				return $cache[ $table_name ];
+			}
+
+			$columns = $wpdb->get_col( "SHOW COLUMNS FROM `{$table_name}`" );
+			$cache[ $table_name ] = is_array( $columns ) && in_array( 'public_html', $columns, true );
+
+			return $cache[ $table_name ];
+		}
+
+		/**
 		 * 公開フォームの数量固定フラグを正規化する。
 		 *
 		 * @param mixed $raw POST 値など。
@@ -1453,6 +1500,28 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			}
 
 			return (int) $service->public_quantity_fixed === 1;
+		}
+
+		/**
+		 * 公開用HTMLを正規化する（保存時）。
+		 *
+		 * @param mixed $raw POST 値など。
+		 * @return string
+		 */
+		public static function sanitize_public_html( $raw ) {
+			return wp_kses_post( (string) $raw );
+		}
+
+		/**
+		 * 公開用HTMLを表示用に整形する。
+		 *
+		 * @param mixed $raw DB 値など。
+		 * @return string
+		 */
+		public static function format_public_html_for_display( $raw ) {
+			$html = self::sanitize_public_html( $raw );
+
+			return trim( $html );
 		}
 
 		/**
