@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.50
+Stable tag: 1.3.51
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,10 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.51 - 2026年06月15日 =
+* サービスで画像がない場合のデフォルト表示を no-image-icon.png に変更
+* 既存DBに保存された no-image-icon.jpg の URL もデフォルト画像として正しく判定
 
 = 1.3.50 - 2026年06月15日 =
 * 見積メールの送信履歴で「決済リンクは送信履歴には含めません。」が重複表示される不具合を修正

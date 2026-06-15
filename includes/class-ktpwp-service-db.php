@@ -708,10 +708,8 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 
 			// 画像URLを取得
 			$image_processor = new KTPWP_Image_Processor();
-			$default_image_url = plugin_dir_url( __DIR__ ) . 'images/default/no-image-icon.jpg';
-
-			// デフォルト画像のパスが正しいか確認
-			$default_image_path = __DIR__ . '/../images/default/no-image-icon.jpg';
+			$default_image_url  = $this->get_default_image_url();
+			$default_image_path = __DIR__ . '/../images/default/no-image-icon.png';
 			if ( ! file_exists( $default_image_path ) ) {
 				// デフォルト画像が存在しない場合のエラーは記録しない（プロダクション環境）
 			}
@@ -772,7 +770,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			$table_name = $wpdb->prefix . 'ktp_' . sanitize_key( $tab_name );
 
 			// デフォルト画像のURLを設定
-			$default_image_url = plugin_dir_url( __DIR__ ) . 'images/default/no-image-icon.jpg';
+			$default_image_url = $this->get_default_image_url();
 
 			// 既存の画像ファイルを削除する（旧形式・新形式の両方）
 			$this->delete_uploaded_image_files( $data_id );
@@ -1090,7 +1088,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 		 * @return string
 		 */
 		public function get_default_image_url() {
-			return plugin_dir_url( dirname( __DIR__ ) . '/ktpwp.php' ) . 'images/default/no-image-icon.jpg';
+			return plugin_dir_url( dirname( __DIR__ ) . '/ktpwp.php' ) . 'images/default/no-image-icon.png';
 		}
 
 		/**
@@ -1208,7 +1206,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				return true;
 			}
 
-			return (bool) preg_match( '/no-image-icon\.jpg$/i', $image_url );
+			return (bool) preg_match( '/no-image-icon\.(jpg|png)$/i', $image_url );
 		}
 
 		/**
