@@ -511,19 +511,24 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 		 * @return string
 		 */
 		private function strip_body_for_mail_log( $body ) {
-			$body    = $this->normalize_email_body( $body );
-			$had_pay = (bool) preg_match( '/【オンライン決済】|invoice\.stripe\.com|pay\.stripe\.com/i', $body );
+			$body         = $this->normalize_email_body( $body );
+			$history_note = __( '【オンライン決済】決済リンクは送信履歴には含めません。', 'ktpwp' );
+			$note         = "\n\n" . $history_note;
+
+			// 保存時・表示時の二重呼び出しでも注記が重複しないよう、判定前に履歴用注記を除外する。
+			$body_for_detection = str_replace( $note, '', $body );
+			$had_pay            = (bool) preg_match( '/【オンライン決済】|invoice\.stripe\.com|pay\.stripe\.com/i', $body_for_detection );
+			$had_history_note   = str_contains( $body, $history_note );
 
 			$body = $this->strip_existing_payment_block( $body );
+			$body = str_replace( $note, '', $body );
 			$body = preg_replace( '/\n?https?:\/\/(?:invoice|pay)\.stripe\.com\/[^\s\n]*/iu', '', $body );
 			$body = preg_replace( '/\n{3,}/', "\n\n", $body );
 			$body = rtrim( $body );
 
-			if ( ! $had_pay ) {
+			if ( ! $had_pay && ! $had_history_note ) {
 				return $body;
 			}
-
-			$note  = "\n\n" . __( '【オンライン決済】決済リンクは送信履歴には含めません。', 'ktpwp' );
 			$sig   = "\n\n--\n";
 			$pos   = strrpos( $body, $sig );
 			if ( false === $pos ) {

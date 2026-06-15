@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.49
+Stable tag: 1.3.50
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,10 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.50 - 2026年06月15日 =
+* 見積メールの送信履歴で「決済リンクは送信履歴には含めません。」が重複表示される不具合を修正
+* 送信履歴本文のサニタイズ処理を冪等化（保存時・表示時の二重呼び出しに対応）
 
 = 1.3.49 - 2026年06月15日 =
 * サービスリストの価格/単位列を広げて全文表示するよう調整
