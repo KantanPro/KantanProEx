@@ -129,7 +129,7 @@
 
 .ktpwp-public-products-grid__item,
 .ktpwp-public-products-card {
-	background: #e2e8f0;
+	background: var(--ktpwp-public-product-card-bg, #e2e8f0);
 	border: 1px solid #c8d2de;
 	box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 	display: flex;
@@ -143,7 +143,7 @@
 
 .ktpwp-public-products-grid__image-wrap,
 .ktpwp-public-products-card__image-wrap {
-	background: #d5dde6;
+	background: var(--ktpwp-public-product-card-bg, #e2e8f0);
 	position: relative;
 }
 

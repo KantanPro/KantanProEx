@@ -748,6 +748,7 @@ class KTPWP_Settings {
             'tab_border_color' => '#B7CBFB',
             'odd_row_color' => '#E7EEFD',
             'even_row_color' => '#FFFFFF',
+            'public_product_card_bg_color' => '#e2e8f0',
             'header_bg_image' => 'images/default/header_bg_image.png',
             'page_content_widths' => array(),
             'custom_css' => '',
@@ -936,6 +937,7 @@ class KTPWP_Settings {
             'tab_border_color' => '#B7CBFB',
             'odd_row_color' => '#E7EEFD',
             'even_row_color' => '#FFFFFF',
+            'public_product_card_bg_color' => '#e2e8f0',
             'header_bg_image' => 'images/default/header_bg_image.png',
             'page_content_widths' => self::build_default_page_content_widths(),
             'custom_css' => '',
@@ -3799,6 +3801,15 @@ class KTPWP_Settings {
             'design_setting_section'
         );
 
+        // 公開商品カードの背景色
+        add_settings_field(
+            'public_product_card_bg_color',
+            __( '公開商品カードの背景色', 'ktpwp' ),
+            array( $this, 'public_product_card_bg_color_callback' ),
+            'ktp-design',
+            'design_setting_section'
+        );
+
         // ヘッダー背景画像
         add_settings_field(
             'header_bg_image',
@@ -3911,6 +3922,10 @@ class KTPWP_Settings {
 
         if ( isset( $input['even_row_color'] ) ) {
             $new_input['even_row_color'] = sanitize_hex_color( $input['even_row_color'] );
+        }
+
+        if ( isset( $input['public_product_card_bg_color'] ) ) {
+            $new_input['public_product_card_bg_color'] = sanitize_hex_color( $input['public_product_card_bg_color'] );
         }
 
         if ( isset( $input['header_bg_image'] ) ) {
@@ -4978,6 +4993,25 @@ class KTPWP_Settings {
     }
 
     /**
+     * 公開商品カードの背景色フィールドのコールバック
+     *
+     * @since 1.3.60
+     * @return void
+     */
+    public function public_product_card_bg_color_callback() {
+        $options = get_option( 'ktp_design_settings' );
+        $value   = isset( $options['public_product_card_bg_color'] ) ? $options['public_product_card_bg_color'] : '#e2e8f0';
+        ?>
+        <input type="color" id="public_product_card_bg_color" name="ktp_design_settings[public_product_card_bg_color]"
+               value="<?php echo esc_attr( $value ); ?>"
+               style="width:100px;height:40px;">
+        <div style="font-size:12px;color:#555;margin-top:4px;">
+            <?php echo esc_html__( '※ [ktpwp_public_products] のグリッド型・カード型一覧で、各商品カードの背景色を設定します。', 'ktpwp' ); ?>
+        </div>
+        <?php
+    }
+
+    /**
      * ヘッダー背景画像フィールドのコールバック
      *
      * @since 1.0.0
@@ -5326,6 +5360,25 @@ div.ktp_header > * {
             }
         }
 
+        // 公開商品カードの背景色設定
+        if ( ! empty( $design_options['public_product_card_bg_color'] ) ) {
+            $public_product_card_bg_color = sanitize_hex_color( $design_options['public_product_card_bg_color'] );
+            if ( $public_product_card_bg_color ) {
+                $custom_css .= '
+.ktpwp-public-products {
+    --ktpwp-public-product-card-bg: ' . esc_attr( $public_product_card_bg_color ) . ';
+}
+.ktpwp-public-products-grid__item,
+.ktpwp-public-products-card {
+    background: ' . esc_attr( $public_product_card_bg_color ) . ' !important;
+}
+.ktpwp-public-products-grid__image-wrap,
+.ktpwp-public-products-card__image-wrap {
+    background: ' . esc_attr( $public_product_card_bg_color ) . ' !important;
+}';
+            }
+        }
+
         // カスタムCSSの追加
         if ( ! empty( $design_options['custom_css'] ) ) {
             $custom_css .= "\n" . wp_strip_all_tags( $design_options['custom_css'] );
@@ -5418,6 +5471,7 @@ div.ktp_header > * {
                 'tab_border_color' => '#B7CBFB',
                 'odd_row_color' => '#E7EEFD',
                 'even_row_color' => '#FFFFFF',
+                'public_product_card_bg_color' => '#e2e8f0',
                 'header_bg_image' => 'images/default/header_bg_image.png',
                 'page_content_widths' => self::build_default_page_content_widths(),
                 'custom_css' => '',
