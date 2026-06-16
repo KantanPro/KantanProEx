@@ -5835,7 +5835,8 @@ body.ktpwp-modal-open {
 }
 
 /* 伝票処理タブ controller内ボタンカラー */
-.controller .delete-order-btn {
+.controller .delete-order-btn,
+.ktp-order-delete-footer .delete-order-btn {
   background: #d9534f !important;
   color: #fff !important;
   border: 1px solid #d43f3a !important;
@@ -5847,7 +5848,8 @@ body.ktpwp-modal-open {
   align-items: center !important;
   gap: 4px !important;
 }
-.controller .delete-order-btn:hover:not(:disabled) {
+.controller .delete-order-btn:hover:not(:disabled),
+.ktp-order-delete-footer .delete-order-btn:hover:not(:disabled) {
   background: #c9302c !important;
   border-color: #ac2925 !important;
 }
@@ -5857,6 +5859,18 @@ body.ktpwp-modal-open {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.ktp-order-delete-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+  margin-bottom: 4px;
+  padding-top: 12px;
+}
+
+.ktp-order-delete-footer .ktp-order-delete-form {
+  display: inline-block;
 }
 
 .controller .ktp-order-contract-btn {
@@ -6780,6 +6794,18 @@ body.ktpwp-modal-open {
   font-weight: normal;
   color: #666;
   font-size: 14px;
+}
+.ktp-order-summary-field--order-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 0 4px;
+  flex: 0 0 auto;
+  order: 0;
+}
+.ktp-order-summary-field--order-id .ktp-order-summary-field-label {
+  display: inline;
+  margin-bottom: 0;
+  line-height: 1.3;
 }
 .ktp-order-summary-date-cell--order-id {
   display: inline-flex;

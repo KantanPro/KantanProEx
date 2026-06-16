@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.62
+Stable tag: 1.3.63
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,10 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.63 - 2026年06月16日 =
+* 受注書タブで受注IDを案件名の前（1行目）に表示するようレイアウトを変更
+* 受注書削除ボタンをコンテンツ下部（フッター直上・右寄せ）に移動
 
 = 1.3.62 - 2026年06月16日 =
 * 仕事リストのモバイル表示で、進捗リスト切替・表示フィルタのボタンが縦書きになる問題を修正

@@ -1580,40 +1580,14 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 
 					$content .= '<div class="controller" style="display: flex; justify-content: space-between; align-items: center;">';
 
-					// 左側：削除・定期契約作成
+					// 左側：定期契約作成
 					$content .= '<div class="ktp-order-controller-left">';
-
-					// 削除ボタン（ゴミ箱アイコン付き）
-					$current_url = add_query_arg( null, null );
-					$content .= '<form method="post" action="' . esc_url( $current_url ) . '" class="ktp-order-delete-form" style="display:inline-block;">';
-					$content .= '<input type="hidden" name="order_id" value="' . esc_attr( $order_data->id ) . '">';
-					$content .= '<input type="hidden" name="delete_order" value="1">';
-					$content .= '<input type="hidden" name="delete_confirmed" value="" class="ktp-order-delete-confirmed-input" />';
-					// 顧客データの存在有無を記録（デバッグ用）
-					$client_exists = false;
-					if ( ! empty( $order_data->client_id ) ) {
-						$client_exists = $wpdb->get_var(
-                            $wpdb->prepare(
-                                "SELECT COUNT(*) FROM `{$client_table}` WHERE id = %d",
-                                $order_data->client_id
-                            )
-                        ) > 0;
-					}
-					$content .= '<input type="hidden" name="client_exists" value="' . ( $client_exists ? '1' : '0' ) . '">';
-					// Add nonce to delete form
-					$content .= wp_nonce_field( 'delete_order_action', 'delete_nonce', true, false );
-					$content .= '<button type="button" class="delete-order-btn ktp-order-delete-trigger" data-ktp-order-delete="1">';
-					$content .= '<span class="material-symbols-outlined" aria-label="' . esc_attr__( '削除', 'ktpwp' ) . '">delete</span>';
-					$content .= esc_html__( '受注書を削除', 'ktpwp' );
-					$content .= '</button>';
-					$content .= '</form>';
 
 					if ( class_exists( 'KTPWP_Order_Contract_UI' ) ) {
 						$content .= KTPWP_Order_Contract_UI::get_instance()->render_action_button( $order_data );
 					}
 
 					$content .= '</div>';
-					$content .= $this->render_order_delete_confirm_script();
 
 					// 右側：プレビューボタン、メールボタン（軽量な共通クラスで描画）
 					$content .= '<div class="ktp-order-title-actions">';
@@ -1926,6 +1900,10 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					$content .= '<div class="order_info_box box ktp-order-summary-card">';
 
 					$content .= '<div class="ktp-order-summary-row ktp-order-summary-row--topline">';
+					$content .= '<div class="ktp-order-summary-field ktp-order-summary-field--order-id">';
+					$content .= '<span class="ktp-order-summary-field-label">' . esc_html__( '受注ID', 'ktpwp' ) . '：</span>';
+					$content .= '<span class="ktp-order-summary-order-id">' . esc_html( (string) $order_data->id ) . '</span>';
+					$content .= '</div>';
 					$content .= '<div class="ktp-order-summary-field ktp-order-summary-field--project">';
 					$content .= '<span class="ktp-order-summary-field-label">' . esc_html__( '案件名', 'ktpwp' ) . '：</span>';
 					$content .= '<input type="text" class="order_project_name_inline order-header-projectname ktp-order-summary-project-input" name="order_project_name_inline" value="' . esc_attr( isset( $order_data->project_name ) ? $order_data->project_name : '' ) . '" data-order-id="' . esc_attr( $order_data->id ) . '" placeholder="' . esc_attr__( '案件名', 'ktpwp' ) . '" autocomplete="off" />';
@@ -1939,10 +1917,6 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					$content .= '</div></div>';
 
 					$content .= '<div class="ktp-order-summary-trailing-meta">';
-					$content .= '<div class="ktp-order-summary-date-cell ktp-order-summary-date-cell--order-id">';
-					$content .= '<span class="ktp-order-summary-field-label">' . esc_html__( '受注ID', 'ktpwp' ) . '：</span>';
-					$content .= '<span class="ktp-order-summary-order-id">' . esc_html( (string) $order_data->id ) . '</span>';
-					$content .= '</div>';
 					$content .= '<div class="order-payment-timing-wrap">';
 					$content .= '<form method="post" action="' . esc_url( $current_url ) . '" class="ktp-order-summary-payment-form" id="ktp-order-payment-timing-form">';
 					$content .= '<input type="hidden" name="tab_name" value="order" />';
@@ -2033,17 +2007,16 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					// 受注書内容セクションの終了
 					$content .= '</div>'; // .order_contents 終了
 
-					// 削除ボタンはworkflow内に移動済み
+					$content .= '<div class="ktp-order-delete-footer">';
+					$content .= $this->render_order_delete_form( $order_data, $client_table );
+					$content .= $this->render_order_delete_confirm_script();
+					$content .= '</div>';
+
+					// 削除ボタンはフッター直上に移動済み
 
 				} else {
 					// 指定された受注書が見つからない場合もコントローラーと案内を表示
 					$content .= '<div class="controller" style="display: flex; justify-content: space-between; align-items: center;">';
-
-					// 左側：削除ボタン（無効化）- Material Symbolsは既に読み込み済み
-					$content .= '<button type="button" class="delete-order-btn" disabled title="' . esc_attr__( '受注書がありません', 'ktpwp' ) . '">';
-					$content .= '<span class="material-symbols-outlined" aria-label="' . esc_attr__( '削除', 'ktpwp' ) . '">delete</span>';
-					$content .= esc_html__( '受注書を削除', 'ktpwp' );
-					$content .= '</button>';
 
 					// 右側：プレビューボタンとメールボタン（無効化）
 					$content .= '<div class="ktp-order-title-actions">';
@@ -2066,12 +2039,6 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 			} else {
 				// 受注書データが存在しない場合でもレイアウトを維持
 				$content .= '<div class="controller" style="display: flex; justify-content: space-between; align-items: center;">';
-
-				// 左側：削除ボタン（無効化）- Material Symbolsは既に読み込み済み
-				$content .= '<button type="button" class="delete-order-btn" disabled title="' . esc_attr__( '受注書がありません', 'ktpwp' ) . '">';
-				$content .= '<span class="material-symbols-outlined" aria-label="' . esc_attr__( '削除', 'ktpwp' ) . '">delete</span>';
-				$content .= esc_html__( '受注書を削除', 'ktpwp' );
-				$content .= '</button>';
 
 				// 右側：プレビューボタンとメールボタン（無効化）
 				$content .= '<div class="ktp-order-title-actions">';
@@ -3275,6 +3242,42 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				"本当にこの受注書を削除しますか？\n\n請求明細・原価明細・スタッフチャット・添付ファイル・メール送信履歴も削除されます。\nこの操作は元に戻せません。",
 				'ktpwp'
 			);
+		}
+
+		/**
+		 * 受注書削除フォーム（フッター直上・右寄せ）
+		 *
+		 * @param object $order_data   受注書データ。
+		 * @param string $client_table 顧客テーブル名。
+		 * @return string
+		 */
+		private function render_order_delete_form( $order_data, $client_table ) {
+			global $wpdb;
+
+			$current_url   = add_query_arg( null, null );
+			$client_exists = false;
+			if ( ! empty( $order_data->client_id ) ) {
+				$client_exists = $wpdb->get_var(
+					$wpdb->prepare(
+						"SELECT COUNT(*) FROM `{$client_table}` WHERE id = %d",
+						$order_data->client_id
+					)
+				) > 0;
+			}
+
+			$html  = '<form method="post" action="' . esc_url( $current_url ) . '" class="ktp-order-delete-form">';
+			$html .= '<input type="hidden" name="order_id" value="' . esc_attr( $order_data->id ) . '">';
+			$html .= '<input type="hidden" name="delete_order" value="1">';
+			$html .= '<input type="hidden" name="delete_confirmed" value="" class="ktp-order-delete-confirmed-input" />';
+			$html .= '<input type="hidden" name="client_exists" value="' . ( $client_exists ? '1' : '0' ) . '">';
+			$html .= wp_nonce_field( 'delete_order_action', 'delete_nonce', true, false );
+			$html .= '<button type="button" class="delete-order-btn ktp-order-delete-trigger" data-ktp-order-delete="1">';
+			$html .= '<span class="material-symbols-outlined" aria-label="' . esc_attr__( '削除', 'ktpwp' ) . '">delete</span>';
+			$html .= esc_html__( '受注書を削除', 'ktpwp' );
+			$html .= '</button>';
+			$html .= '</form>';
+
+			return $html;
 		}
 
 		/**
