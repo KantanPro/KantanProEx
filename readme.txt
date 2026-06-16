@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.63
+Stable tag: 1.3.64
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,12 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.64 - 2026年06月16日 =
+* エディション別スタッフ上限機能を追加（ソロ1人・チーム5人・ビジネス15人・フル無制限）
+* 開発者設定にエディション切替・配布ZIPビルド手順を追加（ローカル環境のみ）
+* 配布ZIP生成スクリプトをエディション別ビルド対応（solo / team / business / pro）
+* 開発者設定ページをシステム情報中心に整理し、本番環境では非表示に復元
 
 = 1.3.63 - 2026年06月16日 =
 * 受注書タブで受注IDを案件名の前（1行目）に表示するようレイアウトを変更

@@ -132,8 +132,8 @@ class KTPWP_Shortcodes {
             $header_content = $this->get_header_content();
             $tab_content = $this->get_tab_content();
 
-            // KantanProEX では KTP banner を表示しない
-            $is_ex_edition = defined( 'KTPWP_EDITION' ) && KTPWP_EDITION === 'pro';
+            // KantanProEX 系では KTP banner を表示しない
+            $is_ex_edition = function_exists( 'ktpwp_is_ex_edition' ) && ktpwp_is_ex_edition();
             if ( ! $is_ex_edition ) {
                 // KantanProロゴヘッダーの上に外部プラグイン（例: ktp-banner）差し込み領域を用意
                 ob_start();
@@ -175,7 +175,7 @@ class KTPWP_Shortcodes {
      * @return string
      */
     public function get_banner_fallback_html_after_hooks() {
-        if ( defined( 'KTPWP_EDITION' ) && KTPWP_EDITION === 'pro' ) {
+        if ( function_exists( 'ktpwp_is_ex_edition' ) && ktpwp_is_ex_edition() ) {
             return '';
         }
         return $this->render_ktp_banner_from_option();
@@ -190,7 +190,7 @@ class KTPWP_Shortcodes {
      * @return string
      */
     private function render_ktp_banner_from_option() {
-        if ( defined( 'KTPWP_EDITION' ) && 'pro' === KTPWP_EDITION ) {
+        if ( function_exists( 'ktpwp_is_ex_edition' ) && ktpwp_is_ex_edition() ) {
             return '';
         }
         $options = $this->get_central_banner_options();
@@ -283,7 +283,7 @@ class KTPWP_Shortcodes {
      * @return bool
      */
     private function should_fetch_official_central_banner_feed( $options ) {
-        if ( defined( 'KTPWP_EDITION' ) && 'pro' === KTPWP_EDITION ) {
+        if ( function_exists( 'ktpwp_is_ex_edition' ) && ktpwp_is_ex_edition() ) {
             return false;
         }
         if ( ! apply_filters( 'kantanpro_auto_fetch_official_central_banner', true ) ) {

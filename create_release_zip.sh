@@ -6,35 +6,65 @@ DEST_PARENT_DIR="/Users/kantanpro/Desktop"
 DEST_DIR_NAME="KantanProEX_TEST_UP"
 # --- 設定ここまで ---
 
+EDITION="${1:-pro}"
+
+case "$EDITION" in
+    pro)
+        BUILD_DIR_NAME="KantanProEX"
+        PLUGIN_NAME="KantanProEX"
+        STAFF_LIMIT="0"
+        ;;
+    solo)
+        BUILD_DIR_NAME="KantanProEXsolo"
+        PLUGIN_NAME="KantanProEXsolo"
+        STAFF_LIMIT="1"
+        ;;
+    team)
+        BUILD_DIR_NAME="KantanProEXteam"
+        PLUGIN_NAME="KantanProEXteam"
+        STAFF_LIMIT="5"
+        ;;
+    business)
+        BUILD_DIR_NAME="KantanProEXbusiness"
+        PLUGIN_NAME="KantanProEXbusiness"
+        STAFF_LIMIT="15"
+        ;;
+    *)
+        echo "❌ 不明なエディション: ${EDITION}"
+        echo "使用可能: pro | solo | team | business"
+        exit 1
+        ;;
+esac
+
 DEST_DIR="${DEST_PARENT_DIR}/${DEST_DIR_NAME}"
-BUILD_DIR_NAME="KantanProEX"
 BUILD_DIR="${DEST_DIR}/${BUILD_DIR_NAME}"
 
 set -e
 
 echo "--------------------------------------------------"
 echo "KantanProEX プラグイン配布サイト用ZIPファイル生成スクリプト"
+echo "エディション: ${EDITION} (${PLUGIN_NAME})"
 echo "--------------------------------------------------"
 
-echo "[1/7] バージョン情報を取得中..."
+echo "[1/8] バージョン情報を取得中..."
 VERSION_RAW=$(grep -i "Version:" "$SOURCE_DIR/ktpwp.php" | head -n 1)
 echo "  - 生のバージョン情報: ${VERSION_RAW}"
 VERSION=$(echo "$VERSION_RAW" | sed -E 's/.*Version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+)\(?([a-zA-Z0-9]*)\)?.*/\1\2/')
 DATE=$(date +%Y%m%d)
-ZIP_FILE_NAME="KantanProEX_${VERSION}_${DATE}.zip"
+ZIP_FILE_NAME="${BUILD_DIR_NAME}_${VERSION}_${DATE}.zip"
 FINAL_ZIP_PATH="${DEST_DIR}/${ZIP_FILE_NAME}"
 
 echo "  - バージョン: ${VERSION}"
 echo "  - 日付: ${DATE}"
 echo "  - ZIPファイル名: ${ZIP_FILE_NAME}"
 
-echo "\n[2/7] ビルド環境をクリーンアップ中..."
+echo "\n[2/8] ビルド環境をクリーンアップ中..."
 mkdir -p "${DEST_DIR}"
 rm -rf "${BUILD_DIR}"
 rm -f "${FINAL_ZIP_PATH}"
 echo "  - 完了"
 
-echo "\n[3/7] ソースファイルをコピー中..."
+echo "\n[3/8] ソースファイルをコピー中..."
 EXCLUDE_LIST=(".git" ".cursor" ".vscode" ".idea" "KantanPro_build_temp" "KantanProEX_build_temp" "KantanPro_temp" "KantanProEX_temp" "wp" "node_modules" "vendor" "wp-content" "wp-cli.phar" "wp-cli.yml" "wp-cli.sh" "wp-cli-aliases.sh" "setup-wp-cli.sh" "WP-CLI-README.md" "create_release_zip.sh" "create_dummy_data.php.bak" "run-dummy-data.sh" "test-report-ajax.php" "debug-progress-chart.html" "wp-cli-create-dummy-data.php" "wp-cli-aliases.sh" "QUICK-START.md" "SECURITY.md" "DUMMY-DATA-README.md" "DEVELOPMENT-ENVIRONMENT-SETUP.md" "DEVELOPMENT-ENVIRONMENT-DETECTION-IMPLEMENTATION.md" "DEBUG-SETUP.md" "DEBUG-AJAX-IMPLEMENTATION.md" "AUTO-MIGRATION-ENHANCEMENT-COMPLETE.md" "AUTO-MIGRATION-IMPLEMENTATION-COMPLETE.md" "CACHE-OPTIMIZATION-FOR-DISTRIBUTION-COMPLETE.md" "COMPLETION-DATE-AUTO-SET-IMPLEMENTATION.md" "COMPREHENSIVE-TAX-TEST-RESULTS.md" "DISTRIBUTION-MIGRATION-COMPLETE.md" "DISTRIBUTION-MIGRATION-ENHANCEMENT-COMPLETE.md" "DISTRIBUTION-MIGRATION-ERROR-FIX-COMPLETE.md" "DISTRIBUTION-README.md" "DISTRIBUTION-UPDATE-CHECK-FIX-COMPLETE.md" "DUMMY-DATA-ENHANCEMENT-PROPOSAL.md" "DUMMY-ORDER-CREATION-DATE-FIX-COMPLETE.md" "FIX-DELETED-SKILLS-CACHE-ISSUE.md" "FOOD-SKILL-TAX-RATE-FIX-COMPLETE.md" "IMPLEMENTATION-SUMMARY.md" "INTERNAL-TAX-CALCULATION-FIX-COMPLETE.md" "INVOICE-PREVIEW-TAX-RATE-COLUMN-COMPLETE.md" "INVOICE-TAX-IMPLEMENTATION-COMPLETE.md" "INVOICE-TAX-TEST-CHECKLIST.md" "LICENSE-MANAGEMENT-IMPLEMENTATION-COMPLETE.md" "MULTIPLE-TAX-RATES-IMPLEMENTATION-COMPLETE.md" "ORDER-INVOICE-TAX-CATEGORY-UPDATE-COMPLETE.md" "ORDER-MEMORY-IMPLEMENTATION-COMPLETE.md" "OUTPUT-BUFFERING-FIX-COMPLETE.md" "PAGINATION-IMPLEMENTATION-COMPLETE.md" "PRODUCT-MANAGEMENT-UPDATE.md" "PROFIT-CALCULATION-FIX-COMPLETE.md" "PURCHASE-ORDER-EMAIL-OPTIMIZATION-COMPLETE.md" "QUALIFIED-INVOICE-PROFIT-CALCULATION-IMPLEMENTATION-COMPLETE.md" "REPORT-TAB-IMPLEMENTATION-COMPLETE.md" "SERVICE-TAX-RATE-NULL-IMPLEMENTATION-COMPLETE.md" "SKILLS-PAGINATION-COMPLETE.md" "STAFF-AVATAR-DISPLAY.md" "STAFF-CHAT-AUTO-SCROLL.md" "SUPPLIER-SKILLS-COMPLETE.md" "SUPPLIER-TAX-CALCULATION-IMPLEMENTATION-COMPLETE.md" "SUPPLIER-TAX-RATE-UPDATE-FIX-COMPLETE.md" "TAX-CATEGORY-LABELS-UPDATE-COMPLETE.md" "TAX-INCLUSIVE-SETTING-REMOVAL-COMPLETE.md" "TAX-RATE-NULL-ALLOWED-COMPLETE.md" "TAX-RATE-NULL-FIX-COMPLETE.md" "TAX-RATE-UPDATE-FIX-COMPLETE.md" "TAX-RATE-ZERO-FIX-COMPLETE.md" "UPDATE-NOTIFICATION-VERSION-FIX-COMPLETE.md" "URL-PERMALINK-DYNAMIC-IMPLEMENTATION-COMPLETE.md")
 EXCLUDE_OPTS=""
 for item in "${EXCLUDE_LIST[@]}"; do
@@ -43,7 +73,30 @@ done
 eval rsync -a ${EXCLUDE_OPTS} "\"${SOURCE_DIR}/\"" "\"${BUILD_DIR}/\""
 echo "  - 完了"
 
-echo "\n[4/7] Composer依存関係を処理中..."
+echo "\n[4/8] エディション情報を注入中..."
+KTPWP_FILE="${BUILD_DIR}/ktpwp.php"
+if [ ! -f "${KTPWP_FILE}" ]; then
+    echo "  ❌ ktpwp.php が見つかりません"
+    exit 1
+fi
+
+perl -pi -e "s/^\s*\*\s*Plugin Name:\s*.*/ * Plugin Name: ${PLUGIN_NAME}/" "${KTPWP_FILE}"
+perl -pi -e "s/define\\(\\s*'KTPWP_EDITION'\\s*,\\s*'[^']*'\\s*\\)/define( 'KTPWP_EDITION', '${EDITION}' )/g" "${KTPWP_FILE}"
+perl -pi -e "s/define\\(\\s*'KANTANPRO_PLUGIN_NAME'\\s*,\\s*'[^']*'\\s*\\)/define( 'KANTANPRO_PLUGIN_NAME', '${PLUGIN_NAME}' )/g" "${KTPWP_FILE}"
+
+if grep -q "define( 'KTPWP_STAFF_LIMIT'" "${KTPWP_FILE}"; then
+    perl -pi -e "s/define\\(\\s*'KTPWP_STAFF_LIMIT'\\s*,\\s*[0-9]+\\s*\\)/define( 'KTPWP_STAFF_LIMIT', ${STAFF_LIMIT} )/g" "${KTPWP_FILE}"
+else
+    echo "  ❌ KTPWP_STAFF_LIMIT 定数が見つかりません"
+    exit 1
+fi
+
+echo "  - Plugin Name: ${PLUGIN_NAME}"
+echo "  - KTPWP_EDITION: ${EDITION}"
+echo "  - KTPWP_STAFF_LIMIT: ${STAFF_LIMIT}"
+echo "  - 完了"
+
+echo "\n[5/8] Composer依存関係を処理中..."
 if [ -f "${BUILD_DIR}/composer.json" ]; then
     rm -f "${BUILD_DIR}/composer.lock"
     echo "  - composer.lock を削除しました（配布サイト用）"
@@ -52,7 +105,7 @@ else
     echo "  - composer.json が見つからないためスキップしました。"
 fi
 
-echo "\n[5/7] 不要な開発用ファイルを削除中..."
+echo "\n[6/8] 不要な開発用ファイルを削除中..."
 BEFORE_COUNT=$(find "${BUILD_DIR}" -type f | wc -l)
 
 find "${BUILD_DIR}" -type f -name ".DS_Store" -delete
@@ -88,7 +141,7 @@ echo "  - 削除されたファイル数: ${DELETED_COUNT}"
 echo "  - 配布版ファイル数: ${AFTER_COUNT}"
 echo "  - 完了"
 
-echo "\n[6/7] 配布サイト用の最終クリーンアップ中..."
+echo "\n[7/8] 配布サイト用の最終クリーンアップ中..."
 find "${BUILD_DIR}" -type f -name "*.bak" -delete
 find "${BUILD_DIR}" -type f -name "*.tmp" -delete
 find "${BUILD_DIR}" -type f -name "*.temp" -delete
@@ -96,11 +149,11 @@ find "${BUILD_DIR}" -type f -name "*.old" -delete
 find "${BUILD_DIR}" -type f -name "*.orig" -delete
 echo "  - 完了"
 
-echo "\n[7/9] ZIPファイルを作成中..."
+echo "\n[8/10] ZIPファイルを作成中..."
 (cd "${BUILD_DIR}/.." && zip -r -q "${FINAL_ZIP_PATH}" "${BUILD_DIR_NAME}")
 
 if [ $? -eq 0 ]; then
-    echo "\n[8/9] 最終検証を実行中..."
+    echo "\n[9/10] 最終検証を実行中..."
 
     if unzip -t "${FINAL_ZIP_PATH}" > /dev/null 2>&1; then
         echo "  ✅ ZIPファイルの整合性: 正常"
@@ -152,7 +205,7 @@ if [ $? -eq 0 ]; then
         echo "  ⚠️  ドキュメントファイル: 一部が残っています"
     fi
 
-    echo "\n[9/9] 配布前の安全チェックを実行中..."
+    echo "\n[10/10] 配布前の安全チェックを実行中..."
     if unzip -l "${FINAL_ZIP_PATH}" | grep -q "wp-config.php"; then
         echo "  ❌ ZIPに wp-config.php が含まれています。配布禁止。"
         exit 1
@@ -174,11 +227,26 @@ if [ $? -eq 0 ]; then
         echo "  ✅ 旧開発者パスワード関連の文字列は検出されませんでした（OK）"
     fi
 
+    if grep -q "define( 'KTPWP_EDITION', '${EDITION}' )" "${BUILD_DIR}/ktpwp.php"; then
+        echo "  ✅ KTPWP_EDITION: ${EDITION}"
+    else
+        echo "  ❌ KTPWP_EDITION の注入に失敗しました"
+        exit 1
+    fi
+
+    if grep -q "define( 'KTPWP_STAFF_LIMIT', ${STAFF_LIMIT} )" "${BUILD_DIR}/ktpwp.php"; then
+        echo "  ✅ KTPWP_STAFF_LIMIT: ${STAFF_LIMIT}"
+    else
+        echo "  ❌ KTPWP_STAFF_LIMIT の注入に失敗しました"
+        exit 1
+    fi
+
     rm -rf "${BUILD_DIR}"
     echo "  ✅ 一時ファイル: クリーンアップ完了"
 
     echo "\n--------------------------------------------------"
     echo "✅ KantanProEX 配布サイト用ビルドプロセスが正常に完了しました！"
+    echo "エディション: ${EDITION} (${PLUGIN_NAME})"
     echo "ZIPファイル: ${FINAL_ZIP_PATH}"
     echo "ファイルサイズ: ${ZIP_SIZE}"
     echo "解凍後フォルダ: ${BUILD_DIR_NAME}"

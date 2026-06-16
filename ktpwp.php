@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.3.63
+ * Version: 1.3.64
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -335,7 +335,7 @@ if ( ! function_exists( 'ktpwp_ex_publish_pro_identity' ) ) {
             define( 'KANTANPRO_PLUGIN_NAME', 'KantanProEX' );
         }
 
-        update_option( 'ktp_active_edition', 'pro', false );
+        update_option( 'ktp_active_edition', KTPWP_EDITION, false );
     }
 }
 ktpwp_ex_publish_pro_identity();
@@ -708,6 +708,9 @@ if ( ! defined( 'MY_PLUGIN_URL' ) ) {
 if ( ! defined( 'KTPWP_EDITION' ) ) {
     define( 'KTPWP_EDITION', 'pro' );
 }
+if ( ! defined( 'KTPWP_STAFF_LIMIT' ) ) {
+    define( 'KTPWP_STAFF_LIMIT', 0 );
+}
 
 if ( ! function_exists( 'ktpwp_mark_pro_edition_active' ) ) {
     /**
@@ -716,7 +719,8 @@ if ( ! function_exists( 'ktpwp_mark_pro_edition_active' ) ) {
      * @return void
      */
     function ktpwp_mark_pro_edition_active() {
-        update_option( 'ktp_active_edition', 'pro', false );
+        $edition = defined( 'KTPWP_EDITION' ) ? KTPWP_EDITION : 'pro';
+        update_option( 'ktp_active_edition', $edition, false );
     }
 }
 
@@ -983,6 +987,7 @@ if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
         'KTPWP_SVG_Icons'       => 'includes/class-ktpwp-svg-icons.php',
         'KTPWP_FM_Import'       => 'includes/class-ktpwp-fm-import.php',
         'KTPWP_Contract_Reminder_Mail' => 'includes/class-ktpwp-contract-reminder-mail.php',
+        'KTPWP_Edition'         => 'includes/class-ktpwp-edition.php',
         'KTPWP_Settings'        => 'includes/class-ktpwp-settings.php',
         'KTPWP_Pdf_Document_Kind' => 'includes/class-ktpwp-pdf-document-kind.php',
         'KTPWP_Pdf_Document_Settings' => 'includes/class-ktpwp-pdf-document-settings.php',
