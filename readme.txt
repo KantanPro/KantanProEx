@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.61
+Stable tag: 1.3.62
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,11 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.62 - 2026年06月16日 =
+* 仕事リストのモバイル表示で、進捗リスト切替・表示フィルタのボタンが縦書きになる問題を修正
+* 顧客・協力会社タブの宛名印刷ボタンで、モバイル時にアイコンが表示されない問題を修正（contact_mail SVGアイコン追加）
+* モバイルのコントローラーボタンでSVGアイコンが適切なサイズで表示されるようCSSを調整
 
 = 1.3.61 - 2026年06月15日 =
 * サービスに「公開用HTML」フィールドを追加（公式LINE友だち追加ボタン等を公開商品カード・詳細に表示）

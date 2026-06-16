@@ -1619,6 +1619,9 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 			$supplier_address_label_title = esc_attr__( '宛名印刷', 'ktpwp' );
 			$supplier_address_label_aria  = esc_attr__( '宛名', 'ktpwp' );
 			$supplier_address_label_text    = esc_html__( '宛名印刷', 'ktpwp' );
+			$supplier_address_label_icon    = class_exists( 'KTPWP_SVG_Icons' )
+				? KTPWP_SVG_Icons::get_icon( 'contact_mail', array( 'aria-label' => __( '宛名', 'ktpwp' ) ) )
+				: '<span class="material-symbols-outlined" aria-label="' . esc_attr__( '宛名', 'ktpwp' ) . '">contact_mail</span>';
 
 			// JavaScript
 			$print = <<<END
@@ -1741,7 +1744,7 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
         <!-- コントローラー（顧客タブと同様：左に宛名印刷、右に詳細印刷） -->
         <div class="controller" style="display: flex; justify-content: space-between; align-items: center;">
                 <div class="ktp-supplier-controller-actions" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-                <button type="button" id="supplierAddressLabelPrintButton" class="ktp-client-address-label-btn" onclick="printSupplierAddressLabel(); return false;" title="{$supplier_address_label_title}"><span class="material-symbols-outlined" aria-label="{$supplier_address_label_aria}">contact_mail</span><span class="btn-label">{$supplier_address_label_text}</span></button>
+                <button type="button" id="supplierAddressLabelPrintButton" class="ktp-client-address-label-btn" onclick="printSupplierAddressLabel(); return false;" title="{$supplier_address_label_title}">{$supplier_address_label_icon}<span class="btn-label">{$supplier_address_label_text}</span></button>
                 </div>
                 <div style="display: flex; gap: 5px;">
                 <button type="button" onclick="printContent()" title="{$print_button_title}" style="padding: 8px 12px; font-size: 12px; background: #fff; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; transition: all 0.2s ease;">

@@ -2340,6 +2340,38 @@ form > .create-order-btn {
   color: #fff;
 }
 
+@media (max-width: 767px) {
+  .controller .ktp-list-search-wrap {
+    align-items: flex-start !important;
+    flex-wrap: wrap !important;
+    row-gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .controller .ktp-list-search-form {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+  }
+
+  .ktp-list-view-switcher,
+  .ktp-list-type-filter {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+
+  .ktp-list-view-switcher__btn,
+  .ktp-list-type-filter__btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .ktp-list-type-filter__label {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
 .ktp-recurring-badge {
   background: #fff3e0;
   border-radius: 4px;
@@ -6500,11 +6532,24 @@ body.ktpwp-modal-open {
   .controller #invoiceButton .material-symbols-outlined,
   .controller #addressLabelPrintButton .material-symbols-outlined,
   .controller #supplierAddressLabelPrintButton .material-symbols-outlined,
-  .controller .ktp-client-address-label-btn .material-symbols-outlined {
+  .controller .ktp-client-address-label-btn .material-symbols-outlined,
+  .controller .create-order-btn .ktp-svg-icon,
+  .controller #invoiceButton .ktp-svg-icon,
+  .controller #addressLabelPrintButton .ktp-svg-icon,
+  .controller #supplierAddressLabelPrintButton .ktp-svg-icon,
+  .controller .ktp-client-address-label-btn .ktp-svg-icon {
     font-size: 22px !important;
     margin: 0 !important;
     line-height: 1 !important;
     display: block !important;
+  }
+  .controller .create-order-btn .ktp-svg-icon svg,
+  .controller #invoiceButton .ktp-svg-icon svg,
+  .controller #addressLabelPrintButton .ktp-svg-icon svg,
+  .controller #supplierAddressLabelPrintButton .ktp-svg-icon svg,
+  .controller .ktp-client-address-label-btn .ktp-svg-icon svg {
+    width: 22px !important;
+    height: 22px !important;
   }
   .controller .create-order-btn .btn-label,
   .controller #invoiceButton .btn-label,

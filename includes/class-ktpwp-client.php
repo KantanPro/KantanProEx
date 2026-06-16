@@ -1435,7 +1435,10 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 			$controller_html .= '<button id="invoiceButton" title="' . esc_attr__( '請求書発行', 'ktpwp' ) . '"><span class="material-symbols-outlined" aria-label="' . esc_attr__( '請求書', 'ktpwp' ) . '">receipt_long</span><span class="btn-label">' . esc_html__( '請求書発行', 'ktpwp' ) . '</span></button>';
 
 			// 宛名印刷（フォーム入力をそのまま印刷。長形3号想定レイアウト）
-			$controller_html .= '<button type="button" id="addressLabelPrintButton" class="ktp-client-address-label-btn" onclick="printClientAddressLabel(); return false;" title="' . esc_attr__( '宛名印刷', 'ktpwp' ) . '"><span class="material-symbols-outlined" aria-label="' . esc_attr__( '宛名', 'ktpwp' ) . '">contact_mail</span><span class="btn-label">' . esc_html__( '宛名印刷', 'ktpwp' ) . '</span></button>';
+			$address_label_icon = class_exists( 'KTPWP_SVG_Icons' )
+				? KTPWP_SVG_Icons::get_icon( 'contact_mail', array( 'aria-label' => __( '宛名', 'ktpwp' ) ) )
+				: '<span class="material-symbols-outlined" aria-label="' . esc_attr__( '宛名', 'ktpwp' ) . '">contact_mail</span>';
+			$controller_html .= '<button type="button" id="addressLabelPrintButton" class="ktp-client-address-label-btn" onclick="printClientAddressLabel(); return false;" title="' . esc_attr__( '宛名印刷', 'ktpwp' ) . '">' . $address_label_icon . '<span class="btn-label">' . esc_html__( '宛名印刷', 'ktpwp' ) . '</span></button>';
 
 			// 請求書発行ポップアップ
 			$controller_html .= '<div id="ktp-invoice-preview-popup" style="display:none;background:rgba(0,0,0,0.5);">';
