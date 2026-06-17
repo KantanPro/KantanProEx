@@ -898,7 +898,29 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 			}
 
 			if ( ! empty( $client->stripe_customer_id ) ) {
-				return (string) $client->stripe_customer_id;
+				$stored_id = (string) $client->stripe_customer_id;
+				if ( class_exists( '\Stripe\StripeClient' ) ) {
+					try {
+						$stripe = new \Stripe\StripeClient( self::get_secret_key() );
+						$stripe->customers->retrieve( $stored_id );
+						return $stored_id;
+					} catch ( Exception $e ) {
+						if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+							error_log( 'KTPWP Stripe customer stale, recreating: ' . $e->getMessage() );
+						}
+						if ( $this->client_table_has_column( 'stripe_customer_id' ) ) {
+							$wpdb->update(
+								$table,
+								array( 'stripe_customer_id' => null ),
+								array( 'id' => $client_id ),
+								array( '%s' ),
+								array( '%d' )
+							);
+						}
+					}
+				} else {
+					return $stored_id;
+				}
 			}
 
 			if ( ! class_exists( '\Stripe\StripeClient' ) ) {
