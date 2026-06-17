@@ -126,6 +126,12 @@ find "${BUILD_DIR}" -type f \( -name "test-*.sh" -o -name "test_*.sh" -o -name "
 
 find "${BUILD_DIR}" -type f \( -name "README.md" -o -name "*.md" -o -name "*.html" -o -name "debug-progress-chart.html" \) -delete
 
+# 翻訳ソース（実行時は .mo のみ必要）
+find "${BUILD_DIR}/languages" -type f \( -name "*.po" -o -name "*.pot" \) -delete 2>/dev/null || true
+
+# デモデータ生成（開発・検証用。本番配布には不要）
+rm -f "${BUILD_DIR}/create_dummy_data.php"
+
 find "${BUILD_DIR}" -type f -name ".local-development" -delete
 find "${BUILD_DIR}" -type f -name "DEVELOPMENT-ENVIRONMENT-SETUP.md" -delete
 find "${BUILD_DIR}" -type f -name "development-config.php" -delete
@@ -147,6 +153,7 @@ echo "  - 配布版ファイル数: ${AFTER_COUNT}"
 echo "  - 完了"
 
 echo "\n[7/8] 配布サイト用の最終クリーンアップ中..."
+find "${BUILD_DIR}" -type f -name "*.zip" -delete
 find "${BUILD_DIR}" -type f -name "*.bak" -delete
 find "${BUILD_DIR}" -type f -name "*.tmp" -delete
 find "${BUILD_DIR}" -type f -name "*.temp" -delete
@@ -171,10 +178,17 @@ if [ $? -eq 0 ]; then
     ZIP_SIZE_BYTES=$(ls -l "${FINAL_ZIP_PATH}" | awk '{print $5}')
     echo "  ✅ ZIPファイルサイズ: ${ZIP_SIZE}"
 
-    if [ "$ZIP_SIZE_BYTES" -ge 1048576 ] && [ "$ZIP_SIZE_BYTES" -le 2097152 ]; then
-        echo "  ✅ ファイルサイズ: 1-2MBの範囲内"
+    if [ "$ZIP_SIZE_BYTES" -lt 3145728 ]; then
+        echo "  ✅ ファイルサイズ: 3MB未満（WordPress標準アップロード上限内）"
     else
-        echo "  ⚠️  ファイルサイズ: 1-2MBの範囲外（${ZIP_SIZE}）"
+        echo "  ❌ ファイルサイズ: 3MB以上（${ZIP_SIZE}）— 一般WordPressではインストール不可の可能性"
+        exit 1
+    fi
+
+    if [ "$ZIP_SIZE_BYTES" -ge 1048576 ] && [ "$ZIP_SIZE_BYTES" -le 2097152 ]; then
+        echo "  ✅ ファイルサイズ: 1-2MBの推奨範囲内"
+    else
+        echo "  ⚠️  ファイルサイズ: 1-2MBの推奨範囲外（${ZIP_SIZE}）"
     fi
 
     if unzip -l "${FINAL_ZIP_PATH}" | grep -q "ktpwp.php"; then
