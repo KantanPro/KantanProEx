@@ -150,16 +150,19 @@ class KTPWP_Update_Checker {
             require_once ABSPATH . 'wp-admin/includes/plugin.php';
         }
 
-        $plugins = get_plugins();
-        if ( is_array( $plugins ) ) {
-            // 安定ディレクトリ（KantanProEX/）を最優先
-            if ( isset( $plugins['KantanProEX/ktpwp.php'] ) ) {
-                $name = isset( $plugins['KantanProEX/ktpwp.php']['Name'] ) ? (string) $plugins['KantanProEX/ktpwp.php']['Name'] : '';
+        if ( defined( 'KANTANPRO_PLUGIN_FILE' ) && is_readable( KANTANPRO_PLUGIN_FILE ) ) {
+            $detected = plugin_basename( KANTANPRO_PLUGIN_FILE );
+            if ( is_string( $detected ) && $detected !== '' && strpos( $detected, '~' ) === false ) {
+                $plugin_data = get_plugin_data( KANTANPRO_PLUGIN_FILE, false, false );
+                $name        = isset( $plugin_data['Name'] ) ? (string) $plugin_data['Name'] : '';
                 if ( stripos( $name, 'KantanProEX' ) !== false ) {
-                    return 'KantanProEX/ktpwp.php';
+                    return $detected;
                 }
             }
+        }
 
+        $plugins = get_plugins();
+        if ( is_array( $plugins ) ) {
             foreach ( $plugins as $basename => $plugin_data ) {
                 if ( basename( $basename ) !== 'ktpwp.php' ) {
                     continue;
@@ -185,14 +188,7 @@ class KTPWP_Update_Checker {
             }
         }
 
-        if ( defined( 'KANTANPRO_PLUGIN_FILE' ) && file_exists( KANTANPRO_PLUGIN_FILE ) ) {
-            $detected = plugin_basename( KANTANPRO_PLUGIN_FILE );
-            if ( is_string( $detected ) && $detected !== '' && strpos( $detected, '~' ) === false ) {
-                return $detected;
-            }
-        }
-
-        $main_plugin_file = dirname( __DIR__ ) . '/ktpwp.php';
+        $main_plugin_file = defined( 'KANTANPRO_PLUGIN_FILE' ) ? KANTANPRO_PLUGIN_FILE : dirname( __DIR__ ) . '/ktpwp.php';
         if ( file_exists( $main_plugin_file ) ) {
             $detected = plugin_basename( $main_plugin_file );
             if ( is_string( $detected ) && $detected !== '' && strpos( $detected, '~' ) === false ) {
@@ -493,6 +489,51 @@ class KTPWP_Update_Checker {
         return is_string( $url ) && (
             strpos( $url, 'github.com' ) !== false ||
             strpos( $url, 'githubusercontent.com' ) !== false
+        );
+    }
+
+    /**
+     * GitHub Release から、インストール中エディション向けのダウンロード URL を解決する。
+     *
+     * pro: エディション ZIP asset → なければ zipball（既存ユーザー救済）
+     * solo/team/business: 対応するエディション ZIP asset のみ（zipball は使わない）
+     *
+     * @param array<string, mixed> $release_data GitHub Release API レスポンス
+     * @return array{url: string, source: string, edition: string, manual_required?: bool}
+     */
+    private function resolve_release_download_url( array $release_data ) {
+        $edition = class_exists( 'KTPWP_Edition' ) ? KTPWP_Edition::get_update_edition() : 'pro';
+        $assets  = isset( $release_data['assets'] ) && is_array( $release_data['assets'] ) ? $release_data['assets'] : array();
+        $url     = '';
+
+        if ( class_exists( 'KTPWP_Edition' ) ) {
+            $url = KTPWP_Edition::find_release_asset_url( $assets, $edition );
+        }
+
+        if ( $url !== '' ) {
+            error_log( 'KantanPro: エディション別 Release asset を使用 - edition=' . $edition . ' url=' . $url );
+            return array(
+                'url'     => $url,
+                'source'  => 'asset',
+                'edition' => $edition,
+            );
+        }
+
+        if ( $edition === 'pro' && ! empty( $release_data['zipball_url'] ) ) {
+            error_log( 'KantanPro: pro 向け zipball にフォールバック' );
+            return array(
+                'url'     => (string) $release_data['zipball_url'],
+                'source'  => 'zipball',
+                'edition' => $edition,
+            );
+        }
+
+        error_log( 'KantanPro: エディション向け Release asset が見つかりません - edition=' . $edition );
+        return array(
+            'url'              => '',
+            'source'           => 'none',
+            'edition'          => $edition,
+            'manual_required'  => true,
         );
     }
 
@@ -974,43 +1015,19 @@ class KTPWP_Update_Checker {
             
             if ( $comparison_result || $force_update ) {
                 // 更新が利用可能
-
-                // アセットからzipファイルのURLを探す
-                $download_url = '';
-                if ( ! empty($data['assets']) ) {
-                    foreach ( $data['assets'] as $asset ) {
-                        // EX用の固定名または配布スクリプトのバージョン付きZIPを優先する
-                        if (
-                            ( $asset['name'] === 'KantanProEX.zip' || preg_match( '/^KantanProEX_.*\.zip$/', $asset['name'] ) )
-                            && $asset['content_type'] === 'application/zip'
-                        ) {
-                            $download_url = ! empty( $asset['url'] ) ? $asset['url'] : $asset['browser_download_url'];
-                            error_log('KantanPro: Found release asset: ' . $download_url);
-                            break;
-                        }
-                    }
-                }
-                // アセットが見つからない場合は、次に`.zip`で終わるアセットを探す
-                if ( empty($download_url) && ! empty($data['assets']) ) {
-                    foreach ( $data['assets'] as $asset ) {
-                        if ( substr($asset['name'], -4) === '.zip' ) {
-                            $download_url = ! empty( $asset['url'] ) ? $asset['url'] : $asset['browser_download_url'];
-                            error_log('KantanPro: Found a .zip release asset: ' . $download_url);
-                            break;
-                        }
-                    }
-                }
-
-                // zipアセットがなければ、zipball_urlをフォールバックとして使う
-                if ( empty($download_url) ) {
-                    $download_url = $data['zipball_url'];
-                    error_log('KantanPro: No release asset found, falling back to zipball_url.');
-                }
+                $resolved       = $this->resolve_release_download_url( $data );
+                $download_url   = $resolved['url'];
+                $download_source = $resolved['source'];
+                $update_edition = $resolved['edition'];
+                $manual_required = ! empty( $resolved['manual_required'] );
 
                 $update_data = array(
                     'version' => $latest_version,
                     'new_version' => $data['tag_name'], // 元のバージョン文字列も保存
                     'download_url' => $download_url,
+                    'download_source' => $download_source,
+                    'update_edition' => $update_edition,
+                    'manual_update_required' => $manual_required,
                     'changelog' => isset( $data['body'] ) ? $data['body'] : '',
                     'published_at' => isset( $data['published_at'] ) ? $data['published_at'] : '',
                     'current_version' => $this->current_version, // 現在のバージョンも保存
@@ -1156,6 +1173,10 @@ class KTPWP_Update_Checker {
         }
         
         $plugin_name = get_plugin_data( KANTANPRO_PLUGIN_FILE )['Name'];
+        $manual_update = ! empty( $update_data['manual_update_required'] ) || empty( $update_data['download_url'] );
+        $edition_label = class_exists( 'KTPWP_Edition' )
+            ? KTPWP_Edition::get_edition_label( isset( $update_data['update_edition'] ) ? (string) $update_data['update_edition'] : null )
+            : '';
         
         // $update_dataが配列か文字列かをチェック
         if ( is_array( $update_data ) && isset( $update_data['new_version'] ) ) {
@@ -1175,9 +1196,18 @@ class KTPWP_Update_Checker {
             <p>
                 <strong><?php echo esc_html( $plugin_name ); ?></strong> の新しいバージョン 
                 <strong><?php echo esc_html( $new_version ); ?></strong> が利用可能です。
-                <a href="#" id="ktpwp-perform-update" data-version="<?php echo esc_attr( $new_version ); ?>">今すぐ更新</a>
+                <?php if ( $manual_update ) : ?>
+                    <?php if ( $edition_label !== '' ) : ?>
+                        <?php echo esc_html( sprintf( __( '（%s）GitHub Release にエディション別 ZIP が公開されるまで、販売所の ZIP で手動更新してください。', 'ktpwp' ), $edition_label ) ); ?>
+                    <?php else : ?>
+                        <?php esc_html_e( 'GitHub Release にエディション別 ZIP が公開されるまで、販売所の ZIP で手動更新してください。', 'ktpwp' ); ?>
+                    <?php endif; ?>
+                <?php else : ?>
+                    <a href="#" id="ktpwp-perform-update" data-version="<?php echo esc_attr( $new_version ); ?>"><?php esc_html_e( '今すぐ更新', 'ktpwp' ); ?></a>
+                <?php endif; ?>
             </p>
         </div>
+        <?php if ( ! $manual_update ) : ?>
         <script>
         jQuery(document).ready(function($) {
             $('#ktpwp-update-notice').on('click', '.notice-dismiss', function() {
@@ -1235,6 +1265,7 @@ class KTPWP_Update_Checker {
             });
         });
         </script>
+        <?php endif; ?>
         <?php
     }
     
@@ -1531,6 +1562,14 @@ class KTPWP_Update_Checker {
                 'message' => __( '更新情報が見つかりません。', 'ktpwp' ),
                 'error_type' => 'no_update_data'
             ) );
+        }
+
+        if ( is_array( $update_data ) && ( ! empty( $update_data['manual_update_required'] ) || empty( $update_data['download_url'] ) ) ) {
+            wp_send_json_error( array(
+                'message' => __( 'このエディション向けの自動更新パッケージが GitHub Release にありません。販売所の ZIP で手動更新してください。', 'ktpwp' ),
+                'error_type' => 'manual_update_required'
+            ) );
+            return;
         }
         
         // $update_dataが配列か文字列かをチェック
@@ -2280,6 +2319,9 @@ class KTPWP_Update_Checker {
             $current_version = $this->clean_version( $this->current_version );
 
             if ( version_compare( $latest_version, $current_version, '>' ) ) {
+                $can_auto_update = ! empty( $update_data['download_url'] ) && empty( $update_data['manual_update_required'] );
+
+                if ( $can_auto_update ) {
                 $plugin_info = new stdClass();
                 $plugin_info->slug = $this->plugin_slug;
                 $plugin_info->plugin = $this->plugin_basename;
@@ -2353,6 +2395,7 @@ class KTPWP_Update_Checker {
                 $transient->response[ $this->plugin_basename ] = $plugin_info;
                 if ( isset( $transient->no_update[ $this->plugin_basename ] ) ) {
                     unset( $transient->no_update[ $this->plugin_basename ] );
+                }
                 }
             } else {
                 if ( ! isset( $transient->no_update ) || ! is_array( $transient->no_update ) ) {

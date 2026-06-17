@@ -147,12 +147,126 @@ class KTPWP_Edition {
 	}
 
 	/**
+	 * エディション slug からプラグインフォルダ名（ビルド ZIP のルート名）を取得
+	 *
+	 * @param string|null $edition 省略時は現在有効なエディション
+	 * @return string
+	 */
+	public static function get_plugin_dir_name( $edition = null ) {
+		$edition     = $edition ?? self::get_active_edition();
+		$definitions = self::get_definitions();
+
+		return isset( $definitions[ $edition ] ) ? $definitions[ $edition ]['plugin_name'] : 'KantanProEX';
+	}
+
+	/**
+	 * インストール先フォルダ名からエディション slug を推定
+	 *
+	 * @param string $dir_name wp-content/plugins 直下のフォルダ名
+	 * @return string
+	 */
+	public static function detect_edition_from_plugin_dir( $dir_name ) {
+		if ( ! is_string( $dir_name ) || $dir_name === '' ) {
+			return 'pro';
+		}
+
+		foreach ( self::get_definitions() as $slug => $definition ) {
+			if ( strcasecmp( (string) $definition['plugin_name'], $dir_name ) === 0 ) {
+				return $slug;
+			}
+		}
+
+		return 'pro';
+	}
+
+	/**
+	 * GitHub Release の ZIP asset 照合に使うエディション（インストール先フォルダを優先）
+	 *
+	 * @return string
+	 */
+	public static function get_update_edition() {
+		if ( defined( 'KANTANPRO_PLUGIN_FILE' ) ) {
+			return self::detect_edition_from_plugin_dir( basename( dirname( KANTANPRO_PLUGIN_FILE ) ) );
+		}
+
+		return self::get_active_edition();
+	}
+
+	/**
+	 * GitHub Release asset 用の ZIP ファイル名パターン（正規表現）
+	 *
+	 * 例: KantanProEXbusiness_1.3.68_20260617.zip / KantanProEX.zip
+	 *
+	 * @param string|null $edition 省略時は get_update_edition()
+	 * @return string
+	 */
+	public static function get_release_asset_filename_pattern( $edition = null ) {
+		$dir_name = self::get_plugin_dir_name( $edition ?? self::get_update_edition() );
+
+		return '/^' . preg_quote( $dir_name, '/' ) . '(?:_\d+\.\d+\.\d+.*)?\.zip$/i';
+	}
+
+	/**
+	 * GitHub Release の assets から、現行エディション用 ZIP の download URL を取得
+	 *
+	 * @param array<int, array<string, mixed>> $assets GitHub API assets 配列
+	 * @param string|null                       $edition 省略時は get_update_edition()
+	 * @return string 見つからなければ空文字
+	 */
+	public static function find_release_asset_url( array $assets, $edition = null ) {
+		$edition    = $edition ?? self::get_update_edition();
+		$dir_name   = self::get_plugin_dir_name( $edition );
+		$pattern    = self::get_release_asset_filename_pattern( $edition );
+		$exact_name = $dir_name . '.zip';
+		$candidates = array();
+
+		foreach ( $assets as $asset ) {
+			if ( ! is_array( $asset ) || empty( $asset['name'] ) ) {
+				continue;
+			}
+
+			$name = (string) $asset['name'];
+			if ( $name !== $exact_name && ! preg_match( $pattern, $name ) ) {
+				continue;
+			}
+
+			$url = '';
+			if ( ! empty( $asset['url'] ) ) {
+				$url = (string) $asset['url'];
+			} elseif ( ! empty( $asset['browser_download_url'] ) ) {
+				$url = (string) $asset['browser_download_url'];
+			}
+
+			if ( $url !== '' ) {
+				$candidates[ $name ] = $url;
+			}
+		}
+
+		if ( empty( $candidates ) ) {
+			return '';
+		}
+
+		if ( isset( $candidates[ $exact_name ] ) ) {
+			return $candidates[ $exact_name ];
+		}
+
+		$names = array_keys( $candidates );
+		rsort( $names, SORT_STRING );
+
+		return $candidates[ $names[0] ];
+	}
+
+	/**
 	 * プラグインディレクトリの正規名（URL 正規化など）
 	 *
 	 * @return string
 	 */
 	public static function get_canonical_plugin_dir() {
-		return 'KantanProEX';
+		if ( defined( 'KANTANPRO_PLUGIN_FILE' ) ) {
+			return basename( dirname( KANTANPRO_PLUGIN_FILE ) );
+		}
+
+		return self::get_plugin_dir_name();
 	}
 
 	/**

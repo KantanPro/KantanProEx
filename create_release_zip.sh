@@ -2,8 +2,8 @@
 
 # --- 設定 ---
 SOURCE_DIR="$(pwd)"
-DEST_PARENT_DIR="/Users/kantanpro/Desktop"
-DEST_DIR_NAME="KantanProEX_TEST_UP"
+DEST_PARENT_DIR="${KTPWP_RELEASE_DEST_PARENT:-/Users/kantanpro/Desktop}"
+DEST_DIR_NAME="${KTPWP_RELEASE_DEST_DIR_NAME:-KantanProEX_TEST_UP}"
 # --- 設定ここまで ---
 
 EDITION="${1:-pro}"
@@ -273,11 +273,12 @@ if [ $? -eq 0 ]; then
     echo "ファイルサイズ: ${ZIP_SIZE}"
     echo "解凍後フォルダ: ${BUILD_DIR_NAME}"
     echo ""
-    echo "⚠️  GitHub自動更新向けの注意:"
-    echo "  - 既存ユーザー救済のため、GitHub ReleaseにはこのZIPをasset添付しないでください。"
-    echo "  - GitHub Releaseはassetなしで作成し、WordPress updaterをzipball_url(codeload.github.com)へフォールバックさせます。"
-    echo "  - このZIPは管理画面からの手動アップロード/配布サイト掲載用として使用してください。"
-    echo "  - 例: gh release create ${VERSION} --repo ${GITHUB_REPO} --title \"${PLUGIN_NAME} v ${VERSION} をリリースしました\" --notes \"...\" --latest"
+    echo "⚠️  GitHub Release 向けの注意:"
+    echo "  - 各エディション ZIP を同一タグの Release assets に添付すると、WordPress からワンクリック更新できます。"
+    echo "  - pro のみ asset 未添付時は zipball にフォールバックします（既存ユーザー救済）。"
+    echo "  - solo / team / business は対応するエディション ZIP asset が必須です。"
+    echo "  - ローカル一括ビルド: ./scripts/build-all-release-zips.sh"
+    echo "  - CI 添付: .github/workflows/release-assets.yml（Release 公開時に自動ビルド）"
     echo "--------------------------------------------------"
 else
     echo "\n❌ ZIPファイルの作成に失敗しました。"

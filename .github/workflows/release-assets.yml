@@ -1,0 +1,37 @@
+name: Release Edition ZIPs
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer
+
+      - name: Build all edition ZIPs
+        env:
+          KTPWP_RELEASE_DEST_PARENT: ${{ github.workspace }}/dist
+          KTPWP_RELEASE_DEST_DIR_NAME: release-zips
+        run: |
+          chmod +x create_release_zip.sh scripts/build-all-release-zips.sh
+          ./scripts/build-all-release-zips.sh
+          ls -lh dist/release-zips/*.zip
+
+      - name: Upload assets to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/release-zips/*.zip
