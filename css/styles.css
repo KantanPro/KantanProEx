@@ -4072,9 +4072,46 @@ div.ktp-report-print-area {
   width: 100%; /* 利用可能な幅を最大に */
   max-width: 100%; /* コンテナの幅を超えないようにする */
   margin-bottom: 10px; /* 下に余白を追加 */
-  overflow: hidden; /* 画像がはみ出さないようにする */
+  overflow: visible;
   border-radius: 4px; /* 角を少し丸く */
   border: 1px solid #e5e7eb; /* 薄いボーダーを追加 */
+}
+
+.image-frame {
+  display: block;
+  position: relative;
+  width: 100%;
+}
+
+.image-delete-form {
+  margin: 0;
+  position: absolute;
+  right: 0.5rem;
+  top: 0.5rem;
+  z-index: 3;
+}
+
+.image-delete-btn {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #fca5a5;
+  border-radius: 9999px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  color: #dc2626;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 1.25rem;
+  height: 2rem;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  width: 2rem;
+}
+
+.image-delete-btn:hover {
+  background: #fef2f2;
+  border-color: #f87171;
+  color: #b91c1c;
 }
 
 /* サービス画像のスタイル */

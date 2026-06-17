@@ -562,6 +562,7 @@ class KTPWP_I18n {
             '更新する' => 'Update',
             '複製する' => 'Duplicate',
             '画像をアップロード' => 'Upload image',
+            '画像を削除' => 'Delete image',
             '受注書がありません' => 'No order available',
             '非表示にする' => 'Hide',
             '本当に削除しますか？' => 'Are you sure you want to delete this?',

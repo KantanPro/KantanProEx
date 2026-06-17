@@ -930,10 +930,27 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 
 				$image_url   = $this->db_helper->resolve_image_url( (int) $data_id, $db_image_url );
 				$default_url = $this->db_helper->get_default_image_url();
+				$has_custom_image = ( $image_url !== $default_url );
 
 				// 画像とアップロードフォームのHTML
 				$image_section_html = '<div style="margin-top: 10px;">'; // 画像セクション開始
-				$image_section_html .= '<div class="image"><img src="' . esc_url( $image_url ) . '" alt="' . esc_attr__( 'サービス画像', 'ktpwp' ) . '" class="product-image" onerror="this.src=\'' . esc_url( $default_url ) . '\'"></div>';
+				$image_section_html .= '<div class="image">';
+				$image_section_html .= '<div class="image-frame">';
+				$image_section_html .= '<img src="' . esc_url( $image_url ) . '" alt="' . esc_attr__( 'サービス画像', 'ktpwp' ) . '" class="product-image" onerror="this.src=\'' . esc_url( $default_url ) . '\'">';
+
+				if ( $has_custom_image ) {
+					$nonce_field_delete = function_exists( 'wp_nonce_field' ) ? wp_nonce_field( 'ktp_service_action', '_ktp_service_nonce', true, false ) : '';
+					$form_action_url    = add_query_arg( array( 'tab_name' => $name ), $base_page_url );
+					$image_section_html .= '<form method="post" action="' . esc_url( $form_action_url ) . '" class="image-delete-form">';
+					$image_section_html .= $nonce_field_delete;
+					$image_section_html .= '<input type="hidden" name="data_id" value="' . esc_attr( $data_id ) . '">';
+					$image_section_html .= '<input type="hidden" name="query_post" value="delete_image">';
+					$image_section_html .= '<button type="submit" name="send_post" class="image-delete-btn" title="' . esc_attr__( '画像を削除', 'ktpwp' ) . '" aria-label="' . esc_attr__( '画像を削除', 'ktpwp' ) . '" onclick="return confirm(\'' . esc_js( __( '本当に削除しますか？', 'ktpwp' ) ) . '\')">&times;</button>';
+					$image_section_html .= '</form>';
+				}
+
+				$image_section_html .= '</div>'; // image-frame
+				$image_section_html .= '</div>'; // image
 				$image_section_html .= '<div class="image_upload_form">';
 
 				// サービス画像アップロードフォーム
@@ -951,18 +968,6 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				$image_section_html .= '</div>';
 				$image_section_html .= '</form>';
 				$image_section_html .= '<script>function checkImageUpload(form) { if (!form.image.value) { alert("画像が選択されていません。アップロードする画像を選択してください。"); return false; } return true; }</script>';
-
-				// サービス画像削除ボタン
-				$nonce_field_delete = function_exists( 'wp_nonce_field' ) ? wp_nonce_field( 'ktp_service_action', '_ktp_service_nonce', true, false ) : '';
-				$form_action_url = add_query_arg(array('tab_name' => $name), $base_page_url);
-				$image_section_html .= '<form method="post" action="' . esc_url( $form_action_url ) . '">';
-				$image_section_html .= $nonce_field_delete;
-				$image_section_html .= '<input type="hidden" name="data_id" value="' . esc_attr( $data_id ) . '">';
-				$image_section_html .= '<input type="hidden" name="query_post" value="delete_image">';
-				$image_section_html .= '<button type="submit" name="send_post" title="' . esc_attr__( '削除する', 'ktpwp' ) . '" onclick="return confirm(\'' . esc_js( __( '本当に削除しますか？', 'ktpwp' ) ) . '\')">';
-				$image_section_html .= '<span class="material-symbols-outlined">delete</span>';
-				$image_section_html .= '</button>';
-				$image_section_html .= '</form>';
 				$image_section_html .= '</div>'; // image_upload_form終了
 				$image_section_html .= '</div>'; // 画像セクション終了
 
