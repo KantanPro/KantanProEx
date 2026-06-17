@@ -564,6 +564,13 @@ if ( file_exists( plugin_dir_path( __FILE__ ) . 'development-config.php' ) ) {
     require_once plugin_dir_path( __FILE__ ) . 'development-config.php';
 }
 
+if ( ! defined( 'KTPWP_EDITION' ) ) {
+    define( 'KTPWP_EDITION', 'pro' );
+}
+if ( ! defined( 'KTPWP_STAFF_LIMIT' ) ) {
+    define( 'KTPWP_STAFF_LIMIT', 0 );
+}
+
 // プラグイン定数定義
 if ( ! defined( 'KANTANPRO_PLUGIN_VERSION' ) ) {
     // プラグインヘッダーから Version を取得して動的に定義
@@ -703,13 +710,6 @@ if ( ! defined( 'MY_PLUGIN_PATH' ) ) {
 }
 if ( ! defined( 'MY_PLUGIN_URL' ) ) {
     define( 'MY_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
-}
-
-if ( ! defined( 'KTPWP_EDITION' ) ) {
-    define( 'KTPWP_EDITION', 'pro' );
-}
-if ( ! defined( 'KTPWP_STAFF_LIMIT' ) ) {
-    define( 'KTPWP_STAFF_LIMIT', 0 );
 }
 
 if ( ! function_exists( 'ktpwp_mark_pro_edition_active' ) ) {

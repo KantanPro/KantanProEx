@@ -7,36 +7,36 @@ DEST_DIR_NAME="KantanProEX_TEST_UP"
 # --- 設定ここまで ---
 
 EDITION="${1:-pro}"
+GITHUB_REPO=""
 
 case "$EDITION" in
-    free)
-        BUILD_DIR_NAME="KantanPro"
-        PLUGIN_NAME="KantanProEXfree"
-        STAFF_LIMIT="1"
-        ;;
     pro)
         BUILD_DIR_NAME="KantanProEX"
         PLUGIN_NAME="KantanProEX"
         STAFF_LIMIT="0"
+        GITHUB_REPO="KantanPro/KantanProEx"
         ;;
     solo)
         BUILD_DIR_NAME="KantanProEXsolo"
         PLUGIN_NAME="KantanProEXsolo"
         STAFF_LIMIT="1"
+        GITHUB_REPO="KantanPro/KantanProEx"
         ;;
     team)
         BUILD_DIR_NAME="KantanProEXteam"
         PLUGIN_NAME="KantanProEXteam"
         STAFF_LIMIT="5"
+        GITHUB_REPO="KantanPro/KantanProEx"
         ;;
     business)
         BUILD_DIR_NAME="KantanProEXbusiness"
         PLUGIN_NAME="KantanProEXbusiness"
         STAFF_LIMIT="15"
+        GITHUB_REPO="KantanPro/KantanProEx"
         ;;
     *)
         echo "❌ 不明なエディション: ${EDITION}"
-        echo "使用可能: free | pro | solo | team | business"
+        echo "使用可能: pro | solo | team | business"
         exit 1
         ;;
 esac
@@ -86,8 +86,10 @@ if [ ! -f "${KTPWP_FILE}" ]; then
 fi
 
 perl -pi -e "s/^\s*\*\s*Plugin Name:\s*.*/ * Plugin Name: ${PLUGIN_NAME}/" "${KTPWP_FILE}"
+perl -pi -e "s|^\s*\*\s*Update URI:.*| * Update URI: https://github.com/${GITHUB_REPO}|" "${KTPWP_FILE}"
 perl -pi -e "s/define\\(\\s*'KTPWP_EDITION'\\s*,\\s*'[^']*'\\s*\\)/define( 'KTPWP_EDITION', '${EDITION}' )/g" "${KTPWP_FILE}"
 perl -pi -e "s/define\\(\\s*'KANTANPRO_PLUGIN_NAME'\\s*,\\s*'[^']*'\\s*\\)/define( 'KANTANPRO_PLUGIN_NAME', '${PLUGIN_NAME}' )/g" "${KTPWP_FILE}"
+perl -pi -e "s/define\\(\\s*'KANTANPRO_PLUGIN_CANONICAL_DIR'\\s*,\\s*'[^']*'\\s*\\)/define( 'KANTANPRO_PLUGIN_CANONICAL_DIR', '${BUILD_DIR_NAME}' )/g" "${KTPWP_FILE}"
 
 if grep -q "define( 'KTPWP_STAFF_LIMIT'" "${KTPWP_FILE}"; then
     perl -pi -e "s/define\\(\\s*'KTPWP_STAFF_LIMIT'\\s*,\\s*[0-9]+\\s*\\)/define( 'KTPWP_STAFF_LIMIT', ${STAFF_LIMIT} )/g" "${KTPWP_FILE}"
@@ -97,6 +99,7 @@ else
 fi
 
 echo "  - Plugin Name: ${PLUGIN_NAME}"
+echo "  - GitHub Repo: ${GITHUB_REPO}"
 echo "  - KTPWP_EDITION: ${EDITION}"
 echo "  - KTPWP_STAFF_LIMIT: ${STAFF_LIMIT}"
 echo "  - 完了"
@@ -274,7 +277,7 @@ if [ $? -eq 0 ]; then
     echo "  - 既存ユーザー救済のため、GitHub ReleaseにはこのZIPをasset添付しないでください。"
     echo "  - GitHub Releaseはassetなしで作成し、WordPress updaterをzipball_url(codeload.github.com)へフォールバックさせます。"
     echo "  - このZIPは管理画面からの手動アップロード/配布サイト掲載用として使用してください。"
-    echo "  - 例: gh release create ${VERSION} --repo KantanPro/KantanProEx --title \"KantanProEX（WP）v ${VERSION} をリリースしました\" --notes \"...\" --latest"
+    echo "  - 例: gh release create ${VERSION} --repo ${GITHUB_REPO} --title \"${PLUGIN_NAME} v ${VERSION} をリリースしました\" --notes \"...\" --latest"
     echo "--------------------------------------------------"
 else
     echo "\n❌ ZIPファイルの作成に失敗しました。"

@@ -1826,7 +1826,6 @@ class KTPWP_Settings {
             <h3><?php esc_html_e( '配布 ZIP ビルドコマンド', 'ktpwp' ); ?></h3>
             <p class="description"><?php esc_html_e( 'プラグインディレクトリで実行します。エディションごとに別フォルダ名・別 ZIP が生成されます。', 'ktpwp' ); ?></p>
             <ul style="font-family: monospace; font-size: 13px;">
-                <li>./create_release_zip.sh free</li>
                 <li>./create_release_zip.sh pro</li>
                 <li>./create_release_zip.sh solo</li>
                 <li>./create_release_zip.sh team</li>

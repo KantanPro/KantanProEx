@@ -58,6 +58,10 @@ class KTPWP_Update_Checker {
      */
     public function __construct() {
         $this->plugin_basename = $this->detect_canonical_plugin_basename();
+
+        if ( class_exists( 'KTPWP_Edition' ) ) {
+            $this->github_repo = KTPWP_Edition::get_github_repo();
+        }
         
         $this->plugin_slug = dirname( $this->plugin_basename );
         $this->current_version = defined( 'KANTANPRO_PLUGIN_VERSION' ) ? KANTANPRO_PLUGIN_VERSION : '1.0.5';

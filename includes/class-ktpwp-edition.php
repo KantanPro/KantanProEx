@@ -23,12 +23,6 @@ class KTPWP_Edition {
 	 */
 	public static function get_definitions() {
 		return array(
-			'free'     => array(
-				'slug'         => 'free',
-				'plugin_name'  => 'KantanProEXfree',
-				'staff_limit'  => 1,
-				'label'        => __( 'フリー版', 'ktpwp' ),
-			),
 			'solo'     => array(
 				'slug'         => 'solo',
 				'plugin_name'  => 'KantanProEXsolo',
@@ -144,6 +138,24 @@ class KTPWP_Edition {
 	}
 
 	/**
+	 * GitHub 更新チェック用リポジトリ（owner/repo）
+	 *
+	 * @return string
+	 */
+	public static function get_github_repo() {
+		return 'KantanPro/KantanProEx';
+	}
+
+	/**
+	 * プラグインディレクトリの正規名（URL 正規化など）
+	 *
+	 * @return string
+	 */
+	public static function get_canonical_plugin_dir() {
+		return 'KantanProEX';
+	}
+
+	/**
 	 * スタッフ上限（0 = 無制限）
 	 *
 	 * @return int
@@ -173,21 +185,12 @@ class KTPWP_Edition {
 	}
 
 	/**
-	 * フリー版か。
-	 *
-	 * @return bool
-	 */
-	public static function is_free_edition() {
-		return self::get_active_edition() === 'free';
-	}
-
-	/**
-	 * 有料エディションか（フリー版を除く）。
+	 * 有料エディションか。
 	 *
 	 * @return bool
 	 */
 	public static function is_paid_edition() {
-		return self::is_ex_edition() && ! self::is_free_edition();
+		return self::is_ex_edition();
 	}
 
 	/**
@@ -200,25 +203,13 @@ class KTPWP_Edition {
 	}
 
 	/**
-	 * エディション別機能フラグ
+	 * エディション別機能フラグ（KantanProEX は有料版のみのため常に有効）
 	 *
 	 * @param string $feature 機能キー。
 	 * @return bool
 	 */
 	public static function is_feature_enabled( $feature ) {
-		$feature = (string) $feature;
-
-		if ( ! self::is_free_edition() ) {
-			return true;
-		}
-
-		$disabled_features = array(
-			'stripe_billing',
-			'contract_invoice_auto_mail',
-			'public_products',
-		);
-
-		return ! in_array( $feature, $disabled_features, true );
+		return true;
 	}
 
 	/**
