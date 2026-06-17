@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.66
+Stable tag: 1.3.67
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,10 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.67 - 2026年06月17日 =
+* Stripe請求書へ帳票ブランディングの住所・郵便番号を同期する機能を追加
+* 一般設定・帳票ブランディング保存時に Stripe アカウントの請求元情報を更新
 
 = 1.3.66 - 2026年06月17日 =
 * サービス画像の削除ボタンを画像右上のオーバーレイ表示に変更
