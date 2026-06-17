@@ -40,6 +40,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 			add_action( 'rest_api_init', array( $instance, 'register_rest_routes' ) );
 			add_action( 'ktpwp_stripe_void_stale_drafts', array( $instance, 'void_stale_draft_invoices' ) );
 			add_action( 'update_option_ktp_general_settings', array( $instance, 'maybe_sync_business_profile_on_settings_save' ), 10, 2 );
+			add_action( 'update_option_ktp_pdf_issuer_address', array( $instance, 'maybe_sync_business_profile_on_settings_save' ), 10, 2 );
 
 			if ( ! wp_next_scheduled( 'ktpwp_stripe_void_stale_drafts' ) ) {
 				wp_schedule_event( time(), 'daily', 'ktpwp_stripe_void_stale_drafts' );
@@ -150,7 +151,168 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 		}
 
 		/**
-		 * Stripe アカウントの business_profile.name を同期（請求書の請求元表示）。
+		 * Hosted Invoice 用の発行者住所（帳票ブランディング → 一般設定の自社情報の順）。
+		 *
+		 * @return string
+		 */
+		public static function get_invoice_issuer_address_plain() {
+			if ( class_exists( 'KTPWP_Pdf_Branding' ) ) {
+				return trim( (string) KTPWP_Pdf_Branding::issuer_address_plain() );
+			}
+			if ( class_exists( 'KTPWP_Settings' ) ) {
+				return trim( wp_strip_all_tags( (string) KTPWP_Settings::get_company_info() ) );
+			}
+
+			return '';
+		}
+
+		/**
+		 * 日本の郵便番号を Stripe 比較用に正規化（123-4567）。
+		 *
+		 * @param string $code Postal code.
+		 * @return string
+		 */
+		private function normalize_postal_code( $code ) {
+			$digits = preg_replace( '/\D/u', '', (string) $code );
+			if ( strlen( $digits ) === 7 ) {
+				return substr( $digits, 0, 3 ) . '-' . substr( $digits, 3 );
+			}
+
+			return trim( (string) $code );
+		}
+
+		/**
+		 * 発行者住所テキストを Stripe Account 更新用に分解。
+		 *
+		 * @param string $plain プレーンテキスト住所。
+		 * @return array{support_address: string, company_address: array<string, string>}|null
+		 */
+		private function build_stripe_address_payload( $plain ) {
+			$plain = trim( wp_strip_all_tags( str_replace( array( "\r\n", "\r" ), "\n", (string) $plain ) ) );
+			if ( $plain === '' ) {
+				return null;
+			}
+
+			$postal_code = '';
+			if ( preg_match( '/〒?\s*(\d{3})-?(\d{4})/u', $plain, $matches ) ) {
+				$postal_code = $matches[1] . '-' . $matches[2];
+			}
+
+			$address_lines = array();
+			foreach ( preg_split( '/\n+/u', $plain ) as $line ) {
+				$line = trim( (string) $line );
+				if ( $line === '' ) {
+					continue;
+				}
+				if ( preg_match( '/^〒?\s*\d{3}-?\d{4}\s*$/u', $line ) ) {
+					continue;
+				}
+				if ( preg_match( '/^(TEL|FAX|Tel|Mail|E-mail|Email)[:：]/ui', $line ) ) {
+					continue;
+				}
+				if ( preg_match( '/@/u', $line ) && ! preg_match( '/[都道府県市区町村]/u', $line ) ) {
+					continue;
+				}
+				$address_lines[] = $line;
+			}
+
+			$state = '';
+			$line1 = '';
+			$line2 = '';
+			if ( ! empty( $address_lines ) ) {
+				$first = $address_lines[0];
+				if ( preg_match( '/^(.*?(?:都|道|府|県))(.*)$/u', $first, $prefecture_match ) ) {
+					$state = trim( (string) $prefecture_match[1] );
+					$line1 = trim( (string) $prefecture_match[2] );
+				} else {
+					$line1 = $first;
+				}
+
+				$extra_lines = array_slice( $address_lines, 1 );
+				if ( ! empty( $extra_lines ) ) {
+					$extra = implode( ' ', $extra_lines );
+					if ( $line1 === '' ) {
+						$line1 = $extra;
+					} else {
+						$line2 = $extra;
+					}
+				}
+			}
+
+			$company_address = array();
+			if ( $line1 !== '' ) {
+				$company_address['line1'] = mb_substr( $line1, 0, 200 );
+			}
+			if ( $line2 !== '' ) {
+				$company_address['line2'] = mb_substr( $line2, 0, 200 );
+			}
+			if ( $state !== '' ) {
+				$company_address['state'] = mb_substr( $state, 0, 100 );
+			}
+			if ( $postal_code !== '' ) {
+				$company_address['postal_code'] = $postal_code;
+			}
+			if ( $postal_code !== '' || $state !== '' || ! empty( $address_lines ) ) {
+				$company_address['country'] = 'JP';
+			}
+
+			return array(
+				'support_address' => mb_substr( $plain, 0, 500 ),
+				'company_address' => $company_address,
+			);
+		}
+
+		/**
+		 * Stripe アカウントの請求元情報が最新か。
+		 *
+		 * @param object                                              $account         Stripe Account.
+		 * @param string                                              $name            請求元名。
+		 * @param array{support_address: string, company_address: array<string, string>}|null $address_payload Address payload.
+		 * @return bool
+		 */
+		private function stripe_account_profile_is_current( $account, $name, $address_payload ) {
+			$current_name = trim( (string) ( $account->business_profile->name ?? '' ) );
+			if ( $name !== '' && $current_name !== $name ) {
+				return false;
+			}
+
+			if ( ! $address_payload ) {
+				return $name === '' || $current_name === $name;
+			}
+
+			$desired_support = trim( (string) ( $address_payload['support_address'] ?? '' ) );
+			$current_support = trim( (string) ( $account->business_profile->support_address ?? '' ) );
+			if ( $desired_support !== '' && $current_support !== $desired_support ) {
+				return false;
+			}
+
+			$desired_address = $address_payload['company_address'] ?? array();
+			if ( empty( $desired_address ) ) {
+				return true;
+			}
+
+			$current_address = $account->company->address ?? null;
+			if ( ! $current_address ) {
+				return false;
+			}
+
+			foreach ( array( 'line1', 'line2', 'city', 'state', 'postal_code', 'country' ) as $key ) {
+				$desired_value = trim( (string) ( $desired_address[ $key ] ?? '' ) );
+				$current_value = trim( (string) ( $current_address->$key ?? '' ) );
+				if ( $key === 'postal_code' ) {
+					$desired_value = $this->normalize_postal_code( $desired_value );
+					$current_value = $this->normalize_postal_code( $current_value );
+				}
+				if ( $desired_value !== '' && $desired_value !== $current_value ) {
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		/**
+		 * Stripe アカウントの business_profile / company.address を同期（請求書の請求元表示）。
 		 *
 		 * @param \Stripe\StripeClient|null $stripe Stripe client.
 		 * @return void
@@ -160,8 +322,9 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				return;
 			}
 
-			$name = self::get_invoice_issuer_name();
-			if ( $name === '' ) {
+			$name            = self::get_invoice_issuer_name();
+			$address_payload = $this->build_stripe_address_payload( self::get_invoice_issuer_address_plain() );
+			if ( $name === '' && ! $address_payload ) {
 				return;
 			}
 
@@ -171,19 +334,33 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				}
 
 				$account = $stripe->accounts->retrieve();
-				$current = trim( (string) ( $account->business_profile->name ?? '' ) );
-				if ( $current === $name ) {
+				if ( $this->stripe_account_profile_is_current( $account, $name, $address_payload ) ) {
 					return;
 				}
 
-				$stripe->accounts->update(
-					$account->id,
-					array(
-						'business_profile' => array(
-							'name' => $name,
-						),
-					)
-				);
+				$update              = array();
+				$business_profile    = array();
+				if ( $name !== '' ) {
+					$business_profile['name'] = $name;
+				}
+				if ( $address_payload ) {
+					if ( ! empty( $address_payload['support_address'] ) ) {
+						$business_profile['support_address'] = $address_payload['support_address'];
+					}
+					if ( ! empty( $address_payload['company_address'] ) ) {
+						$update['company'] = array(
+							'address' => $address_payload['company_address'],
+						);
+					}
+				}
+				if ( ! empty( $business_profile ) ) {
+					$update['business_profile'] = $business_profile;
+				}
+				if ( empty( $update ) ) {
+					return;
+				}
+
+				$stripe->accounts->update( $account->id, $update );
 			} catch ( Exception $e ) {
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 					error_log( 'KTPWP Stripe sync business_profile: ' . $e->getMessage() );
@@ -192,7 +369,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 		}
 
 		/**
-		 * 一般設定保存後に請求元名を Stripe へ反映。
+		 * 一般設定・帳票ブランディング保存後に Stripe へ反映。
 		 *
 		 * @param mixed $old_value Old option value.
 		 * @param mixed $new_value New option value.
@@ -1370,6 +1547,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				return;
 			}
 			echo '<p>' . esc_html__( '初回は Stripe Invoice（今回請求分）、初回費用なしの定額案件は Subscription を即時開始します。', 'ktpwp' ) . '</p>';
+			echo '<p class="description">' . esc_html__( '請求元の住所・郵便番号は、帳票ブランディングの「住所・連絡先」（未設定時は一般設定の自社情報）を Stripe に同期します。', 'ktpwp' ) . '</p>';
 			echo '<p class="description">' . esc_html__( 'Webhook URL:', 'ktpwp' ) . ' <code>' . esc_html( self::get_webhook_url() ) . '</code></p>';
 		}
 
@@ -1467,7 +1645,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 		public static function render_invoice_issuer_name_field() {
 			$value = self::get_invoice_issuer_name();
 			echo '<input type="text" name="ktp_general_settings[stripe_invoice_issuer_name]" value="' . esc_attr( $value ) . '" class="regular-text">';
-			echo '<p class="description">' . esc_html__( 'Stripe 請求ページの「請求元」に表示されます。保存時と請求書作成時に Stripe アカウントへ同期されます。', 'ktpwp' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'Stripe 請求ページの「請求元」名に表示されます。住所・郵便番号は帳票ブランディングの「住所・連絡先」から同期されます。', 'ktpwp' ) . '</p>';
 		}
 
 		/**

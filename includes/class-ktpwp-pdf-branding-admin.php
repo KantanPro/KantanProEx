@@ -102,7 +102,7 @@ final class KTPWP_Pdf_Branding_Admin {
 					<tr>
 						<th scope="row"><label for="pdf_issuer_address"><?php esc_html_e( '住所・連絡先', 'ktpwp' ); ?></label></th>
 						<td><textarea name="pdf_issuer_address" id="pdf_issuer_address" rows="4" class="large-text"><?php echo esc_textarea( get_option( KTPWP_Pdf_Branding::OPTION_ISSUER_ADDRESS, '' ) ); ?></textarea>
-						<p class="description"><?php esc_html_e( '空欄のときは一般設定の会社情報を使います。', 'ktpwp' ); ?></p></td>
+						<p class="description"><?php esc_html_e( '空欄のときは一般設定の会社情報を使います。Stripe 請求連携が有効なとき、保存時に郵便番号・住所を Stripe 請求書へ同期します。', 'ktpwp' ); ?></p></td>
 					</tr>
 					<tr>
 						<th scope="row"><?php esc_html_e( 'ロゴ', 'ktpwp' ); ?></th>
