@@ -41,6 +41,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 			add_action( 'ktpwp_stripe_void_stale_drafts', array( $instance, 'void_stale_draft_invoices' ) );
 			add_action( 'update_option_ktp_general_settings', array( $instance, 'maybe_sync_business_profile_on_settings_save' ), 10, 2 );
 			add_action( 'update_option_ktp_pdf_issuer_address', array( $instance, 'maybe_sync_business_profile_on_settings_save' ), 10, 2 );
+			add_action( 'update_option_ktp_pdf_issuer_name', array( $instance, 'maybe_sync_business_profile_on_settings_save' ), 10, 2 );
 
 			if ( ! wp_next_scheduled( 'ktpwp_stripe_void_stale_drafts' ) ) {
 				wp_schedule_event( time(), 'daily', 'ktpwp_stripe_void_stale_drafts' );
@@ -147,6 +148,13 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				return $custom;
 			}
 
+			if ( class_exists( 'KTPWP_Pdf_Branding' ) ) {
+				$branding_name = trim( (string) KTPWP_Pdf_Branding::issuer_display_name() );
+				if ( $branding_name !== '' ) {
+					return $branding_name;
+				}
+			}
+
 			return defined( 'KANTANPRO_PLUGIN_NAME' ) ? KANTANPRO_PLUGIN_NAME : 'KantanProEX';
 		}
 
@@ -204,7 +212,9 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				if ( $line === '' ) {
 					continue;
 				}
-				if ( preg_match( '/^〒?\s*\d{3}-?\d{4}\s*$/u', $line ) ) {
+				$line = preg_replace( '/^〒?\s*\d{3}-?\d{4}\s*/u', '', $line );
+				$line = trim( (string) $line );
+				if ( $line === '' ) {
 					continue;
 				}
 				if ( preg_match( '/^(TEL|FAX|Tel|Mail|E-mail|Email)[:：]/ui', $line ) ) {
@@ -216,26 +226,28 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				$address_lines[] = $line;
 			}
 
-			$state = '';
-			$line1 = '';
-			$line2 = '';
-			if ( ! empty( $address_lines ) ) {
-				$first = $address_lines[0];
-				if ( preg_match( '/^(.*?(?:都|道|府|県))(.*)$/u', $first, $prefecture_match ) ) {
-					$state = trim( (string) $prefecture_match[1] );
-					$line1 = trim( (string) $prefecture_match[2] );
-				} else {
-					$line1 = $first;
-				}
+			$state  = '';
+			$city   = '';
+			$line1  = '';
+			$line2  = '';
+			$body   = trim( implode( ' ', $address_lines ) );
 
-				$extra_lines = array_slice( $address_lines, 1 );
-				if ( ! empty( $extra_lines ) ) {
-					$extra = implode( ' ', $extra_lines );
-					if ( $line1 === '' ) {
-						$line1 = $extra;
+			if ( $body !== '' ) {
+				if ( preg_match( '/^(.*?(?:都|道|府|県))(.*)$/u', $body, $prefecture_match ) ) {
+					$state = trim( (string) $prefecture_match[1] );
+					$rest  = trim( (string) $prefecture_match[2] );
+					if ( preg_match( '/^(.+?(?:市|区|町|村))(.*)$/u', $rest, $city_match ) ) {
+						$city  = trim( (string) $city_match[1] );
+						$line1 = trim( (string) $city_match[2] );
+						if ( $line1 === '' ) {
+							$line1 = $city;
+							$city  = '';
+						}
 					} else {
-						$line2 = $extra;
+						$line1 = $rest;
 					}
+				} else {
+					$line1 = $body;
 				}
 			}
 
@@ -246,18 +258,29 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 			if ( $line2 !== '' ) {
 				$company_address['line2'] = mb_substr( $line2, 0, 200 );
 			}
+			if ( $city !== '' ) {
+				$company_address['city'] = mb_substr( $city, 0, 100 );
+			}
 			if ( $state !== '' ) {
 				$company_address['state'] = mb_substr( $state, 0, 100 );
 			}
 			if ( $postal_code !== '' ) {
 				$company_address['postal_code'] = $postal_code;
 			}
-			if ( $postal_code !== '' || $state !== '' || ! empty( $address_lines ) ) {
+			if ( $postal_code !== '' || $state !== '' || $city !== '' || $line1 !== '' ) {
 				$company_address['country'] = 'JP';
 			}
 
+			$support_lines = array();
+			if ( $postal_code !== '' ) {
+				$support_lines[] = '〒' . $postal_code;
+			}
+			if ( $body !== '' ) {
+				$support_lines[] = $body;
+			}
+
 			return array(
-				'support_address' => mb_substr( $plain, 0, 500 ),
+				'support_address' => mb_substr( implode( "\n", $support_lines ), 0, 500 ),
 				'company_address' => $company_address,
 			);
 		}
@@ -362,9 +385,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 
 				$stripe->accounts->update( $account->id, $update );
 			} catch ( Exception $e ) {
-				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-					error_log( 'KTPWP Stripe sync business_profile: ' . $e->getMessage() );
-				}
+				error_log( 'KTPWP Stripe sync business_profile: ' . $e->getMessage() );
 			}
 		}
 

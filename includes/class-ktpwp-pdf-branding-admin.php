@@ -39,6 +39,10 @@ final class KTPWP_Pdf_Branding_Admin {
 		update_option( KTPWP_Pdf_Branding::OPTION_ISSUER_NAME, sanitize_text_field( wp_unslash( $_POST['pdf_issuer_name'] ?? '' ) ) );
 		update_option( KTPWP_Pdf_Branding::OPTION_ISSUER_ADDRESS, sanitize_textarea_field( wp_unslash( $_POST['pdf_issuer_address'] ?? '' ) ) );
 
+		if ( class_exists( 'KTPWP_Stripe_Billing' ) && KTPWP_Stripe_Billing::is_enabled() ) {
+			KTPWP_Stripe_Billing::get_instance()->sync_account_business_profile();
+		}
+
 		if ( ! empty( $_POST['remove_logo'] ) ) {
 			KTPWP_Pdf_Branding::remove_file( KTPWP_Pdf_Branding::OPTION_LOGO_PATH );
 		} elseif ( ! empty( $_FILES['pdf_logo']['tmp_name'] ) ) {
