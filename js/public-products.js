@@ -713,6 +713,8 @@
 					instantPurchase ? 'ktpwp_public_product_purchase' : 'ktpwp_public_product_submit'
 				);
 				formData.append('nonce', config.nonce);
+				formData.append('return_url', window.location.href);
+				formData.append('cancel_url', window.location.href);
 
 				if (submitBtn) {
 					submitBtn.disabled = true;

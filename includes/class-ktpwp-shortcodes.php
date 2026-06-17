@@ -74,6 +74,7 @@ class KTPWP_Shortcodes {
             'ktpwp_all_tab'         => 'render_all_tabs',
             'kantanpro_ex'          => 'render_all_tabs',
             'ktpwp_public_products' => 'render_public_products',
+            'ktpwp_public_purchase_thank_you' => 'render_public_purchase_thank_you',
         );
 
         foreach ( $map as $tag => $method ) {
@@ -1132,7 +1133,8 @@ class KTPWP_Shortcodes {
             return;
         }
 
-        if ( ! has_shortcode( (string) $post->post_content, 'ktpwp_public_products' ) ) {
+        if ( ! has_shortcode( (string) $post->post_content, 'ktpwp_public_products' )
+            && ! has_shortcode( (string) $post->post_content, 'ktpwp_public_purchase_thank_you' ) ) {
             return;
         }
 
@@ -2002,6 +2004,20 @@ class KTPWP_Shortcodes {
         </div>
         <?php
         return (string) ob_get_clean();
+    }
+
+    /**
+     * 公開商品 Stripe 決済完了ページ。
+     *
+     * @param array<string, string> $atts Attributes.
+     * @return string
+     */
+    public function render_public_purchase_thank_you( $atts = array() ) {
+        if ( class_exists( 'KTPWP_Public_Purchase_Thank_You' ) ) {
+            return KTPWP_Public_Purchase_Thank_You::get_instance()->render_shortcode( $atts );
+        }
+
+        return '<p>' . esc_html__( 'ご購入ありがとうございました。', 'ktpwp' ) . '</p>';
     }
 
     /**

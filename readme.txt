@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.70
+Stable tag: 1.3.71
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,11 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.71 - 2026年06月18日 =
+* 公開商品の即時購入を Stripe Checkout に変更し、決済後にサンクスページへ戻るように改善
+* 「ご購入ありがとうございました」固定ページを自動生成（ショートコード対応）
+* 即時購入受注の支払タイミングを前入金済（prepay）に設定するよう修正
 
 = 1.3.70 - 2026年06月18日 =
 * 公開商品の Stripe 即時購入（購入するボタン・決済ページへリダイレクト）を追加

@@ -258,13 +258,14 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 		}
 
 		/**
-		 * 公開商品を Stripe 決済へ誘導する（受注作成 → Invoice finalize）。
+		 * 公開商品を Stripe 決済へ誘導する（受注作成 → Checkout Session または Invoice）。
 		 *
 		 * @param int   $service_id サービス ID。
 		 * @param array $form       フォーム入力。
+		 * @param array $context    追加コンテキスト（return_url, cancel_url）。
 		 * @return array{success:bool,message:string,order_id?:int,checkout_url?:string}
 		 */
-		public function purchase_order( $service_id, array $form ) {
+		public function purchase_order( $service_id, array $form, array $context = array() ) {
 			if ( ! self::is_stripe_purchase_enabled() ) {
 				return array(
 					'success' => false,
@@ -300,7 +301,49 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				);
 			}
 
-			$stripe         = KTPWP_Stripe_Billing::get_instance();
+			$this->save_order_payment_timing( $order_id, 'prepay' );
+
+			$stripe = KTPWP_Stripe_Billing::get_instance();
+
+			$return_url = isset( $context['return_url'] ) ? esc_url_raw( (string) $context['return_url'] ) : '';
+			$cancel_url = isset( $context['cancel_url'] ) ? esc_url_raw( (string) $context['cancel_url'] ) : '';
+			if ( $return_url === '' && $cancel_url !== '' ) {
+				$return_url = $cancel_url;
+			}
+			if ( $cancel_url === '' && $return_url !== '' ) {
+				$cancel_url = $return_url;
+			}
+
+			global $wpdb;
+			$order_table = $wpdb->prefix . 'ktp_order';
+			$order       = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT * FROM {$order_table} WHERE id = %d",
+					$order_id
+				)
+			);
+
+			$use_checkout = ! (
+				$order
+				&& class_exists( 'KTPWP_Stripe_Subscription' )
+				&& KTPWP_Stripe_Subscription::get_instance()->order_qualifies_for_immediate_subscription( $order )
+			);
+
+			if ( $use_checkout ) {
+				$checkout_result = $stripe->create_public_product_checkout_session( $order_id, $cancel_url, $return_url );
+				if ( ! is_wp_error( $checkout_result ) ) {
+					$checkout_url = isset( $checkout_result['url'] ) ? trim( (string) $checkout_result['url'] ) : '';
+					if ( $checkout_url !== '' ) {
+						return array(
+							'success'      => true,
+							'message'      => __( '決済ページへ移動します…', 'ktpwp' ),
+							'order_id'     => $order_id,
+							'checkout_url' => $checkout_url,
+						);
+					}
+				}
+			}
+
 			$invoice_result = $stripe->prepare_invoice_for_order( $order_id, true );
 			if ( is_wp_error( $invoice_result ) ) {
 				return array(
@@ -395,8 +438,12 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				'message'      => isset( $_POST['message'] ) ? wp_unslash( $_POST['message'] ) : '',
 				'quantity'     => isset( $_POST['quantity'] ) ? wp_unslash( $_POST['quantity'] ) : 1,
 			);
+			$context    = array(
+				'return_url' => isset( $_POST['return_url'] ) ? wp_unslash( $_POST['return_url'] ) : '',
+				'cancel_url' => isset( $_POST['cancel_url'] ) ? wp_unslash( $_POST['cancel_url'] ) : '',
+			);
 
-			$result = $this->purchase_order( $service_id, $form );
+			$result = $this->purchase_order( $service_id, $form, $context );
 
 			if ( empty( $result['success'] ) ) {
 				$this->send_ajax_json_error(
@@ -847,6 +894,41 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				$update,
 				array( 'id' => (int) $order_id ),
 				array_fill( 0, count( $update ), '%s' ),
+				array( '%d' )
+			);
+		}
+
+		/**
+		 * 受注の支払タイミングを保存する。
+		 *
+		 * @param int    $order_id 受注 ID。
+		 * @param string $timing   postpay|prepay。
+		 * @return void
+		 */
+		private function save_order_payment_timing( $order_id, $timing ) {
+			global $wpdb;
+
+			$order_id = absint( $order_id );
+			if ( $order_id <= 0 ) {
+				return;
+			}
+
+			$timing = sanitize_text_field( (string) $timing );
+			if ( ! in_array( $timing, array( 'postpay', 'prepay' ), true ) ) {
+				return;
+			}
+
+			$table = $wpdb->prefix . 'ktp_order';
+			$cols  = $wpdb->get_col( "SHOW COLUMNS FROM `{$table}`", 0 );
+			if ( ! is_array( $cols ) || ! in_array( 'payment_timing', $cols, true ) ) {
+				return;
+			}
+
+			$wpdb->update(
+				$table,
+				array( 'payment_timing' => $timing ),
+				array( 'id' => $order_id ),
+				array( '%s' ),
 				array( '%d' )
 			);
 		}

@@ -488,10 +488,19 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				return;
 			}
 
-			if ( $type === 'checkout.session.completed' && class_exists( 'KTPWP_Stripe_Subscription' ) ) {
+			if ( $type === 'checkout.session.completed' ) {
 				$session = $event->data->object ?? null;
-				if ( $session && isset( $session->mode ) && $session->mode === 'setup' ) {
+				if ( ! $session || ! isset( $session->mode ) ) {
+					return;
+				}
+
+				if ( $session->mode === 'setup' && class_exists( 'KTPWP_Stripe_Subscription' ) ) {
 					KTPWP_Stripe_Subscription::get_instance()->handle_setup_checkout_completed( $session );
+					return;
+				}
+
+				if ( $session->mode === 'payment' ) {
+					$this->handle_public_checkout_session_completed( $session );
 				}
 			}
 		}
@@ -507,11 +516,17 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				return false;
 			}
 
-			if ( class_exists( 'KTPWP_Payment_Timing' ) && KTPWP_Payment_Timing::is_prepay( $order, null ) ) {
-				return false;
-			}
-
 			$progress = isset( $order->progress ) ? (int) $order->progress : 0;
+
+			if ( class_exists( 'KTPWP_Payment_Timing' ) && KTPWP_Payment_Timing::is_prepay( $order, null ) ) {
+				// 公開商品の即時購入は前払いとして記録するが、決済完了前は Checkout 対象のままにする。
+				$awaiting_public_payment = $this->is_public_web_order( $order )
+					&& 1 === $progress
+					&& empty( $order->stripe_paid_at );
+				if ( ! $awaiting_public_payment ) {
+					return false;
+				}
+			}
 
 			if ( $this->is_public_web_order( $order ) && 1 === $progress ) {
 				return true;
@@ -884,6 +899,220 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 		}
 
 		/**
+		 * 公開商品の即時購入用 Checkout Session（success_url でサンクスページへ戻る）。
+		 *
+		 * @param int    $order_id   受注 ID.
+		 * @param string $cancel_url キャンセル時の戻り先。
+		 * @param string $return_url サンクスページの「戻る」リンク先。
+		 * @return array{session_id: string, url: string}|WP_Error
+		 */
+		public function create_public_product_checkout_session( $order_id, $cancel_url = '', $return_url = '' ) {
+			global $wpdb;
+
+			$order_id = absint( $order_id );
+			if ( $order_id <= 0 || ! self::is_enabled() ) {
+				return new WP_Error( 'invalid', __( 'Stripe 決済の対象外です。', 'ktpwp' ) );
+			}
+
+			if ( ! class_exists( '\Stripe\StripeClient' ) ) {
+				return new WP_Error( 'stripe_sdk_missing', __( 'Stripe SDK が読み込まれていません。', 'ktpwp' ) );
+			}
+
+			$order_table = $wpdb->prefix . 'ktp_order';
+			$order       = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT * FROM {$order_table} WHERE id = %d",
+					$order_id
+				)
+			);
+
+			if ( ! $order || ! $this->should_apply_to_order( $order ) || ! $this->is_public_web_order( $order ) ) {
+				return new WP_Error( 'invalid_order', __( 'Stripe 決済の対象外です。', 'ktpwp' ) );
+			}
+
+			if ( class_exists( 'KTPWP_Stripe_Subscription' )
+				&& KTPWP_Stripe_Subscription::get_instance()->order_qualifies_for_immediate_subscription( $order ) ) {
+				return new WP_Error( 'subscription_invoice', __( '定期契約の初回請求は Invoice 方式です。', 'ktpwp' ) );
+			}
+
+			if ( ! empty( $order->stripe_paid_at ) ) {
+				return new WP_Error( 'already_paid', __( 'この請求は入金済みです。', 'ktpwp' ) );
+			}
+
+			$client_id = (int) ( $order->client_id ?? 0 );
+			if ( $client_id <= 0 ) {
+				return new WP_Error( 'no_client', __( '顧客が見つかりません。', 'ktpwp' ) );
+			}
+
+			$customer_id = $this->get_or_create_customer( $client_id );
+			if ( is_wp_error( $customer_id ) ) {
+				return $customer_id;
+			}
+
+			$line_items = $this->get_order_line_items( $order_id );
+			if ( empty( $line_items ) ) {
+				return new WP_Error( 'no_items', __( '請求明細がありません。', 'ktpwp' ) );
+			}
+
+			$stripe_line_items = array();
+			foreach ( $line_items as $line ) {
+				$amount = (int) ( $line['amount'] ?? 0 );
+				if ( $amount <= 0 ) {
+					continue;
+				}
+
+				$description = (string) ( $line['description'] ?? '' );
+				if ( function_exists( 'mb_substr' ) ) {
+					$description = mb_substr( $description, 0, 200 );
+				} else {
+					$description = substr( $description, 0, 200 );
+				}
+
+				$stripe_line_items[] = array(
+					'price_data' => array(
+						'currency'     => 'jpy',
+						'unit_amount'  => $amount,
+						'product_data' => array(
+							'name' => $description !== '' ? $description : __( '商品', 'ktpwp' ),
+						),
+					),
+					'quantity'   => 1,
+				);
+			}
+
+			if ( empty( $stripe_line_items ) ) {
+				return new WP_Error( 'no_items', __( '請求明細がありません。', 'ktpwp' ) );
+			}
+
+			if ( class_exists( 'KTPWP_Public_Purchase_Thank_You' ) ) {
+				KTPWP_Public_Purchase_Thank_You::ensure_page();
+			}
+
+			$success_url = class_exists( 'KTPWP_Public_Purchase_Thank_You' )
+				? KTPWP_Public_Purchase_Thank_You::get_success_url()
+				: home_url( '/' );
+
+			$cancel_url = esc_url_raw( (string) $cancel_url );
+			if ( $cancel_url === '' ) {
+				$cancel_url = home_url( '/' );
+			}
+
+			$return_url = esc_url_raw( (string) $return_url );
+			if ( $return_url === '' ) {
+				$return_url = $cancel_url;
+			}
+
+			$metadata = array(
+				'ktp_order_id'        => (string) $order_id,
+				'ktp_public_purchase' => '1',
+				'ktp_return_url'      => $return_url,
+			);
+
+			try {
+				$stripe  = new \Stripe\StripeClient( self::get_secret_key() );
+				$this->sync_account_business_profile( $stripe );
+
+				$session = $stripe->checkout->sessions->create(
+					array(
+						'mode'        => 'payment',
+						'customer'    => $customer_id,
+						'line_items'  => $stripe_line_items,
+						'metadata'    => $metadata,
+						'success_url' => $success_url,
+						'cancel_url'  => $cancel_url,
+						'locale'      => 'ja',
+					)
+				);
+
+				$url = isset( $session->url ) ? (string) $session->url : '';
+				if ( $url === '' || empty( $session->id ) ) {
+					return new WP_Error( 'stripe_error', __( '決済ページの取得に失敗しました。', 'ktpwp' ) );
+				}
+
+				$this->save_order_stripe_fields( $order_id, (string) $session->id, $url );
+
+				return array(
+					'session_id' => (string) $session->id,
+					'url'        => $url,
+				);
+			} catch ( Exception $e ) {
+				return new WP_Error( 'stripe_error', $e->getMessage() );
+			}
+		}
+
+		/**
+		 * 公開商品 Checkout Session 完了（Webhook）。
+		 *
+		 * @param object $session Stripe Checkout Session.
+		 * @return void
+		 */
+		public function handle_public_checkout_session_completed( $session ) {
+			$metadata = isset( $session->metadata ) ? (array) $session->metadata : array();
+			if ( empty( $metadata['ktp_public_purchase'] ) ) {
+				return;
+			}
+
+			$order_id = isset( $metadata['ktp_order_id'] ) ? absint( $metadata['ktp_order_id'] ) : 0;
+			if ( $order_id <= 0 ) {
+				return;
+			}
+
+			$this->sync_public_checkout_session_for_order( $order_id, $session );
+		}
+
+		/**
+		 * Checkout Session の入金を受注へ反映（Webhook 未到達時のフォールバック兼用）。
+		 *
+		 * @param int    $order_id 受注 ID.
+		 * @param object $session  Stripe Checkout Session.
+		 * @return bool
+		 */
+		public function sync_public_checkout_session_for_order( $order_id, $session ) {
+			global $wpdb;
+
+			$order_id = absint( $order_id );
+			if ( $order_id <= 0 || ! $session ) {
+				return false;
+			}
+
+			$payment_status = isset( $session->payment_status ) ? (string) $session->payment_status : '';
+			if ( $payment_status !== 'paid' ) {
+				return false;
+			}
+
+			$order_table = $wpdb->prefix . 'ktp_order';
+			$order       = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT * FROM {$order_table} WHERE id = %d",
+					$order_id
+				)
+			);
+
+			if ( ! $order ) {
+				return false;
+			}
+
+			if ( ! empty( $order->stripe_paid_at ) ) {
+				return $this->repair_paid_order_progress( $order );
+			}
+
+			$paid_at = isset( $session->created ) ? (int) $session->created : time();
+			$this->apply_order_paid_state( $order, $paid_at );
+
+			return true;
+		}
+
+		/**
+		 * Stripe Checkout Session ID か。
+		 *
+		 * @param string $id Stripe ID.
+		 * @return bool
+		 */
+		private function is_stripe_checkout_session_id( $id ) {
+			return is_string( $id ) && strncmp( $id, 'cs_', 3 ) === 0;
+		}
+
+		/**
 		 * 請求明細を Stripe 行に変換。
 		 *
 		 * @param int $order_id 受注 ID.
@@ -1164,11 +1393,32 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				return;
 			}
 
-			if ( class_exists( 'KTPWP_Stripe_Subscription' ) ) {
+			$this->apply_order_paid_state( $order, $paid_at ? (int) $paid_at : time(), $invoice_id );
+		}
+
+		/**
+		 * 入金済み状態を受注へ反映。
+		 *
+		 * @param object      $order      受注行。
+		 * @param int         $paid_at    Unix timestamp.
+		 * @param string|null $invoice_id Stripe Invoice ID（任意）。
+		 * @return void
+		 */
+		private function apply_order_paid_state( $order, $paid_at, $invoice_id = null ) {
+			global $wpdb;
+
+			if ( ! $order || ! empty( $order->stripe_paid_at ) ) {
+				return;
+			}
+
+			$invoice_id = null !== $invoice_id ? sanitize_text_field( (string) $invoice_id ) : '';
+
+			if ( $invoice_id !== '' && class_exists( 'KTPWP_Stripe_Subscription' ) ) {
 				KTPWP_Stripe_Subscription::get_instance()->after_order_paid( $order, $invoice_id );
 			}
 
-			$paid_at_mysql = gmdate( 'Y-m-d H:i:s', $paid_at ? (int) $paid_at : time() );
+			$order_table   = $wpdb->prefix . 'ktp_order';
+			$paid_at_mysql = gmdate( 'Y-m-d H:i:s', (int) $paid_at );
 			$update        = array( 'stripe_paid_at' => $paid_at_mysql );
 			$formats       = array( '%s' );
 
@@ -1176,6 +1426,11 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 			if ( null !== $new_progress ) {
 				$update['progress'] = $new_progress;
 				$formats[]          = '%d';
+			}
+
+			if ( $this->is_public_web_order( $order ) && $this->order_table_has_column( 'payment_timing' ) ) {
+				$update['payment_timing'] = 'prepay';
+				$formats[]                = '%s';
 			}
 
 			$wpdb->update(
@@ -1186,7 +1441,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				array( '%d' )
 			);
 
-			if ( class_exists( 'KTPWP_Stripe_Subscription' ) && ! empty( $order->client_id ) ) {
+			if ( $invoice_id !== '' && class_exists( 'KTPWP_Stripe_Subscription' ) && ! empty( $order->client_id ) ) {
 				$customer_id = $this->get_or_create_customer( (int) $order->client_id );
 				if ( ! is_wp_error( $customer_id ) ) {
 					KTPWP_Stripe_Subscription::get_instance()->sync_default_payment_method_from_invoice(
@@ -1229,6 +1484,19 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 
 			if ( ! empty( $order->stripe_paid_at ) ) {
 				return $this->repair_paid_order_progress( $order );
+			}
+
+			if ( $this->is_stripe_checkout_session_id( (string) $order->stripe_invoice_id ) ) {
+				try {
+					$stripe  = new \Stripe\StripeClient( self::get_secret_key() );
+					$session = $stripe->checkout->sessions->retrieve( (string) $order->stripe_invoice_id );
+					return $this->sync_public_checkout_session_for_order( $order_id, $session );
+				} catch ( Exception $e ) {
+					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+						error_log( 'KTPWP Stripe checkout sync: ' . $e->getMessage() );
+					}
+					return false;
+				}
 			}
 
 			try {
@@ -1374,7 +1642,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				)
 			);
 
-			if ( $invoice_id ) {
+			if ( $invoice_id && ! $this->is_stripe_checkout_session_id( (string) $invoice_id ) ) {
 				$this->void_invoice_if_open( (string) $invoice_id );
 			}
 		}
@@ -1386,7 +1654,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 		 * @return void
 		 */
 		private function void_invoice_if_open( $invoice_id ) {
-			if ( ! self::is_enabled() || $invoice_id === '' || ! class_exists( '\Stripe\StripeClient' ) ) {
+			if ( ! self::is_enabled() || $invoice_id === '' || $this->is_stripe_checkout_session_id( $invoice_id ) || ! class_exists( '\Stripe\StripeClient' ) ) {
 				return;
 			}
 
