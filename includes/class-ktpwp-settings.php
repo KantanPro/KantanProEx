@@ -1826,6 +1826,7 @@ class KTPWP_Settings {
             <h3><?php esc_html_e( '配布 ZIP ビルドコマンド', 'ktpwp' ); ?></h3>
             <p class="description"><?php esc_html_e( 'プラグインディレクトリで実行します。エディションごとに別フォルダ名・別 ZIP が生成されます。', 'ktpwp' ); ?></p>
             <ul style="font-family: monospace; font-size: 13px;">
+                <li>./create_release_zip.sh free</li>
                 <li>./create_release_zip.sh pro</li>
                 <li>./create_release_zip.sh solo</li>
                 <li>./create_release_zip.sh team</li>
@@ -3250,6 +3251,7 @@ class KTPWP_Settings {
         }
 
         if ( class_exists( 'KTPWP_Stripe_Billing' ) ) {
+            $stripe_feature_enabled = ! function_exists( 'ktpwp_is_feature_enabled' ) || ktpwp_is_feature_enabled( 'stripe_billing' );
             add_settings_section(
                 'stripe_billing_setting_section',
                 __( 'Stripe 請求連携', 'ktpwp' ),
@@ -3257,69 +3259,71 @@ class KTPWP_Settings {
                 'ktp-general'
             );
 
-            add_settings_field(
-                'stripe_enabled',
-                __( '有効化', 'ktpwp' ),
-                array( 'KTPWP_Stripe_Billing', 'render_enabled_field' ),
-                'ktp-general',
-                'stripe_billing_setting_section'
-            );
+            if ( $stripe_feature_enabled ) {
+                add_settings_field(
+                    'stripe_enabled',
+                    __( '有効化', 'ktpwp' ),
+                    array( 'KTPWP_Stripe_Billing', 'render_enabled_field' ),
+                    'ktp-general',
+                    'stripe_billing_setting_section'
+                );
 
-            add_settings_field(
-                'stripe_test_mode',
-                __( 'テストモード', 'ktpwp' ),
-                array( 'KTPWP_Stripe_Billing', 'render_test_mode_field' ),
-                'ktp-general',
-                'stripe_billing_setting_section'
-            );
+                add_settings_field(
+                    'stripe_test_mode',
+                    __( 'テストモード', 'ktpwp' ),
+                    array( 'KTPWP_Stripe_Billing', 'render_test_mode_field' ),
+                    'ktp-general',
+                    'stripe_billing_setting_section'
+                );
 
-            add_settings_field(
-                'stripe_secret_key_test',
-                __( 'Secret Key（テスト）', 'ktpwp' ),
-                array( 'KTPWP_Stripe_Billing', 'render_secret_key_test_field' ),
-                'ktp-general',
-                'stripe_billing_setting_section'
-            );
+                add_settings_field(
+                    'stripe_secret_key_test',
+                    __( 'Secret Key（テスト）', 'ktpwp' ),
+                    array( 'KTPWP_Stripe_Billing', 'render_secret_key_test_field' ),
+                    'ktp-general',
+                    'stripe_billing_setting_section'
+                );
 
-            add_settings_field(
-                'stripe_secret_key_live',
-                __( 'Secret Key（本番）', 'ktpwp' ),
-                array( 'KTPWP_Stripe_Billing', 'render_secret_key_live_field' ),
-                'ktp-general',
-                'stripe_billing_setting_section'
-            );
+                add_settings_field(
+                    'stripe_secret_key_live',
+                    __( 'Secret Key（本番）', 'ktpwp' ),
+                    array( 'KTPWP_Stripe_Billing', 'render_secret_key_live_field' ),
+                    'ktp-general',
+                    'stripe_billing_setting_section'
+                );
 
-            add_settings_field(
-                'stripe_webhook_secret_test',
-                __( 'Webhook Secret（テスト）', 'ktpwp' ),
-                array( 'KTPWP_Stripe_Billing', 'render_webhook_secret_test_field' ),
-                'ktp-general',
-                'stripe_billing_setting_section'
-            );
+                add_settings_field(
+                    'stripe_webhook_secret_test',
+                    __( 'Webhook Secret（テスト）', 'ktpwp' ),
+                    array( 'KTPWP_Stripe_Billing', 'render_webhook_secret_test_field' ),
+                    'ktp-general',
+                    'stripe_billing_setting_section'
+                );
 
-            add_settings_field(
-                'stripe_webhook_secret_live',
-                __( 'Webhook Secret（本番）', 'ktpwp' ),
-                array( 'KTPWP_Stripe_Billing', 'render_webhook_secret_live_field' ),
-                'ktp-general',
-                'stripe_billing_setting_section'
-            );
+                add_settings_field(
+                    'stripe_webhook_secret_live',
+                    __( 'Webhook Secret（本番）', 'ktpwp' ),
+                    array( 'KTPWP_Stripe_Billing', 'render_webhook_secret_live_field' ),
+                    'ktp-general',
+                    'stripe_billing_setting_section'
+                );
 
-            add_settings_field(
-                'stripe_days_until_due',
-                __( '支払期日', 'ktpwp' ),
-                array( 'KTPWP_Stripe_Billing', 'render_days_until_due_field' ),
-                'ktp-general',
-                'stripe_billing_setting_section'
-            );
+                add_settings_field(
+                    'stripe_days_until_due',
+                    __( '支払期日', 'ktpwp' ),
+                    array( 'KTPWP_Stripe_Billing', 'render_days_until_due_field' ),
+                    'ktp-general',
+                    'stripe_billing_setting_section'
+                );
 
-            add_settings_field(
-                'stripe_invoice_issuer_name',
-                __( '請求元名（Stripe）', 'ktpwp' ),
-                array( 'KTPWP_Stripe_Billing', 'render_invoice_issuer_name_field' ),
-                'ktp-general',
-                'stripe_billing_setting_section'
-            );
+                add_settings_field(
+                    'stripe_invoice_issuer_name',
+                    __( '請求元名（Stripe）', 'ktpwp' ),
+                    array( 'KTPWP_Stripe_Billing', 'render_invoice_issuer_name_field' ),
+                    'ktp-general',
+                    'stripe_billing_setting_section'
+                );
+            }
 
             add_settings_field(
                 'contract_invoice_auto_enabled',

@@ -9,6 +9,11 @@ DEST_DIR_NAME="KantanProEX_TEST_UP"
 EDITION="${1:-pro}"
 
 case "$EDITION" in
+    free)
+        BUILD_DIR_NAME="KantanPro"
+        PLUGIN_NAME="KantanProEXfree"
+        STAFF_LIMIT="1"
+        ;;
     pro)
         BUILD_DIR_NAME="KantanProEX"
         PLUGIN_NAME="KantanProEX"
@@ -31,7 +36,7 @@ case "$EDITION" in
         ;;
     *)
         echo "❌ 不明なエディション: ${EDITION}"
-        echo "使用可能: pro | solo | team | business"
+        echo "使用可能: free | pro | solo | team | business"
         exit 1
         ;;
 esac

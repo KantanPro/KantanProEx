@@ -3619,6 +3619,10 @@ input[name="tab_item"] {
   outline: none;
 }
 
+.ktpwp-service-recurring-fields--hidden {
+  display: none !important;
+}
+
 /* エラー表示のスタイル */
 .form-error {
   color: #e74c3c;

@@ -60,6 +60,9 @@ if ( ! class_exists( 'KTPWP_Report_Class' ) ) {
 			$ui_generator = new KTPWP_Ui_Generator();
 
 			$content = $ui_generator->generate_controller();
+			if ( class_exists( 'KTPWP_Tab_Search_UI' ) ) {
+				$content .= KTPWP_Tab_Search_UI::get_instance()->maybe_render_cross_search_panel( 'report', array( 'report_type' ) );
+			}
 			$content .= $this->render_comprehensive_reports();
 
 			return $content;

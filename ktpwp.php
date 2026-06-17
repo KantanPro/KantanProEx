@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.3.64
+ * Version: 1.3.65
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -969,6 +969,7 @@ if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
         'KTPWP_Service_DB'      => 'includes/class-ktpwp-service-db.php',
         'KTPWP_Service_UI'      => 'includes/class-ktpwp-service-ui.php',
         'KTPWP_UI_Generator'    => 'includes/class-ktpwp-ui-generator.php',
+        'KTPWP_Tab_Search_UI'   => 'includes/class-ktpwp-tab-search-ui.php',
         'KTPWP_Image_Processor' => 'includes/class-ktpwp-image-processor.php',
         'KTPWP_JapanPost_Address_API' => 'includes/class-ktpwp-japanpost-address-api.php',
         'KTPWP_Login_Error'     => 'includes/class-ktpwp-login-error.php',
@@ -1110,6 +1111,9 @@ function ktpwp_init_contract_reminder_mail() {
  * Stripe 請求連携を初期化
  */
 function ktpwp_init_stripe_billing() {
+    if ( function_exists( 'ktpwp_is_feature_enabled' ) && ! ktpwp_is_feature_enabled( 'stripe_billing' ) ) {
+        return;
+    }
     if ( class_exists( 'KTPWP_Stripe_Billing' ) ) {
         KTPWP_Stripe_Billing::boot();
     }
@@ -1128,6 +1132,12 @@ function ktpwp_init_admin_access_protection() {
  * 定期契約の請求メール自動送信 Cron を初期化
  */
 function ktpwp_init_contract_invoice_mail() {
+    if ( function_exists( 'ktpwp_is_feature_enabled' ) && ! ktpwp_is_feature_enabled( 'contract_invoice_auto_mail' ) ) {
+        if ( class_exists( 'KTPWP_Contract_Invoice_Mail' ) ) {
+            KTPWP_Contract_Invoice_Mail::unschedule();
+        }
+        return;
+    }
     if ( class_exists( 'KTPWP_Contract_Invoice_Mail' ) ) {
         KTPWP_Contract_Invoice_Mail::boot();
     }
@@ -4047,7 +4057,8 @@ add_action(
             error_log( 'KTPWP Plugin: KTPWP_Contact_Form class not found' );
 		}
 
-		if ( class_exists( 'KTPWP_Public_Product_Order' ) ) {
+		if ( class_exists( 'KTPWP_Public_Product_Order' )
+			&& ( ! function_exists( 'ktpwp_is_feature_enabled' ) || ktpwp_is_feature_enabled( 'public_products' ) ) ) {
 			KTPWP_Public_Product_Order::get_instance();
 		}
 	},
@@ -5345,6 +5356,9 @@ add_action(
 
 
 // includes/class-ktpwp-tab-list.php, class-ktpwp-view-tab.php を明示的に読み込む（自動読み込みされていない場合のみ）
+if ( ! class_exists( 'KTPWP_Tab_Search_UI' ) ) {
+	include_once MY_PLUGIN_PATH . 'includes/class-ktpwp-tab-search-ui.php';
+}
 if ( ! class_exists( 'KTPWP_List_Class' ) ) {
     include_once MY_PLUGIN_PATH . 'includes/class-ktpwp-tab-list.php';
 }

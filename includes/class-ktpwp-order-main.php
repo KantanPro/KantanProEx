@@ -1578,7 +1578,16 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 
 					// プレビューボタン用のHTML生成は削除（Ajax経由で最新データを取得）
 
-					$content .= '<div class="controller" style="display: flex; justify-content: space-between; align-items: center;">';
+					$content .= '<div class="controller" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">';
+
+					$content .= '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">';
+					if ( class_exists( 'KTPWP_Tab_Search_UI' ) ) {
+						$order_search_keep = array();
+						if ( ! empty( $order_data->id ) ) {
+							$order_search_keep['order_id'] = (string) $order_data->id;
+						}
+						$content .= KTPWP_Tab_Search_UI::get_instance()->render_toolbar_form( 'order', $order_search_keep );
+					}
 
 					// 左側：定期契約作成
 					$content .= '<div class="ktp-order-controller-left">';
@@ -1588,6 +1597,8 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					}
 
 					$content .= '</div>';
+
+					$content .= '</div>'; // 左側（検索＋定期契約）終了
 
 					// 右側：プレビューボタン、メールボタン（軽量な共通クラスで描画）
 					$content .= '<div class="ktp-order-title-actions">';
@@ -1683,6 +1694,10 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					$content .= '</button>';
 					$content .= '</div>'; // 右側のボタン群終了
 					$content .= '</div>'; // controller終了
+
+					if ( class_exists( 'KTPWP_Tab_Search_UI' ) ) {
+						$content .= KTPWP_Tab_Search_UI::get_instance()->maybe_render_cross_search_panel( 'order', array( 'order_id' ) );
+					}
 
 					if ( class_exists( 'KTPWP_Order_Contract_UI' ) ) {
 						$content .= KTPWP_Order_Contract_UI::get_instance()->render_panel( $order_data );
@@ -2016,7 +2031,13 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 
 				} else {
 					// 指定された受注書が見つからない場合もコントローラーと案内を表示
-					$content .= '<div class="controller" style="display: flex; justify-content: space-between; align-items: center;">';
+					$content .= '<div class="controller" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">';
+
+					$content .= '<div style="display:flex;align-items:center;gap:12px;">';
+					if ( class_exists( 'KTPWP_Tab_Search_UI' ) ) {
+						$content .= KTPWP_Tab_Search_UI::get_instance()->render_toolbar_form( 'order', array() );
+					}
+					$content .= '</div>';
 
 					// 右側：プレビューボタンとメールボタン（無効化）
 					$content .= '<div class="ktp-order-title-actions">';
@@ -2029,6 +2050,10 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					$content .= '</div>'; // 右側のボタン群終了
 					$content .= '</div>'; // controller終了
 
+					if ( class_exists( 'KTPWP_Tab_Search_UI' ) ) {
+						$content .= KTPWP_Tab_Search_UI::get_instance()->maybe_render_cross_search_panel( 'order', array( 'order_id' ) );
+					}
+
 					// 統一された案内表示
 					$content .= '<div class="ktp_data_list_item" style="padding: 15px 20px; background: linear-gradient(135deg, #e3f2fd 0%, #fce4ec 100%); border-radius: 8px; margin: 18px 0; color: #333; font-weight: 600; box-shadow: 0 3px 12px rgba(0,0,0,0.07); display: flex; align-items: center; font-size: 15px; gap: 10px;">'
 					. '<span class="material-symbols-outlined" aria-label="データなし">search_off</span>'
@@ -2038,7 +2063,13 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				}
 			} else {
 				// 受注書データが存在しない場合でもレイアウトを維持
-				$content .= '<div class="controller" style="display: flex; justify-content: space-between; align-items: center;">';
+				$content .= '<div class="controller" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">';
+
+				$content .= '<div style="display:flex;align-items:center;gap:12px;">';
+				if ( class_exists( 'KTPWP_Tab_Search_UI' ) ) {
+					$content .= KTPWP_Tab_Search_UI::get_instance()->render_toolbar_form( 'order', array() );
+				}
+				$content .= '</div>';
 
 				// 右側：プレビューボタンとメールボタン（無効化）
 				$content .= '<div class="ktp-order-title-actions">';
@@ -2050,6 +2081,10 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				$content .= '</button>';
 				$content .= '</div>'; // 右側のボタン群終了
 				$content .= '</div>'; // controller終了
+
+				if ( class_exists( 'KTPWP_Tab_Search_UI' ) ) {
+					$content .= KTPWP_Tab_Search_UI::get_instance()->maybe_render_cross_search_panel( 'order', array( 'order_id' ) );
+				}
 
 				// 仕事リストタブと統一されたデータ0の時の案内表示
 				$content .= '<div class="ktp_order_content ktp-no-order-data" style="padding: 15px 20px; background: linear-gradient(135deg, #e3f2fd 0%, #fce4ec 100%); border-radius: 8px; margin: 18px 0; color: #333; font-weight: 600; box-shadow: 0 3px 12px rgba(0,0,0,0.07); display: flex; align-items: center; font-size: 15px; gap: 10px;">'

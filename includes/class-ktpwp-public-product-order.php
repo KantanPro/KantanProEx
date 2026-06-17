@@ -56,6 +56,18 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 		 * @return array{success:bool,message:string,order_id?:int}
 		 */
 		public function submit_order( $service_id, array $form ) {
+			if ( function_exists( 'ktpwp_is_feature_enabled' ) && ! ktpwp_is_feature_enabled( 'public_products' ) ) {
+				$store_url = class_exists( 'KTPWP_Edition' ) ? KTPWP_Edition::get_store_url() : 'https://www.kantanpro.com/product/kantanpro-ex';
+				return array(
+					'success' => false,
+					'message' => sprintf(
+						/* translators: %s: store URL */
+						__( 'フリー版では公開商品機能は利用できません。KantanProEX（WP）販売所: %s', 'ktpwp' ),
+						$store_url
+					),
+				);
+			}
+
 			$service = $this->get_public_service( $service_id );
 			if ( ! $service ) {
 				return array(

@@ -506,6 +506,23 @@ class KTPWP_Assets {
                     },
                 ),
             ),
+            'ktp-service-contract-fields' => array(
+                'src'       => 'js/ktp-service-contract-fields.js',
+                'deps'      => array(),
+                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-service-contract-fields.js' ),
+                'in_footer' => true,
+                'admin'     => false,
+                'localize'  => array(
+                    'object' => 'ktpServiceContractFields',
+                    'data'   => function () {
+                        return array(
+                            'none_value' => class_exists( 'KTPWP_Contract_Billing_Cycle' )
+                                ? KTPWP_Contract_Billing_Cycle::NONE
+                                : 'none',
+                        );
+                    },
+                ),
+            ),
             'ktp-client-contract' => array(
                 'src'       => 'js/ktp-client-contract.js',
                 'deps'      => array( 'ktp-svg-icons' ),

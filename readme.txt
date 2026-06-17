@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.64
+Stable tag: 1.3.65
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,14 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.65 - 2026年06月17日 =
+* フリー版エディションと機能制限（Stripe請求・定期契約請求メール・公開商品）を追加
+* エディション別機能フラグ（ktpwp_is_feature_enabled）で有料機能の表示・初期化を制御
+* タブ共通検索UI（class-ktpwp-tab-search-ui）とサービス契約フィールドJSを追加
+* 顧客・協力会社・受注書・サービス画面の検索・契約UIを改善
+* 有料エディションでバナー（ktp-banner）を非表示にする対応を追加
+* 配布ZIP生成スクリプトにフリー版（free）ビルドを追加
 
 = 1.3.64 - 2026年06月16日 =
 * エディション別スタッフ上限機能を追加（ソロ1人・チーム5人・ビジネス15人・フル無制限）

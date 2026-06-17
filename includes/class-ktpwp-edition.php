@@ -23,6 +23,12 @@ class KTPWP_Edition {
 	 */
 	public static function get_definitions() {
 		return array(
+			'free'     => array(
+				'slug'         => 'free',
+				'plugin_name'  => 'KantanProEXfree',
+				'staff_limit'  => 1,
+				'label'        => __( 'フリー版', 'ktpwp' ),
+			),
 			'solo'     => array(
 				'slug'         => 'solo',
 				'plugin_name'  => 'KantanProEXsolo',
@@ -167,6 +173,86 @@ class KTPWP_Edition {
 	}
 
 	/**
+	 * フリー版か。
+	 *
+	 * @return bool
+	 */
+	public static function is_free_edition() {
+		return self::get_active_edition() === 'free';
+	}
+
+	/**
+	 * 有料エディションか（フリー版を除く）。
+	 *
+	 * @return bool
+	 */
+	public static function is_paid_edition() {
+		return self::is_ex_edition() && ! self::is_free_edition();
+	}
+
+	/**
+	 * 販売ページ URL
+	 *
+	 * @return string
+	 */
+	public static function get_store_url() {
+		return 'https://www.kantanpro.com/product/kantanpro-ex';
+	}
+
+	/**
+	 * エディション別機能フラグ
+	 *
+	 * @param string $feature 機能キー。
+	 * @return bool
+	 */
+	public static function is_feature_enabled( $feature ) {
+		$feature = (string) $feature;
+
+		if ( ! self::is_free_edition() ) {
+			return true;
+		}
+
+		$disabled_features = array(
+			'stripe_billing',
+			'contract_invoice_auto_mail',
+			'public_products',
+		);
+
+		return ! in_array( $feature, $disabled_features, true );
+	}
+
+	/**
+	 * バナー（ktp-banner）を隠すか。
+	 *
+	 * @return bool
+	 */
+	public static function should_hide_banner() {
+		return self::is_paid_edition();
+	}
+
+	/**
+	 * 機能無効時のメッセージ（販売リンク付き）
+	 *
+	 * @param string $feature_name 機能名。
+	 * @return string
+	 */
+	public static function get_upgrade_message_html( $feature_name ) {
+		$feature_name = sanitize_text_field( (string) $feature_name );
+		$store_url    = esc_url( self::get_store_url() );
+		$message      = sprintf(
+			/* translators: %s: feature name */
+			__( 'フリー版では「%s」は利用できません。', 'ktpwp' ),
+			$feature_name
+		);
+		$link_label = __( 'KantanProEX（WP）販売所', 'ktpwp' );
+
+		return '<div class="notice notice-warning inline"><p>'
+			. esc_html( $message )
+			. ' <a href="' . $store_url . '" target="_blank" rel="noopener noreferrer">' . esc_html( $link_label ) . '</a>'
+			. '</p></div>';
+	}
+
+	/**
 	 * ktpwp_access 権限を持つスタッフ数（管理者は含めない）
 	 *
 	 * @return int
@@ -240,5 +326,32 @@ if ( ! function_exists( 'ktpwp_is_ex_edition' ) ) {
 	 */
 	function ktpwp_is_ex_edition() {
 		return class_exists( 'KTPWP_Edition' ) && KTPWP_Edition::is_ex_edition();
+	}
+}
+
+if ( ! function_exists( 'ktpwp_should_hide_ktp_banner' ) ) {
+	/**
+	 * KTP バナーを隠すか。
+	 *
+	 * @return bool
+	 */
+	function ktpwp_should_hide_ktp_banner() {
+		return class_exists( 'KTPWP_Edition' ) && KTPWP_Edition::should_hide_banner();
+	}
+}
+
+if ( ! function_exists( 'ktpwp_is_feature_enabled' ) ) {
+	/**
+	 * エディションごとの機能フラグ
+	 *
+	 * @param string $feature 機能キー。
+	 * @return bool
+	 */
+	function ktpwp_is_feature_enabled( $feature ) {
+		if ( ! class_exists( 'KTPWP_Edition' ) ) {
+			return true;
+		}
+
+		return KTPWP_Edition::is_feature_enabled( $feature );
 	}
 }

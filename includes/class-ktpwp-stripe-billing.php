@@ -1341,6 +1341,12 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 		 * @return void
 		 */
 		public static function render_settings_section_info() {
+			if ( function_exists( 'ktpwp_is_feature_enabled' ) && ! ktpwp_is_feature_enabled( 'stripe_billing' ) ) {
+				if ( class_exists( 'KTPWP_Edition' ) ) {
+					echo wp_kses_post( KTPWP_Edition::get_upgrade_message_html( __( 'Stripe 請求連携', 'ktpwp' ) ) );
+				}
+				return;
+			}
 			echo '<p>' . esc_html__( '初回は Stripe Invoice（今回請求分）、初回費用なしの定額案件は Subscription を即時開始します。', 'ktpwp' ) . '</p>';
 			echo '<p class="description">' . esc_html__( 'Webhook URL:', 'ktpwp' ) . ' <code>' . esc_html( self::get_webhook_url() ) . '</code></p>';
 		}
@@ -1351,6 +1357,10 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 		 * @return void
 		 */
 		public static function render_enabled_field() {
+			if ( function_exists( 'ktpwp_is_feature_enabled' ) && ! ktpwp_is_feature_enabled( 'stripe_billing' ) ) {
+				echo '<span class="description">' . esc_html__( 'フリー版では利用できません。', 'ktpwp' ) . '</span>';
+				return;
+			}
 			$options = get_option( 'ktp_general_settings', array() );
 			$checked = ! empty( $options['stripe_enabled'] );
 			echo '<label><input type="checkbox" name="ktp_general_settings[stripe_enabled]" value="1" ' . checked( $checked, true, false ) . '> ';
@@ -1444,6 +1454,12 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 		 * @return void
 		 */
 		public static function render_contract_invoice_auto_field() {
+			if ( function_exists( 'ktpwp_is_feature_enabled' ) && ! ktpwp_is_feature_enabled( 'contract_invoice_auto_mail' ) ) {
+				if ( class_exists( 'KTPWP_Edition' ) ) {
+					echo wp_kses_post( KTPWP_Edition::get_upgrade_message_html( __( '定期請求メール自動送信', 'ktpwp' ) ) );
+				}
+				return;
+			}
 			$options = get_option( 'ktp_general_settings', array() );
 			$checked = ! isset( $options['contract_invoice_auto_enabled'] ) || ! empty( $options['contract_invoice_auto_enabled'] );
 			echo '<label><input type="checkbox" name="ktp_general_settings[contract_invoice_auto_enabled]" value="1" ' . checked( $checked, true, false ) . '> ';

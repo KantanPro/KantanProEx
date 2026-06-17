@@ -387,9 +387,22 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			
 			$query_range = $page_start . ',' . $query_limit;
 
+			$list_search_where = '';
+			$list_search_args  = array();
+			if ( class_exists( 'KTPWP_Tab_Search_UI' ) ) {
+				$list_search_keyword = KTPWP_Tab_Search_UI::get_instance()->get_keyword();
+				if ( $list_search_keyword !== '' ) {
+					list( $list_search_where, $list_search_args ) = KTPWP_Tab_Search_UI::get_instance()->master_list_search_clause( $table_name, $list_search_keyword, 'service' );
+				}
+			}
+
 			// 全データ数を取得
-			$total_query = "SELECT COUNT(*) FROM {$table_name}";
-			$total_rows = $wpdb->get_var( $total_query );
+			$total_query = "SELECT COUNT(*) FROM {$table_name} WHERE 1=1{$list_search_where}";
+			if ( $list_search_args !== array() ) {
+				$total_rows = $wpdb->get_var( $wpdb->prepare( $total_query, $list_search_args ) );
+			} else {
+				$total_rows = $wpdb->get_var( $total_query );
+			}
 
 			// ゼロ除算防止のための安全対策
 			if ( $query_limit <= 0 ) {
@@ -406,7 +419,10 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			$current_page = floor( $page_start / $query_limit ) + 1;
 
 			// データを取得（ソート順を適用）
-			$query = $wpdb->prepare( "SELECT * FROM {$table_name} ORDER BY {$sort_by} {$sort_order} LIMIT %d, %d", $page_start, $query_limit );
+			$query = $wpdb->prepare(
+				"SELECT * FROM {$table_name} WHERE 1=1{$list_search_where} ORDER BY {$sort_by} {$sort_order} LIMIT %d, %d",
+				array_merge( $list_search_args, array( $page_start, $query_limit ) )
+			);
 			$post_row = $wpdb->get_results( $query );
 			$results = array(); // ← 追加：未定義エラー防止
 			$list_header = '';
@@ -784,9 +800,9 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				$data_forms .= $this->render_public_quantity_mode_field( 0 );
 				$data_forms .= $this->render_public_html_field( '' );
 				$default_cycle = class_exists( 'KTPWP_Contract_Billing_Cycle' ) ? KTPWP_Contract_Billing_Cycle::NONE : 'none';
-				$data_forms .= $this->render_stock_field( 1 );
 				$data_forms .= $this->render_contract_billing_cycle_field( $default_cycle );
 				$data_forms .= $this->render_service_recurring_fields_block_open( $default_cycle );
+				$data_forms .= $this->render_stock_field( 1 );
 				$data_forms .= $this->render_service_recurring_items_field( 0, $default_cycle );
 				$data_forms .= $this->render_service_initial_fees_field( 0 );
 				$data_forms .= $this->render_service_recurring_fields_block_close();
@@ -1001,9 +1017,9 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				$cycle_value = class_exists( 'KTPWP_Contract_Billing_Cycle' )
 					? KTPWP_Contract_Billing_Cycle::sanitize( $contract_billing_cycle )
 					: 'none';
-				$data_forms .= $this->render_stock_field( (int) $stock );
 				$data_forms .= $this->render_contract_billing_cycle_field( $cycle_value );
 				$data_forms .= $this->render_service_recurring_fields_block_open( $cycle_value );
+				$data_forms .= $this->render_stock_field( (int) $stock );
 				$data_forms .= $this->render_service_recurring_items_field( (int) $data_id, $cycle_value );
 				$data_forms .= $this->render_service_initial_fees_field( (int) $data_id );
 				$data_forms .= $this->render_service_recurring_fields_block_close();
@@ -1078,6 +1094,18 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			$print_button_title = esc_attr__( '印刷する', 'ktpwp' );
 			$print_button_label = esc_attr__( '印刷', 'ktpwp' );
 
+			$search_keep_params  = array();
+			$search_toolbar_html = '';
+			$search_panel_html   = '';
+			if ( isset( $_GET['data_id'] ) && $_GET['data_id'] !== '' ) {
+				$search_keep_params['data_id'] = sanitize_text_field( wp_unslash( $_GET['data_id'] ) );
+			}
+			if ( class_exists( 'KTPWP_Tab_Search_UI' ) ) {
+				$search_ui           = KTPWP_Tab_Search_UI::get_instance();
+				$search_toolbar_html = $search_ui->render_toolbar_form( 'service', $search_keep_params );
+				$search_panel_html   = $search_ui->maybe_render_cross_search_panel( 'service' );
+			}
+
 			// JavaScript
 			$print = <<<END
         <script>
@@ -1134,15 +1162,18 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
             // }
         </script>
         <!-- コントローラー/プレビューアイコン（プレビューは廃止） -->
-        <div class="controller">
+        <div class="controller" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                {$search_toolbar_html}
+                <div style="display:flex;gap:5px;margin-left:auto;">
                 <button onclick="printContent()" title="{$print_button_title}" style="padding: 6px 10px; font-size: 12px;">
                     <span class="material-symbols-outlined" aria-label="{$print_button_label}">print</span>
                 </button>
+                </div>
         </div>
         END;
 
 			// コンテンツを返す（複数検索結果ダイアログ用スクリプトを含む）
-			$content = $message . $print . $data_list . $data_title . $data_forms . $service_search_results_script . $div_end;
+			$content = $message . $print . $search_panel_html . $data_list . $data_title . $data_forms . $service_search_results_script . $div_end;
 			return $content;
 		}
 
@@ -1577,6 +1608,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				return '';
 			}
 
+			$this->ensure_service_contract_fields_script_enqueued();
 			$selected = KTPWP_Contract_Billing_Cycle::sanitize( $selected );
 			$html     = $this->render_service_contract_fields_styles();
 			$html    .= '<div class="ktpwp-service-field-block ktpwp-service-field-block--cycle">';
@@ -1603,9 +1635,13 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 		 * @return string
 		 */
 		private function render_service_recurring_fields_block_open( $contract_billing_cycle ) {
-			return '<div id="ktpwp-service-recurring-fields" class="ktpwp-service-recurring-fields"'
-				. $this->get_service_recurring_fields_display_attr( $contract_billing_cycle )
-				. '>';
+			$show  = $this->should_show_service_recurring_fields( $contract_billing_cycle );
+			$class = 'ktpwp-service-recurring-fields';
+			if ( ! $show ) {
+				$class .= ' ktpwp-service-recurring-fields--hidden';
+			}
+
+			return '<div id="ktpwp-service-recurring-fields" class="' . esc_attr( $class ) . '" aria-hidden="' . ( $show ? 'false' : 'true' ) . '">';
 		}
 
 		/**
@@ -1618,16 +1654,14 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 		}
 
 		/**
-		 * 定期契約用フィールドの初期表示属性（都度請求時は非表示）。
+		 * 定期契約用フィールドの表示判定（都度請求時は非表示）。
 		 *
 		 * @param string $contract_billing_cycle 請求サイクル。
-		 * @return string
+		 * @return bool
 		 */
-		private function get_service_recurring_fields_display_attr( $contract_billing_cycle ) {
-			$show = ! class_exists( 'KTPWP_Contract_Billing_Cycle' )
+		private function should_show_service_recurring_fields( $contract_billing_cycle ) {
+			return ! class_exists( 'KTPWP_Contract_Billing_Cycle' )
 				|| KTPWP_Contract_Billing_Cycle::is_recurring( $contract_billing_cycle );
-
-			return $show ? '' : ' style="display:none;"';
 		}
 
 		/**
@@ -1773,45 +1807,55 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 		}
 
 		/**
+		 * 請求サイクル切替 JS を読み込む（インライン script は WP ショートコード出力で実行されないため外部ファイル）。
+		 *
+		 * @return void
+		 */
+		private function ensure_service_contract_fields_script_enqueued() {
+			if ( ! function_exists( 'wp_enqueue_script' ) ) {
+				return;
+			}
+			if ( wp_script_is( 'ktp-service-contract-fields', 'enqueued' ) ) {
+				return;
+			}
+
+			if ( ! wp_script_is( 'ktp-service-contract-fields', 'registered' ) ) {
+				$plugin_file = dirname( __DIR__ ) . '/ktpwp.php';
+				$script_path = dirname( __DIR__ ) . '/js/ktp-service-contract-fields.js';
+				$version     = defined( 'KTPWP_PLUGIN_VERSION' ) ? KTPWP_PLUGIN_VERSION : '1.0';
+				if ( file_exists( $script_path ) ) {
+					$version .= '.' . filemtime( $script_path );
+				}
+				wp_register_script(
+					'ktp-service-contract-fields',
+					plugins_url( 'js/ktp-service-contract-fields.js', $plugin_file ),
+					array(),
+					$version,
+					true
+				);
+				wp_localize_script(
+					'ktp-service-contract-fields',
+					'ktpServiceContractFields',
+					array(
+						'none_value' => class_exists( 'KTPWP_Contract_Billing_Cycle' )
+							? KTPWP_Contract_Billing_Cycle::NONE
+							: 'none',
+					)
+				);
+			}
+
+			wp_enqueue_script( 'ktp-service-contract-fields' );
+		}
+
+		/**
 		 * 請求サイクルに応じて定期請求・初回費用ブロックの表示を切り替える JS
 		 *
 		 * @return string
 		 */
 		private function render_service_contract_fields_scripts() {
-			static $rendered = false;
-			if ( $rendered ) {
-				return '';
-			}
-			$rendered = true;
+			$this->ensure_service_contract_fields_script_enqueued();
 
-			$none_value = class_exists( 'KTPWP_Contract_Billing_Cycle' )
-				? KTPWP_Contract_Billing_Cycle::NONE
-				: 'none';
-
-			return '<script id="ktpwp-service-contract-fields-js">'
-				. '(function(){'
-				. 'function ktpwpToggleServiceContractFields(){'
-				. 'var cycle=document.getElementById("contract_billing_cycle");'
-				. 'var recurringFields=document.getElementById("ktpwp-service-recurring-fields");'
-				. 'if(!cycle){return;}'
-				. 'var show=(cycle.value||"' . esc_js( $none_value ) . '")!=="' . esc_js( $none_value ) . '";'
-				. 'if(recurringFields){recurringFields.style.display=show?"":"none";}'
-				. '}'
-				. 'function ktpwpInitServiceContractFields(){'
-				. 'var cycle=document.getElementById("contract_billing_cycle");'
-				. 'if(!cycle){return;}'
-				. 'ktpwpToggleServiceContractFields();'
-				. 'if(cycle.dataset.ktpwpContractFieldsBound==="1"){return;}'
-				. 'cycle.dataset.ktpwpContractFieldsBound="1";'
-				. 'cycle.addEventListener("change",ktpwpToggleServiceContractFields);'
-				. '}'
-				. 'if(document.readyState==="loading"){'
-				. 'document.addEventListener("DOMContentLoaded",ktpwpInitServiceContractFields);'
-				. '}else{'
-				. 'ktpwpInitServiceContractFields();'
-				. '}'
-				. '})();'
-				. '</script>';
+			return '';
 		}
 
 		/**
@@ -1835,6 +1879,8 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				. '.ktpwp-service-field-block__control{min-width:0;}'
 				. '.ktpwp-service-field-block__control select,.ktpwp-service-field-block__control input{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #ddd;border-radius:4px;font-size:14px;background:#fff;}'
 				. '.ktpwp-service-field-block--recurring,.ktpwp-service-field-block--initial-fees{display:block;}'
+				. '.ktpwp-service-recurring-fields--hidden{display:none !important;}'
+				. '.ktpwp-service-field-block--cycle .ktpwp-service-field-block__section-title{font-weight:600;}'
 				. '.ktpwp-service-field-block--recurring .ktpwp-service-field-block__label,.ktpwp-service-field-block--initial-fees .ktpwp-service-field-block__label{display:grid;grid-template-columns:25% minmax(0,1fr);column-gap:12px;margin-bottom:8px;padding-top:0;}'
 				. '.ktpwp-service-field-block--recurring .ktpwp-service-field-block__label-text,.ktpwp-service-field-block--recurring .ktpwp-service-field-block__hint,.ktpwp-service-field-block--initial-fees .ktpwp-service-field-block__label-text,.ktpwp-service-field-block--initial-fees .ktpwp-service-field-block__hint{grid-column:1;text-align:right;}'
 				. '.ktpwp-service-field-block__control--full{width:100%;}'

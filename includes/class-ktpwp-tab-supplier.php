@@ -768,9 +768,22 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 			// 負の値を防ぐ安全対策
 			$page_start = max( 0, intval( $page_start ) );
 
+			$list_search_where = '';
+			$list_search_args  = array();
+			if ( class_exists( 'KTPWP_Tab_Search_UI' ) ) {
+				$list_search_keyword = KTPWP_Tab_Search_UI::get_instance()->get_keyword();
+				if ( $list_search_keyword !== '' ) {
+					list( $list_search_where, $list_search_args ) = KTPWP_Tab_Search_UI::get_instance()->master_list_search_clause( $table_name, $list_search_keyword, 'supplier' );
+				}
+			}
+
 			// 全データ数を取得
-			$total_query = "SELECT COUNT(*) FROM {$table_name}";
-			$total_rows = $wpdb->get_var( $total_query );
+			$total_query = "SELECT COUNT(*) FROM {$table_name} WHERE 1=1{$list_search_where}";
+			if ( $list_search_args !== array() ) {
+				$total_rows = $wpdb->get_var( $wpdb->prepare( $total_query, $list_search_args ) );
+			} else {
+				$total_rows = $wpdb->get_var( $total_query );
+			}
 			$total_pages = ceil( $total_rows / $query_limit );
 
 			// 現在のページ番号を計算
@@ -787,7 +800,10 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 			// データを取得（選択されたソート順で）
 			$sort_column = esc_sql( $sort_by ); // SQLインジェクション対策
 			$sort_direction = $sort_order === 'ASC' ? 'ASC' : 'DESC'; // SQLインジェクション対策
-			$query = $wpdb->prepare( "SELECT * FROM {$table_name} ORDER BY {$sort_column} {$sort_direction} LIMIT %d, %d", $page_start, $query_limit );
+			$query = $wpdb->prepare(
+				"SELECT * FROM {$table_name} WHERE 1=1{$list_search_where} ORDER BY {$sort_column} {$sort_direction} LIMIT %d, %d",
+				array_merge( $list_search_args, array( $page_start, $query_limit ) )
+			);
 			$post_row = $wpdb->get_results( $query );
 			if ( $post_row ) {
 				$list_header = KTPWP_List_Table::open(
@@ -1623,6 +1639,18 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 				? KTPWP_SVG_Icons::get_icon( 'contact_mail', array( 'aria-label' => __( '宛名', 'ktpwp' ) ) )
 				: '<span class="material-symbols-outlined" aria-label="' . esc_attr__( '宛名', 'ktpwp' ) . '">contact_mail</span>';
 
+			$search_keep_params  = array();
+			$search_toolbar_html = '';
+			$search_panel_html   = '';
+			if ( isset( $_GET['data_id'] ) && $_GET['data_id'] !== '' ) {
+				$search_keep_params['data_id'] = sanitize_text_field( wp_unslash( $_GET['data_id'] ) );
+			}
+			if ( class_exists( 'KTPWP_Tab_Search_UI' ) ) {
+				$search_ui           = KTPWP_Tab_Search_UI::get_instance();
+				$search_toolbar_html = $search_ui->render_toolbar_form( 'supplier', $search_keep_params );
+				$search_panel_html   = $search_ui->maybe_render_cross_search_panel( 'supplier' );
+			}
+
 			// JavaScript
 			$print = <<<END
         <script>
@@ -1742,9 +1770,12 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
             // }
         </script>
         <!-- コントローラー（顧客タブと同様：左に宛名印刷、右に詳細印刷） -->
-        <div class="controller" style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="controller" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                {$search_toolbar_html}
                 <div class="ktp-supplier-controller-actions" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
                 <button type="button" id="supplierAddressLabelPrintButton" class="ktp-client-address-label-btn" onclick="printSupplierAddressLabel(); return false;" title="{$supplier_address_label_title}">{$supplier_address_label_icon}<span class="btn-label">{$supplier_address_label_text}</span></button>
+                </div>
                 </div>
                 <div style="display: flex; gap: 5px;">
                 <button type="button" onclick="printContent()" title="{$print_button_title}" style="padding: 8px 12px; font-size: 12px; background: #fff; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; transition: all 0.2s ease;">
@@ -1755,7 +1786,7 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
         END;
 
 			// コンテンツを返す（検索複数時ダイアログは $data_forms 内で既に出力済み）
-			$content = $print . $data_list . $skills_section . $data_title . $data_forms . $div_end;
+			$content = $print . $search_panel_html . $data_list . $skills_section . $data_title . $data_forms . $div_end;
 			return $content;
 		}
 

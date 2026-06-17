@@ -132,9 +132,9 @@ class KTPWP_Shortcodes {
             $header_content = $this->get_header_content();
             $tab_content = $this->get_tab_content();
 
-            // KantanProEX 系では KTP banner を表示しない
-            $is_ex_edition = function_exists( 'ktpwp_is_ex_edition' ) && ktpwp_is_ex_edition();
-            if ( ! $is_ex_edition ) {
+            // 有料版では KTP banner を表示しない（free では表示）
+            $hide_banner = function_exists( 'ktpwp_should_hide_ktp_banner' ) && ktpwp_should_hide_ktp_banner();
+            if ( ! $hide_banner ) {
                 // KantanProロゴヘッダーの上に外部プラグイン（例: ktp-banner）差し込み領域を用意
                 ob_start();
                 do_action( 'ktpwp_between_pagination_footer' );
@@ -175,7 +175,7 @@ class KTPWP_Shortcodes {
      * @return string
      */
     public function get_banner_fallback_html_after_hooks() {
-        if ( function_exists( 'ktpwp_is_ex_edition' ) && ktpwp_is_ex_edition() ) {
+        if ( function_exists( 'ktpwp_should_hide_ktp_banner' ) && ktpwp_should_hide_ktp_banner() ) {
             return '';
         }
         return $this->render_ktp_banner_from_option();
@@ -190,7 +190,7 @@ class KTPWP_Shortcodes {
      * @return string
      */
     private function render_ktp_banner_from_option() {
-        if ( function_exists( 'ktpwp_is_ex_edition' ) && ktpwp_is_ex_edition() ) {
+        if ( function_exists( 'ktpwp_should_hide_ktp_banner' ) && ktpwp_should_hide_ktp_banner() ) {
             return '';
         }
         $options = $this->get_central_banner_options();
@@ -283,7 +283,7 @@ class KTPWP_Shortcodes {
      * @return bool
      */
     private function should_fetch_official_central_banner_feed( $options ) {
-        if ( function_exists( 'ktpwp_is_ex_edition' ) && ktpwp_is_ex_edition() ) {
+        if ( function_exists( 'ktpwp_should_hide_ktp_banner' ) && ktpwp_should_hide_ktp_banner() ) {
             return false;
         }
         if ( ! apply_filters( 'kantanpro_auto_fetch_official_central_banner', true ) ) {
@@ -1207,6 +1207,12 @@ class KTPWP_Shortcodes {
      */
     public function render_public_products( $atts = array() ) {
         if ( defined( 'DOING_AJAX' ) && DOING_AJAX ) {
+            return '';
+        }
+        if ( function_exists( 'ktpwp_is_feature_enabled' ) && ! ktpwp_is_feature_enabled( 'public_products' ) ) {
+            if ( class_exists( 'KTPWP_Edition' ) ) {
+                return KTPWP_Edition::get_upgrade_message_html( __( '公開商品機能', 'ktpwp' ) );
+            }
             return '';
         }
 

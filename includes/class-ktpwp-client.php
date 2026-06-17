@@ -682,11 +682,22 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 				}
 			} else {
 				// 通常の顧客一覧表示（既存のコード）
+				$list_search_where = '';
+				$list_search_args  = array();
+				if ( class_exists( 'KTPWP_Tab_Search_UI' ) ) {
+					$list_search_keyword = KTPWP_Tab_Search_UI::get_instance()->get_keyword();
+					if ( $list_search_keyword !== '' ) {
+						list( $list_search_where, $list_search_args ) = KTPWP_Tab_Search_UI::get_instance()->master_list_search_clause( $table_name, $list_search_keyword, 'client' );
+					}
+				}
+
 				// 全データ数を取得
-				// $total_query = "SELECT COUNT(*) FROM {$table_name}";
-				// $total_rows = $wpdb->get_var($total_query);
-				$total_query_prepared = "SELECT COUNT(*) FROM {$table_name}";
-				$total_rows = $wpdb->get_var( $total_query_prepared );
+				$total_query_prepared = "SELECT COUNT(*) FROM {$table_name} WHERE 1=1{$list_search_where}";
+				if ( $list_search_args !== array() ) {
+					$total_rows = $wpdb->get_var( $wpdb->prepare( $total_query_prepared, $list_search_args ) );
+				} else {
+					$total_rows = $wpdb->get_var( $total_query_prepared );
+				}
 				$total_pages = ceil( $total_rows / $query_limit );
 
 				// 現在のページ番号を計算
@@ -696,7 +707,10 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 				$sort_column = esc_sql( $sort_by ); // SQLインジェクション対策
 				$sort_column_prepared = str_replace( '%', '%%', $sort_column ); // % を %% にエスケープ
 				$sort_direction = $sort_order === 'ASC' ? 'ASC' : 'DESC'; // SQLインジェクション対策
-				$query = $wpdb->prepare( "SELECT * FROM {$table_name} ORDER BY {$sort_column_prepared} {$sort_direction} LIMIT %d, %d", intval( $page_start ), intval( $query_limit ) );
+				$query = $wpdb->prepare(
+					"SELECT * FROM {$table_name} WHERE 1=1{$list_search_where} ORDER BY {$sort_column_prepared} {$sort_direction} LIMIT %d, %d",
+					array_merge( $list_search_args, array( intval( $page_start ), intval( $query_limit ) ) )
+				);
 				$post_row = $wpdb->get_results( $query );
 
 				$results = array(); // 結果を格納する配列を初期化
@@ -1370,9 +1384,10 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 			}
 
 			// controllerブロックを必ず先頭に追加
-			$controller_html = '<div class="controller" style="display: flex; justify-content: space-between; align-items: center;">';
+			$controller_html = '<div class="controller" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">';
 
-			// 左側：ボタン群（注文履歴と顧客一覧ボタンを削除）
+			// 左側：検索＋ボタン群
+			$controller_html .= '<div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">';
 			$controller_html .= '<div class="ktp-client-controller-actions" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">';
 
 			// 現在の顧客IDを取得（後で使用するため）
@@ -1392,6 +1407,14 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 				}
 			}
 			$current_client_id = (int) $current_client_id;
+
+			if ( class_exists( 'KTPWP_Tab_Search_UI' ) ) {
+				$client_search_keep = array();
+				if ( $current_client_id > 0 ) {
+					$client_search_keep['data_id'] = (string) $current_client_id;
+				}
+				$controller_html .= KTPWP_Tab_Search_UI::get_instance()->render_toolbar_form( 'client', $client_search_keep );
+			}
 
 			// 受注書作成用に現在の顧客IDから最新のデータを取得する
 			$current_customer_name = '';
@@ -1465,16 +1488,23 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 			$odd_row_color = isset( $design_options['odd_row_color'] ) ? $design_options['odd_row_color'] : '#E7EEFD';
 			$even_row_color = isset( $design_options['even_row_color'] ) ? $design_options['even_row_color'] : '#FFFFFF';
 
-			$controller_html .= '</div>'; // 左側のボタン群終了
+			$controller_html .= '</div>'; // ktp-client-controller-actions 終了
 
 			// 右側：印刷ボタン（プレビューは廃止）
+			$controller_html .= '</div>'; // 左側（検索＋ボタン）終了
 			$controller_html .= '<div style="display: flex; gap: 5px;">';
 			$controller_html .= '<button onclick="printContent()" title="' . esc_attr__( '印刷する', 'ktpwp' ) . '" style="padding: 8px 12px; font-size: 12px; background: #fff; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; transition: all 0.2s ease;">'
             . '<span class="material-symbols-outlined" aria-label="' . esc_attr__( '印刷', 'ktpwp' ) . '" style="font-size: 18px; color: #333;">print</span>'
             . '</button>';
 
 			$controller_html .= '</div>'; // 右側のボタン群終了
+			$controller_html .= '</div>'; // 左側（検索＋ボタン）終了
 			$controller_html .= '</div>'; // controller終了
+
+			$cross_search_panel = '';
+			if ( class_exists( 'KTPWP_Tab_Search_UI' ) ) {
+				$cross_search_panel = KTPWP_Tab_Search_UI::get_instance()->maybe_render_cross_search_panel( 'client' );
+			}
 
 			// 空のフォームを表示(追加モードの場合)
 			if ( $action === 'istmode' ) {
@@ -2496,7 +2526,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 				$div_end = '';
 			}
 			// 検索モードでも顧客リストを表示する
-			$content = $print . $session_message . $controller_html . $data_list . $data_title . $data_forms . $search_results_list . $div_end;
+			$content = $print . $session_message . $controller_html . $cross_search_panel . $data_list . $data_title . $data_forms . $search_results_list . $div_end;
 			return $content;
 		}
 
