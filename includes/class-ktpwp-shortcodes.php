@@ -1156,16 +1156,23 @@ class KTPWP_Shortcodes {
             ? KTPWP_Public_Product_Order::get_nonce_action()
             : 'ktpwp_public_product_order';
 
+        $stripe_available = class_exists( 'KTPWP_Public_Product_Order' )
+            && KTPWP_Public_Product_Order::is_stripe_purchase_enabled();
+
         wp_localize_script(
             'ktpwp-public-products',
             'ktpwpPublicProducts',
             array(
-                'ajaxUrl' => admin_url( 'admin-ajax.php', 'relative' ),
-                'nonce'   => wp_create_nonce( $nonce_action ),
+                'ajaxUrl'          => admin_url( 'admin-ajax.php', 'relative' ),
+                'nonce'            => wp_create_nonce( $nonce_action ),
+                'stripeAvailable'  => $stripe_available,
                 'i18n'    => array(
-                    'orderTitle'   => __( 'お問い合わせ', 'ktpwp' ),
-                    'submit'       => __( '送信する', 'ktpwp' ),
-                    'submitting'   => __( '送信中…', 'ktpwp' ),
+                    'orderTitleInquire' => __( 'お問い合わせ', 'ktpwp' ),
+                    'orderTitlePurchase'=> __( 'ご購入', 'ktpwp' ),
+                    'submitInquire'     => __( '送信する', 'ktpwp' ),
+                    'submitPurchase'    => __( '購入する', 'ktpwp' ),
+                    'submittingInquire' => __( '送信中…', 'ktpwp' ),
+                    'submittingPurchase'=> __( '決済準備中…', 'ktpwp' ),
                     'close'        => __( '閉じる', 'ktpwp' ),
                     'category'     => __( 'カテゴリ', 'ktpwp' ),
                     'price'        => __( '単価', 'ktpwp' ),
@@ -1194,9 +1201,21 @@ class KTPWP_Shortcodes {
                     'pendingNotice'   => __( '現在お問い合わせを受け付けておりません。', 'ktpwp' ),
                     'soldOutNotice'   => __( 'こちらの商品は完売しました。', 'ktpwp' ),
                     'inquire'         => __( '問い合わす', 'ktpwp' ),
+                    'purchase'        => __( '購入する', 'ktpwp' ),
+                    'purchaseRedirect'=> __( '決済ページへ移動します…', 'ktpwp' ),
                 ),
             )
         );
+    }
+
+    /**
+     * 公開商品行が即時購入対象か。
+     *
+     * @param array<string, mixed> $row 整形済み商品行。
+     * @return bool
+     */
+    private function is_public_product_instant_purchase_row( array $row ) {
+        return ! empty( $row['instant_purchase'] );
     }
 
     /**
@@ -1313,7 +1332,9 @@ class KTPWP_Shortcodes {
             ? $this->render_public_category_filter( $filter_categories, $filter_initial )
             : '';
 
-        return '<div class="ktpwp-public-products ktpwp-public-products--' . esc_attr( $layout ) . '">'
+        $wrapper_class  = 'ktpwp-public-products ktpwp-public-products--' . esc_attr( $layout );
+
+        return '<div class="' . $wrapper_class . '">'
             . $filter_html
             . '<div class="ktpwp-public-products-list">'
             . $inner
@@ -1517,6 +1538,8 @@ class KTPWP_Shortcodes {
             'quantity_fixed'               => class_exists( 'KTPWP_Service_DB' )
                 ? KTPWP_Service_DB::is_public_quantity_fixed( $service )
                 : false,
+            'instant_purchase'             => class_exists( 'KTPWP_Public_Product_Order' )
+                && KTPWP_Public_Product_Order::service_supports_instant_purchase( $service ),
         );
     }
 
@@ -1732,11 +1755,18 @@ class KTPWP_Shortcodes {
         $wrapper_class   = $table_cell
             ? 'ktpwp-public-product-item__inquire-wrap ktpwp-public-product-item__inquire-wrap--table'
             : 'ktpwp-public-product-item__footer';
+        $purchase_mode   = $this->is_public_product_instant_purchase_row( $row );
 
         if ( $acceptance_open ) {
+            $label = $purchase_mode ? __( '購入する', 'ktpwp' ) : __( '問い合わす', 'ktpwp' );
+            $btn_class = 'ktpwp-public-product-item__inquire-btn';
+            if ( $purchase_mode ) {
+                $btn_class .= ' ktpwp-public-product-item__purchase-btn';
+            }
+
             return '<div class="' . esc_attr( $wrapper_class ) . '">'
-                . '<button type="button" class="ktpwp-public-product-item__inquire-btn">'
-                . esc_html__( '問い合わす', 'ktpwp' )
+                . '<button type="button" class="' . esc_attr( $btn_class ) . '">'
+                . esc_html( $label )
                 . '</button></div>';
         }
 
@@ -1764,9 +1794,14 @@ class KTPWP_Shortcodes {
         } elseif ( ! empty( $payload['is_pending'] ) ) {
             $classes .= ' ktpwp-public-product-item--pending';
         }
+        if ( $this->is_public_product_instant_purchase_row( $payload ) ) {
+            $classes .= ' ktpwp-public-product-item--instant-purchase';
+        }
         $category = isset( $payload['category'] ) ? (string) $payload['category'] : '';
+        $tabindex = $this->is_public_product_instant_purchase_row( $payload ) ? ' tabindex="0"' : '';
 
         return ' class="' . esc_attr( $classes ) . '"'
+            . $tabindex
             . ' data-category="' . esc_attr( $category ) . '"'
             . ' data-product="' . esc_attr( wp_json_encode( $payload ) ) . '"';
     }
@@ -2002,7 +2037,7 @@ class KTPWP_Shortcodes {
         if ( $display['initial_fees'] ) {
             $headers[] = '<th scope="col">' . esc_html__( '初回費用', 'ktpwp' ) . '</th>';
         }
-        $headers[] = '<th scope="col">' . esc_html__( 'お問い合わせ', 'ktpwp' ) . '</th>';
+        $headers[] = '<th scope="col">' . esc_html__( 'お申込み', 'ktpwp' ) . '</th>';
 
         foreach ( $services as $service ) {
             $row     = $this->format_public_product_row( $service );

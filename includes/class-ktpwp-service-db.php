@@ -69,6 +69,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				contract_billing_cycle VARCHAR(20) NOT NULL DEFAULT 'none',
 				stock INT UNSIGNED NOT NULL DEFAULT 1,
 				public_quantity_fixed TINYINT(1) NOT NULL DEFAULT 0,
+				public_instant_purchase TINYINT(1) NOT NULL DEFAULT 0,
 				public_html TEXT NULL,
 				PRIMARY KEY  (id)
 			) {$charset_collate};";
@@ -140,8 +141,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			$public_html = self::sanitize_public_html(
 				isset( $_POST['public_html'] ) ? wp_unslash( $_POST['public_html'] ) : ''
 			);
-
-			// Create search field value
+			$public_instant_purchase = self::resolve_public_instant_purchase_from_post( $tab_name, $data_id );
 			$search_field_value = implode(
                 ', ',
                 array(
@@ -190,6 +190,10 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 							$data['public_quantity_fixed'] = $public_quantity_fixed;
 						}
 
+						if ( $this->service_table_has_public_instant_purchase_column( $table_name ) ) {
+							$data['public_instant_purchase'] = $public_instant_purchase;
+						}
+
 						if ( $this->service_table_has_public_html_column( $table_name ) ) {
 							$data['public_html'] = $public_html;
 						}
@@ -202,6 +206,9 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 							$format[] = '%d';
 						}
 						if ( isset( $data['public_quantity_fixed'] ) ) {
+							$format[] = '%d';
+						}
+						if ( isset( $data['public_instant_purchase'] ) ) {
 							$format[] = '%d';
 						}
 						if ( isset( $data['public_html'] ) ) {
@@ -295,8 +302,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			$public_html = self::sanitize_public_html(
 				isset( $_POST['public_html'] ) ? wp_unslash( $_POST['public_html'] ) : ''
 			);
-
-			// 検索フィールド値を作成
+			$public_instant_purchase = self::resolve_public_instant_purchase_from_post( $tab_name, 0 );
 			$search_field_value = implode(
                 ', ',
                 array(
@@ -339,6 +345,11 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 
 			if ( $this->service_table_has_public_quantity_fixed_column( $table_name ) ) {
 				$insert_data['public_quantity_fixed'] = $public_quantity_fixed;
+				$insert_format[] = '%d';
+			}
+
+			if ( $this->service_table_has_public_instant_purchase_column( $table_name ) ) {
+				$insert_data['public_instant_purchase'] = $public_instant_purchase;
 				$insert_format[] = '%d';
 			}
 
@@ -492,6 +503,13 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			if ( $this->service_table_has_public_quantity_fixed_column( $table_name ) ) {
 				$duplicate_data['public_quantity_fixed'] = isset( $original_data->public_quantity_fixed )
 					? self::sanitize_public_quantity_fixed( $original_data->public_quantity_fixed )
+					: 0;
+				$duplicate_format[] = '%d';
+			}
+
+			if ( $this->service_table_has_public_instant_purchase_column( $table_name ) ) {
+				$duplicate_data['public_instant_purchase'] = isset( $original_data->public_instant_purchase )
+					? self::sanitize_public_instant_purchase( $original_data->public_instant_purchase )
 					: 0;
 				$duplicate_format[] = '%d';
 			}
@@ -1500,6 +1518,85 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			}
 
 			return (int) $service->public_quantity_fixed === 1;
+		}
+
+		/**
+		 * サービステーブルに public_instant_purchase カラムがあるか確認する。
+		 *
+		 * @param string $table_name テーブル名。
+		 * @return bool
+		 */
+		private function service_table_has_public_instant_purchase_column( $table_name ) {
+			global $wpdb;
+
+			static $cache = array();
+
+			if ( isset( $cache[ $table_name ] ) ) {
+				return $cache[ $table_name ];
+			}
+
+			$columns = $wpdb->get_col( "SHOW COLUMNS FROM `{$table_name}`" );
+			$cache[ $table_name ] = is_array( $columns ) && in_array( 'public_instant_purchase', $columns, true );
+
+			return $cache[ $table_name ];
+		}
+
+		/**
+		 * 即時購入フラグを正規化する。
+		 *
+		 * @param mixed $raw POST 値など。
+		 * @return int 0=無効, 1=有効
+		 */
+		public static function sanitize_public_instant_purchase( $raw ) {
+			return isset( $raw ) && '1' === (string) $raw ? 1 : 0;
+		}
+
+		/**
+		 * 公開商品で Stripe 即時購入が有効なサービスか判定する。
+		 *
+		 * @param object|null $service サービスレコード。
+		 * @return bool
+		 */
+		public static function is_public_instant_purchase( $service ) {
+			if ( ! is_object( $service ) || ! isset( $service->public_instant_purchase ) ) {
+				return false;
+			}
+
+			return (int) $service->public_instant_purchase === 1;
+		}
+
+		/**
+		 * POST から即時購入フラグを解決する（無効化時は既存値を維持）。
+		 *
+		 * @param string $tab_name テーブル接尾辞。
+		 * @param int    $data_id  更新対象 ID（新規は 0）。
+		 * @return int
+		 */
+		private static function resolve_public_instant_purchase_from_post( $tab_name, $data_id ) {
+			if ( isset( $_POST['public_instant_purchase'] ) ) {
+				return self::sanitize_public_instant_purchase( wp_unslash( $_POST['public_instant_purchase'] ) );
+			}
+
+			$data_id = (int) $data_id;
+			if ( $data_id <= 0 ) {
+				return 0;
+			}
+
+			global $wpdb;
+			$table_name = $wpdb->prefix . 'ktp_' . sanitize_key( $tab_name );
+			$instance   = self::get_instance();
+			if ( ! $instance->service_table_has_public_instant_purchase_column( $table_name ) ) {
+				return 0;
+			}
+
+			$value = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT public_instant_purchase FROM `{$table_name}` WHERE id = %d",
+					$data_id
+				)
+			);
+
+			return self::sanitize_public_instant_purchase( $value );
 		}
 
 		/**

@@ -37,6 +37,35 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 		private function __construct() {
 			add_action( 'wp_ajax_ktpwp_public_product_submit', array( $this, 'ajax_submit_order' ) );
 			add_action( 'wp_ajax_nopriv_ktpwp_public_product_submit', array( $this, 'ajax_submit_order' ) );
+			add_action( 'wp_ajax_ktpwp_public_product_purchase', array( $this, 'ajax_purchase_order' ) );
+			add_action( 'wp_ajax_nopriv_ktpwp_public_product_purchase', array( $this, 'ajax_purchase_order' ) );
+		}
+
+		/**
+		 * 公開商品の Stripe 即時購入が利用可能か。
+		 *
+		 * @return bool
+		 */
+		public static function is_stripe_purchase_enabled() {
+			if ( function_exists( 'ktpwp_is_feature_enabled' ) && ! ktpwp_is_feature_enabled( 'stripe_billing' ) ) {
+				return false;
+			}
+
+			return class_exists( 'KTPWP_Stripe_Billing' ) && KTPWP_Stripe_Billing::is_enabled();
+		}
+
+		/**
+		 * サービスが公開商品の即時購入対象か。
+		 *
+		 * @param object|null $service サービスレコード。
+		 * @return bool
+		 */
+		public static function service_supports_instant_purchase( $service ) {
+			if ( ! self::is_stripe_purchase_enabled() ) {
+				return false;
+			}
+
+			return class_exists( 'KTPWP_Service_DB' ) && KTPWP_Service_DB::is_public_instant_purchase( $service );
 		}
 
 		/**
@@ -229,6 +258,74 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 		}
 
 		/**
+		 * 公開商品を Stripe 決済へ誘導する（受注作成 → Invoice finalize）。
+		 *
+		 * @param int   $service_id サービス ID。
+		 * @param array $form       フォーム入力。
+		 * @return array{success:bool,message:string,order_id?:int,checkout_url?:string}
+		 */
+		public function purchase_order( $service_id, array $form ) {
+			if ( ! self::is_stripe_purchase_enabled() ) {
+				return array(
+					'success' => false,
+					'message' => __( 'オンライン決済は現在ご利用いただけません。', 'ktpwp' ),
+				);
+			}
+
+			$service = $this->get_public_service( $service_id );
+			if ( ! $service ) {
+				return array(
+					'success' => false,
+					'message' => __( '指定された商品は公開されていないか、存在しません。', 'ktpwp' ),
+				);
+			}
+
+			if ( ! self::service_supports_instant_purchase( $service ) ) {
+				return array(
+					'success' => false,
+					'message' => __( 'この商品は即時購入の対象外です。', 'ktpwp' ),
+				);
+			}
+
+			$result = $this->submit_order( $service_id, $form );
+			if ( empty( $result['success'] ) ) {
+				return $result;
+			}
+
+			$order_id = isset( $result['order_id'] ) ? (int) $result['order_id'] : 0;
+			if ( $order_id <= 0 ) {
+				return array(
+					'success' => false,
+					'message' => __( '決済の準備に失敗しました。', 'ktpwp' ),
+				);
+			}
+
+			$stripe         = KTPWP_Stripe_Billing::get_instance();
+			$invoice_result = $stripe->prepare_invoice_for_order( $order_id, true );
+			if ( is_wp_error( $invoice_result ) ) {
+				return array(
+					'success' => false,
+					'message' => $invoice_result->get_error_message(),
+				);
+			}
+
+			$checkout_url = isset( $invoice_result['url'] ) ? trim( (string) $invoice_result['url'] ) : '';
+			if ( $checkout_url === '' ) {
+				return array(
+					'success' => false,
+					'message' => __( '決済ページの取得に失敗しました。', 'ktpwp' ),
+				);
+			}
+
+			return array(
+				'success'      => true,
+				'message'      => __( '決済ページへ移動します…', 'ktpwp' ),
+				'order_id'     => $order_id,
+				'checkout_url' => $checkout_url,
+			);
+		}
+
+		/**
 		 * AJAX: お申し込み送信。
 		 *
 		 * @return void
@@ -268,6 +365,51 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				array(
 					'message'  => $result['message'],
 					'order_id' => isset( $result['order_id'] ) ? (int) $result['order_id'] : 0,
+				)
+			);
+		}
+
+		/**
+		 * AJAX: Stripe 即時購入。
+		 *
+		 * @return void
+		 */
+		public function ajax_purchase_order() {
+			$this->prepare_ajax_json_response();
+
+			check_ajax_referer( self::get_nonce_action(), 'nonce' );
+
+			if ( ! empty( $_POST['company_url'] ) ) {
+				$this->send_ajax_json_error(
+					array( 'message' => __( '送信に失敗しました。', 'ktpwp' ) ),
+					400
+				);
+			}
+
+			$service_id = isset( $_POST['service_id'] ) ? absint( $_POST['service_id'] ) : 0;
+			$form       = array(
+				'company_name' => isset( $_POST['company_name'] ) ? wp_unslash( $_POST['company_name'] ) : '',
+				'contact_name' => isset( $_POST['contact_name'] ) ? wp_unslash( $_POST['contact_name'] ) : '',
+				'email'        => isset( $_POST['email'] ) ? wp_unslash( $_POST['email'] ) : '',
+				'phone'        => isset( $_POST['phone'] ) ? wp_unslash( $_POST['phone'] ) : '',
+				'message'      => isset( $_POST['message'] ) ? wp_unslash( $_POST['message'] ) : '',
+				'quantity'     => isset( $_POST['quantity'] ) ? wp_unslash( $_POST['quantity'] ) : 1,
+			);
+
+			$result = $this->purchase_order( $service_id, $form );
+
+			if ( empty( $result['success'] ) ) {
+				$this->send_ajax_json_error(
+					array( 'message' => $result['message'] ),
+					400
+				);
+			}
+
+			$this->send_ajax_json_success(
+				array(
+					'message'      => $result['message'],
+					'order_id'     => isset( $result['order_id'] ) ? (int) $result['order_id'] : 0,
+					'checkout_url' => isset( $result['checkout_url'] ) ? (string) $result['checkout_url'] : '',
 				)
 			);
 		}

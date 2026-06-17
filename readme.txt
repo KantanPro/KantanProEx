@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.69
+Stable tag: 1.3.70
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,12 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.70 - 2026年06月18日 =
+* 公開商品の Stripe 即時購入（購入するボタン・決済ページへリダイレクト）を追加
+* サービスごとに「即時購入（Stripe決済）」をオン/オフできる設定を追加
+* 在庫数（対応可能回数など）をカテゴリー直下に移動し、都度請求でも常に設定可能に
+* 都度請求選択時に定期請求項目・初回費用ブロックを非表示にし、在庫数は常に表示
 
 = 1.3.69 - 2026年06月17日 =
 * GitHub Release のエディション別 ZIP asset に対応（solo / team / business のワンクリック更新）

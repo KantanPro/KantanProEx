@@ -696,9 +696,14 @@
 	z-index: 2;
 }
 
-/* 商品ブロック・問い合わすボタン */
+/* 商品ブロック・問い合わす / 購入するボタン */
 .ktpwp-public-product-item {
 	transition: box-shadow 0.15s ease;
+}
+
+.ktpwp-public-products--purchase .ktpwp-public-product-item:not(.ktpwp-public-product-item--sold-out):not(.ktpwp-public-product-item--pending),
+.ktpwp-public-product-item--instant-purchase:not(.ktpwp-public-product-item--sold-out):not(.ktpwp-public-product-item--pending) {
+	cursor: pointer;
 }
 
 /* カテゴリ絞り込み: display:flex / table-row 等より優先して非表示にする */
@@ -742,6 +747,10 @@
 	width: 100%;
 }
 
+.ktpwp-public-product-item__purchase-btn {
+	background: #059669;
+}
+
 .ktpwp-public-products-table .ktpwp-public-product-item__inquire-btn {
 	display: inline-block;
 	min-width: 6.5rem;
@@ -753,6 +762,12 @@
 	background: #4f46e5;
 	outline: 2px solid #6366f1;
 	outline-offset: 2px;
+}
+
+.ktpwp-public-product-item__purchase-btn:hover,
+.ktpwp-public-product-item__purchase-btn:focus-visible {
+	background: #047857;
+	outline-color: #059669;
 }
 
 .ktpwp-public-product-item__inquire-btn:disabled {

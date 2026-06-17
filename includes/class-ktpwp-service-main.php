@@ -540,6 +540,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			$contract_billing_cycle = class_exists( 'KTPWP_Contract_Billing_Cycle' ) ? KTPWP_Contract_Billing_Cycle::NONE : 'none';
 			$stock = 1;
 			$public_quantity_fixed = 0;
+			$public_instant_purchase = 0;
 			$public_html = '';
 			$query_id = 0;
 
@@ -611,6 +612,9 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					$stock = isset( $row->stock ) ? max( 0, absint( $row->stock ) ) : 1;
 					$public_quantity_fixed = class_exists( 'KTPWP_Service_DB' )
 						? KTPWP_Service_DB::sanitize_public_quantity_fixed( $row->public_quantity_fixed ?? null )
+						: 0;
+					$public_instant_purchase = class_exists( 'KTPWP_Service_DB' )
+						? KTPWP_Service_DB::sanitize_public_instant_purchase( $row->public_instant_purchase ?? null )
 						: 0;
 					$public_html = class_exists( 'KTPWP_Service_DB' )
 						? (string) ( $row->public_html ?? '' )
@@ -796,13 +800,14 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					}
 				}
 
+				$data_forms .= $this->render_stock_field( 1 );
 				$data_forms .= $this->render_is_public_checkbox_field( 0 );
 				$data_forms .= $this->render_public_quantity_mode_field( 0 );
+				$data_forms .= $this->render_public_instant_purchase_field( 0 );
 				$data_forms .= $this->render_public_html_field( '' );
 				$default_cycle = class_exists( 'KTPWP_Contract_Billing_Cycle' ) ? KTPWP_Contract_Billing_Cycle::NONE : 'none';
 				$data_forms .= $this->render_contract_billing_cycle_field( $default_cycle );
 				$data_forms .= $this->render_service_recurring_fields_block_open( $default_cycle );
-				$data_forms .= $this->render_stock_field( 1 );
 				$data_forms .= $this->render_service_recurring_items_field( 0, $default_cycle );
 				$data_forms .= $this->render_service_initial_fees_field( 0 );
 				$data_forms .= $this->render_service_recurring_fields_block_close();
@@ -1016,15 +1021,16 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 						$data_forms .= "<div class=\"form-group\"><label>{$label_i18n}：</label> <input type=\"{$field['type']}\" name=\"{$fieldName}\" value=\"" . esc_attr( $value ) . "\"{$pattern}{$required}{$placeholder}{$step}{$min}></div>";
 					}
 				}
+				$data_forms .= $this->render_stock_field( (int) $stock );
 				$data_forms .= $this->render_is_public_checkbox_field( (int) $is_public );
 				$data_forms .= $this->render_public_quantity_mode_field( (int) $public_quantity_fixed );
+				$data_forms .= $this->render_public_instant_purchase_field( (int) $public_instant_purchase );
 				$data_forms .= $this->render_public_html_field( (string) $public_html );
 				$cycle_value = class_exists( 'KTPWP_Contract_Billing_Cycle' )
 					? KTPWP_Contract_Billing_Cycle::sanitize( $contract_billing_cycle )
 					: 'none';
 				$data_forms .= $this->render_contract_billing_cycle_field( $cycle_value );
 				$data_forms .= $this->render_service_recurring_fields_block_open( $cycle_value );
-				$data_forms .= $this->render_stock_field( (int) $stock );
 				$data_forms .= $this->render_service_recurring_items_field( (int) $data_id, $cycle_value );
 				$data_forms .= $this->render_service_initial_fees_field( (int) $data_id );
 				$data_forms .= $this->render_service_recurring_fields_block_close();
@@ -1583,6 +1589,37 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 		}
 
 		/**
+		 * 公開商品の即時購入チェックボックスの HTML を返す。
+		 *
+		 * @param int $public_instant_purchase 0=無効, 1=有効。
+		 * @return string
+		 */
+		private function render_public_instant_purchase_field( $public_instant_purchase ) {
+			$stripe_available = class_exists( 'KTPWP_Public_Product_Order' )
+				&& KTPWP_Public_Product_Order::is_stripe_purchase_enabled();
+			$checked          = (int) $public_instant_purchase === 1 ? ' checked' : '';
+			$disabled         = $stripe_available ? '' : ' disabled';
+			$hint             = $stripe_available
+				? __( 'サイト公開時に「購入する」ボタンを表示し、Stripe 決済ページへそのまま進みます。', 'ktpwp' )
+				: __( '一般設定で Stripe 請求連携を有効にすると設定できます。', 'ktpwp' );
+
+			$html  = $this->render_service_contract_fields_styles();
+			$html .= '<div class="ktpwp-service-field-block ktpwp-service-field-block--instant-purchase">';
+			$html .= '<div class="ktpwp-service-field-block__label">';
+			$html .= '<span class="ktpwp-service-field-block__label-text ktpwp-service-field-block__section-title">' . esc_html__( '公開商品の即時購入', 'ktpwp' ) . '</span>';
+			$html .= '<span class="ktpwp-service-field-block__hint">' . esc_html( $hint ) . '</span>';
+			$html .= '</div>';
+			$html .= '<div class="ktpwp-service-field-block__control">';
+			$html .= '<label class="ktpwp-service-public-field">';
+			$html .= '<input type="checkbox" name="public_instant_purchase" value="1"' . $checked . $disabled . '>';
+			$html .= '<span class="ktpwp-service-public-field__text">' . esc_html__( '即時購入（Stripe決済）', 'ktpwp' ) . '</span>';
+			$html .= '</label>';
+			$html .= '</div></div>';
+
+			return $html;
+		}
+
+		/**
 		 * 公開用HTMLフィールドの HTML を返す。
 		 *
 		 * @param string $public_html 公開用HTML。
@@ -1680,7 +1717,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			$html  = $this->render_service_contract_fields_styles();
 			$html .= '<div id="ktpwp-service-stock" class="ktpwp-service-field-block ktpwp-service-field-block--stock">';
 			$html .= '<div class="ktpwp-service-field-block__label">';
-			$html .= '<span class="ktpwp-service-field-block__label-text ktpwp-service-field-block__section-title">' . esc_html__( '在庫数', 'ktpwp' ) . '</span>';
+			$html .= '<span class="ktpwp-service-field-block__label-text ktpwp-service-field-block__section-title">' . esc_html__( '在庫数（対応可能回数など）', 'ktpwp' ) . '</span>';
 			$html .= '<span class="ktpwp-service-field-block__hint">' . esc_html__( '販売所の受付上限です。0 で完売。契約件数と問い合わせ案件の合計が在庫数に達すると、すべての顧客からの問い合わせを停止（保留中）します。', 'ktpwp' ) . '</span>';
 			$html .= '</div>';
 			if ( $stock === 0 ) {
