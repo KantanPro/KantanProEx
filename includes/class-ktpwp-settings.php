@@ -771,15 +771,17 @@ class KTPWP_Settings {
         // 数値の場合はWordPressの添付ファイルIDとして処理
         if ( is_numeric( $header_bg_image ) ) {
             return wp_get_attachment_image_url( $header_bg_image, 'full' );
-        } else {
-            // 文字列の場合は直接パスとして処理
-            $image_path = $header_bg_image;
-            // 相対パスの場合は、プラグインディレクトリからの絶対URLに変換
-            if ( strpos( $image_path, 'http' ) !== 0 ) {
-                return plugin_dir_url( __DIR__ ) . $image_path;
-            }
-            return $image_path;
         }
+
+        if ( strpos( $header_bg_image, 'http' ) === 0 ) {
+            return function_exists( 'ktpwp_rewrite_stale_plugin_asset_url' )
+                ? ktpwp_rewrite_stale_plugin_asset_url( $header_bg_image )
+                : $header_bg_image;
+        }
+
+        return function_exists( 'ktpwp_plugin_asset_url' )
+            ? ktpwp_plugin_asset_url( $header_bg_image )
+            : plugin_dir_url( __DIR__ ) . ltrim( $header_bg_image, '/' );
     }
 
     /**
@@ -4747,18 +4749,17 @@ class KTPWP_Settings {
         if ( is_numeric( $image_value ) ) {
             // 添付ファイルIDの場合
             $image_url = wp_get_attachment_image_url( $image_value, 'full' );
+        } elseif ( strpos( $image_value, 'http' ) === 0 ) {
+            $image_url = function_exists( 'ktpwp_rewrite_stale_plugin_asset_url' )
+                ? ktpwp_rewrite_stale_plugin_asset_url( $image_value )
+                : $image_value;
         } else {
-            // 文字列パスの場合
-            $image_path = $image_value;
-            if ( strpos( $image_path, 'http' ) !== 0 ) {
-                // 相対パスの場合は、プラグインディレクトリからの絶対URLに変換
-                $image_url = plugin_dir_url( __DIR__ ) . $image_path;
-            } else {
-                $image_url = $image_path;
-            }
+            $image_url = function_exists( 'ktpwp_plugin_asset_url' )
+                ? ktpwp_plugin_asset_url( $image_value )
+                : plugin_dir_url( __DIR__ ) . ltrim( $image_value, '/' );
         } ?>
         <div class="ktp-image-upload-field">
-            <input type="hidden" id="header_bg_image" name="ktp_design_settings[header_bg_image]" value="<?php echo esc_attr( $image_value ); ?>" data-default-url="<?php echo esc_url( plugin_dir_url( __DIR__ ) . 'images/default/header_bg_image.png' ); ?>" />
+            <input type="hidden" id="header_bg_image" name="ktp_design_settings[header_bg_image]" value="<?php echo esc_attr( $image_value ); ?>" data-default-url="<?php echo esc_url( function_exists( 'ktpwp_plugin_asset_url' ) ? ktpwp_plugin_asset_url( 'images/default/header_bg_image.png' ) : plugin_dir_url( __DIR__ ) . 'images/default/header_bg_image.png' ); ?>" />
             
             <div class="ktp-image-preview" style="margin-bottom: 10px;">
                 <img id="header_bg_image_preview" src="<?php echo esc_url( $image_url ); ?>" style="max-width: 300px; max-height: 200px; border: 1px solid #ddd; border-radius: 4px;" />
@@ -4940,15 +4941,14 @@ div.ktp_header {
         if ( is_numeric( $header_bg_image ) ) {
             // 添付ファイルIDの場合
             $image_url = wp_get_attachment_image_url( $header_bg_image, 'full' );
+        } elseif ( strpos( $header_bg_image, 'http' ) === 0 ) {
+            $image_url = function_exists( 'ktpwp_rewrite_stale_plugin_asset_url' )
+                ? ktpwp_rewrite_stale_plugin_asset_url( $header_bg_image )
+                : $header_bg_image;
         } else {
-            // 文字列パスの場合
-            $image_path = $header_bg_image;
-            if ( strpos( $image_path, 'http' ) !== 0 ) {
-                // 相対パスの場合は、プラグインディレクトリからの絶対URLに変換
-                $image_url = plugin_dir_url( __DIR__ ) . $image_path;
-            } else {
-                $image_url = $image_path;
-            }
+            $image_url = function_exists( 'ktpwp_plugin_asset_url' )
+                ? ktpwp_plugin_asset_url( $header_bg_image )
+                : plugin_dir_url( __DIR__ ) . ltrim( $header_bg_image, '/' );
         }
 
         if ( $image_url ) {

@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.3.67
+ * Version: 1.3.68
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -610,12 +610,50 @@ if ( ! defined( 'KANTANPRO_PLUGIN_CANONICAL_DIR' ) ) {
     define( 'KANTANPRO_PLUGIN_CANONICAL_DIR', 'KantanProEX' );
 }
 
+if ( ! function_exists( 'ktpwp_get_plugin_dir_slug' ) ) {
+    /**
+     * 実際にインストールされているプラグインフォルダ名（エディション別 ZIP 対応）。
+     *
+     * @return string
+     */
+    function ktpwp_get_plugin_dir_slug() {
+        if ( defined( 'KANTANPRO_PLUGIN_FILE' ) ) {
+            return basename( dirname( KANTANPRO_PLUGIN_FILE ) );
+        }
+        if ( defined( 'KANTANPRO_PLUGIN_CANONICAL_DIR' ) ) {
+            return KANTANPRO_PLUGIN_CANONICAL_DIR;
+        }
+
+        return 'KantanProEX';
+    }
+}
+
+if ( ! function_exists( 'ktpwp_rewrite_stale_plugin_asset_url' ) ) {
+    /**
+     * DB やキャッシュに残った別エディション／無料版フォルダのアセット URL を現行インストール先へ補正する。
+     *
+     * @param string $url Asset URL.
+     * @return string
+     */
+    function ktpwp_rewrite_stale_plugin_asset_url( $url ) {
+        if ( ! is_string( $url ) || '' === $url || ! defined( 'KANTANPRO_PLUGIN_FILE' ) ) {
+            return $url;
+        }
+
+        $slug = ktpwp_get_plugin_dir_slug();
+        $url  = preg_replace( '#/plugins/KantanPro(?!EX)(/)#i', '/plugins/' . $slug . '$1', $url );
+        $url  = preg_replace( '#/plugins/KantanProEX(?:solo|team|business)?(/)#i', '/plugins/' . $slug . '$1', $url );
+
+        return $url;
+    }
+}
+
 if ( ! function_exists( 'ktpwp_plugin_asset_url' ) ) {
     /**
      * プラグイン配下ファイルの公開 URL。
-     * 実フォルダが無料版の KantanPro や zipball 名のままでも、公式ディレクトリ名 KantanProEX を URL に使う。
+     * 実インストール先（KantanProEX / KantanProEXbusiness 等）を優先し、エディション別フォルダでも 404 にならないようにする。
      *
-     * wp-config で KANTANPRO_PLUGIN_ROOT_RELATIVE_ASSETS が true のときはドメインなしのパス（/wp-content/plugins/KantanProEX/...）を返す。
+     * wp-config で KANTANPRO_PLUGIN_ROOT_RELATIVE_ASSETS が true のときはドメインなしのパス（/wp-content/plugins/...）を返す。
      *
      * @param string $relative_path plugins_url 第1引数相当（例: images/default/icon.png）。
      * @return string
@@ -624,7 +662,8 @@ if ( ! function_exists( 'ktpwp_plugin_asset_url' ) ) {
         if ( ! defined( 'KANTANPRO_PLUGIN_FILE' ) ) {
             return '';
         }
-        $canonical     = KANTANPRO_PLUGIN_CANONICAL_DIR;
+
+        $slug          = ktpwp_get_plugin_dir_slug();
         $relative_path = is_string( $relative_path ) ? ltrim( $relative_path, '/' ) : '';
 
         if ( defined( 'KANTANPRO_PLUGIN_ROOT_RELATIVE_ASSETS' ) && KANTANPRO_PLUGIN_ROOT_RELATIVE_ASSETS ) {
@@ -632,7 +671,7 @@ if ( ! function_exists( 'ktpwp_plugin_asset_url' ) ) {
             if ( ! is_string( $content_path ) || '' === $content_path ) {
                 $content_path = '/wp-content';
             }
-            $path = $content_path . '/plugins/' . $canonical . '/' . $relative_path;
+            $path = $content_path . '/plugins/' . $slug . '/' . $relative_path;
             /**
              * Filters root-relative or absolute plugin asset URL.
              *
@@ -642,12 +681,13 @@ if ( ! function_exists( 'ktpwp_plugin_asset_url' ) ) {
             return apply_filters( 'ktpwp_plugin_asset_url', $path, $relative_path );
         }
 
-        // plugins_url(__FILE__) は実フォルダ名（例: 無料版 KantanPro）に依存し icon.png が別フォルダのとき 404 になる。
-        // 常に公式ディレクトリ KantanProEX 配下を content_url で指す（実体も KantanProEX に配置すること）。
-        $url = content_url( 'plugins/' . $canonical . '/' . $relative_path );
+        if ( defined( 'KANTANPRO_PLUGIN_URL' ) ) {
+            $url = trailingslashit( KANTANPRO_PLUGIN_URL ) . $relative_path;
+        } else {
+            $url = content_url( 'plugins/' . $slug . '/' . $relative_path );
+        }
 
-        // 取りこぼし対策（KantanProEX を誤って KantanProEXEX にしない）
-        $url = preg_replace( '#/plugins/KantanPro(?!EX)(/)#i', '/plugins/' . $canonical . '$1', $url );
+        $url = ktpwp_rewrite_stale_plugin_asset_url( $url );
 
         return apply_filters( 'ktpwp_plugin_asset_url', $url, $relative_path );
     }
@@ -655,21 +695,21 @@ if ( ! function_exists( 'ktpwp_plugin_asset_url' ) ) {
 
 if ( ! function_exists( 'ktpwp_normalize_plugin_asset_urls' ) ) {
     /**
-     * HTML 内に残った無料版フォルダのアセット URL を EX の公式フォルダへ補正する。
+     * HTML 内に残った無料版・別エディションフォルダのアセット URL を現行インストール先へ補正する。
      *
      * @param string $html HTML.
      * @return string
      */
     function ktpwp_normalize_plugin_asset_urls( $html ) {
-        if ( ! is_string( $html ) || '' === $html || ! defined( 'KANTANPRO_PLUGIN_CANONICAL_DIR' ) ) {
+        if ( ! is_string( $html ) || '' === $html || ! defined( 'KANTANPRO_PLUGIN_FILE' ) ) {
             return $html;
         }
 
-        return preg_replace(
-            '#/plugins/KantanPro(?!EX)(/)#i',
-            '/plugins/' . KANTANPRO_PLUGIN_CANONICAL_DIR . '$1',
-            $html
-        );
+        $slug = ktpwp_get_plugin_dir_slug();
+        $html = preg_replace( '#/plugins/KantanPro(?!EX)(/)#i', '/plugins/' . $slug . '$1', $html );
+        $html = preg_replace( '#/plugins/KantanProEX(?:solo|team|business)?(/)#i', '/plugins/' . $slug . '$1', $html );
+
+        return $html;
     }
 }
 
@@ -5222,13 +5262,9 @@ function KTPWP_Index() {
                 : 'class="ktpwp-page-layout"';
             $return_value = '<div ' . $layout_attrs . '>' . $before_header_banner . $front_message . $tab_view . '</div>';
 
-            // 出力 HTML 内の /plugins/KantanPro/ を KantanProEX に統一（src/data-src 等に旧パスが残る取りこぼし対策）
-            if ( defined( 'KANTANPRO_PLUGIN_CANONICAL_DIR' ) ) {
-                $return_value = preg_replace(
-                    '#/plugins/KantanPro(?!EX)(/)#i',
-                    '/plugins/' . KANTANPRO_PLUGIN_CANONICAL_DIR . '$1',
-                    $return_value
-                );
+            // 出力 HTML 内の旧プラグインフォルダのアセット URL を現行インストール先へ補正
+            if ( function_exists( 'ktpwp_normalize_plugin_asset_urls' ) ) {
+                $return_value = ktpwp_normalize_plugin_asset_urls( $return_value );
             }
 
             return $return_value;

@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.67
+Stable tag: 1.3.68
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,10 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.68 - 2026年06月17日 =
+* エディション別フォルダ（solo / team / business）でヘッダーロゴ等のアセット URL が 404 になる問題を修正
+* プラグインアセット URL を実インストール先フォルダ基準に変更し、旧エディション名の URL を自動補正
 
 = 1.3.67 - 2026年06月17日 =
 * Stripe請求書へ帳票ブランディングの住所・郵便番号を同期する機能を追加
