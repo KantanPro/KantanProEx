@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/usr/bin/env bash
 
 # --- 設定 ---
 SOURCE_DIR="$(pwd)"
@@ -63,13 +63,13 @@ echo "  - バージョン: ${VERSION}"
 echo "  - 日付: ${DATE}"
 echo "  - ZIPファイル名: ${ZIP_FILE_NAME}"
 
-echo "\n[2/8] ビルド環境をクリーンアップ中..."
+echo -e "\n[2/8] ビルド環境をクリーンアップ中..."
 mkdir -p "${DEST_DIR}"
 rm -rf "${BUILD_DIR}"
 rm -f "${FINAL_ZIP_PATH}"
 echo "  - 完了"
 
-echo "\n[3/8] ソースファイルをコピー中..."
+echo -e "\n[3/8] ソースファイルをコピー中..."
 EXCLUDE_LIST=(".git" ".cursor" ".vscode" ".idea" "KantanPro_build_temp" "KantanProEX_build_temp" "KantanPro_temp" "KantanProEX_temp" "wp" "node_modules" "vendor" "wp-content" "wp-cli.phar" "wp-cli.yml" "wp-cli.sh" "wp-cli-aliases.sh" "setup-wp-cli.sh" "WP-CLI-README.md" "create_release_zip.sh" "create_dummy_data.php.bak" "run-dummy-data.sh" "test-report-ajax.php" "debug-progress-chart.html" "wp-cli-create-dummy-data.php" "wp-cli-aliases.sh" "QUICK-START.md" "SECURITY.md" "DUMMY-DATA-README.md" "DEVELOPMENT-ENVIRONMENT-SETUP.md" "DEVELOPMENT-ENVIRONMENT-DETECTION-IMPLEMENTATION.md" "DEBUG-SETUP.md" "DEBUG-AJAX-IMPLEMENTATION.md" "AUTO-MIGRATION-ENHANCEMENT-COMPLETE.md" "AUTO-MIGRATION-IMPLEMENTATION-COMPLETE.md" "CACHE-OPTIMIZATION-FOR-DISTRIBUTION-COMPLETE.md" "COMPLETION-DATE-AUTO-SET-IMPLEMENTATION.md" "COMPREHENSIVE-TAX-TEST-RESULTS.md" "DISTRIBUTION-MIGRATION-COMPLETE.md" "DISTRIBUTION-MIGRATION-ENHANCEMENT-COMPLETE.md" "DISTRIBUTION-MIGRATION-ERROR-FIX-COMPLETE.md" "DISTRIBUTION-README.md" "DISTRIBUTION-UPDATE-CHECK-FIX-COMPLETE.md" "DUMMY-DATA-ENHANCEMENT-PROPOSAL.md" "DUMMY-ORDER-CREATION-DATE-FIX-COMPLETE.md" "FIX-DELETED-SKILLS-CACHE-ISSUE.md" "FOOD-SKILL-TAX-RATE-FIX-COMPLETE.md" "IMPLEMENTATION-SUMMARY.md" "INTERNAL-TAX-CALCULATION-FIX-COMPLETE.md" "INVOICE-PREVIEW-TAX-RATE-COLUMN-COMPLETE.md" "INVOICE-TAX-IMPLEMENTATION-COMPLETE.md" "INVOICE-TAX-TEST-CHECKLIST.md" "LICENSE-MANAGEMENT-IMPLEMENTATION-COMPLETE.md" "MULTIPLE-TAX-RATES-IMPLEMENTATION-COMPLETE.md" "ORDER-INVOICE-TAX-CATEGORY-UPDATE-COMPLETE.md" "ORDER-MEMORY-IMPLEMENTATION-COMPLETE.md" "OUTPUT-BUFFERING-FIX-COMPLETE.md" "PAGINATION-IMPLEMENTATION-COMPLETE.md" "PRODUCT-MANAGEMENT-UPDATE.md" "PROFIT-CALCULATION-FIX-COMPLETE.md" "PURCHASE-ORDER-EMAIL-OPTIMIZATION-COMPLETE.md" "QUALIFIED-INVOICE-PROFIT-CALCULATION-IMPLEMENTATION-COMPLETE.md" "REPORT-TAB-IMPLEMENTATION-COMPLETE.md" "SERVICE-TAX-RATE-NULL-IMPLEMENTATION-COMPLETE.md" "SKILLS-PAGINATION-COMPLETE.md" "STAFF-AVATAR-DISPLAY.md" "STAFF-CHAT-AUTO-SCROLL.md" "SUPPLIER-SKILLS-COMPLETE.md" "SUPPLIER-TAX-CALCULATION-IMPLEMENTATION-COMPLETE.md" "SUPPLIER-TAX-RATE-UPDATE-FIX-COMPLETE.md" "TAX-CATEGORY-LABELS-UPDATE-COMPLETE.md" "TAX-INCLUSIVE-SETTING-REMOVAL-COMPLETE.md" "TAX-RATE-NULL-ALLOWED-COMPLETE.md" "TAX-RATE-NULL-FIX-COMPLETE.md" "TAX-RATE-UPDATE-FIX-COMPLETE.md" "TAX-RATE-ZERO-FIX-COMPLETE.md" "UPDATE-NOTIFICATION-VERSION-FIX-COMPLETE.md" "URL-PERMALINK-DYNAMIC-IMPLEMENTATION-COMPLETE.md")
 EXCLUDE_OPTS=""
 for item in "${EXCLUDE_LIST[@]}"; do
@@ -78,7 +78,7 @@ done
 eval rsync -a ${EXCLUDE_OPTS} "\"${SOURCE_DIR}/\"" "\"${BUILD_DIR}/\""
 echo "  - 完了"
 
-echo "\n[4/8] エディション情報を注入中..."
+echo -e "\n[4/8] エディション情報を注入中..."
 KTPWP_FILE="${BUILD_DIR}/ktpwp.php"
 if [ ! -f "${KTPWP_FILE}" ]; then
     echo "  ❌ ktpwp.php が見つかりません"
@@ -104,7 +104,7 @@ echo "  - KTPWP_EDITION: ${EDITION}"
 echo "  - KTPWP_STAFF_LIMIT: ${STAFF_LIMIT}"
 echo "  - 完了"
 
-echo "\n[5/8] Composer依存関係を処理中..."
+echo -e "\n[5/8] Composer依存関係を処理中..."
 if [ -f "${BUILD_DIR}/composer.json" ]; then
     rm -f "${BUILD_DIR}/composer.lock"
     echo "  - composer.lock を削除しました（配布サイト用）"
@@ -113,7 +113,7 @@ else
     echo "  - composer.json が見つからないためスキップしました。"
 fi
 
-echo "\n[6/8] 不要な開発用ファイルを削除中..."
+echo -e "\n[6/8] 不要な開発用ファイルを削除中..."
 BEFORE_COUNT=$(find "${BUILD_DIR}" -type f | wc -l)
 
 find "${BUILD_DIR}" -type f -name ".DS_Store" -delete
@@ -155,7 +155,7 @@ echo "  - 削除されたファイル数: ${DELETED_COUNT}"
 echo "  - 配布版ファイル数: ${AFTER_COUNT}"
 echo "  - 完了"
 
-echo "\n[7/8] 配布サイト用の最終クリーンアップ中..."
+echo -e "\n[7/8] 配布サイト用の最終クリーンアップ中..."
 find "${BUILD_DIR}" -type f -name "*.zip" -delete
 find "${BUILD_DIR}" -type f -name "*.bak" -delete
 find "${BUILD_DIR}" -type f -name "*.tmp" -delete
@@ -164,11 +164,11 @@ find "${BUILD_DIR}" -type f -name "*.old" -delete
 find "${BUILD_DIR}" -type f -name "*.orig" -delete
 echo "  - 完了"
 
-echo "\n[8/10] ZIPファイルを作成中..."
+echo -e "\n[8/10] ZIPファイルを作成中..."
 (cd "${BUILD_DIR}/.." && zip -r -q "${FINAL_ZIP_PATH}" "${BUILD_DIR_NAME}")
 
 if [ $? -eq 0 ]; then
-    echo "\n[9/10] 最終検証を実行中..."
+    echo -e "\n[9/10] 最終検証を実行中..."
 
     if unzip -t "${FINAL_ZIP_PATH}" > /dev/null 2>&1; then
         echo "  ✅ ZIPファイルの整合性: 正常"
@@ -227,7 +227,7 @@ if [ $? -eq 0 ]; then
         echo "  ⚠️  ドキュメントファイル: 一部が残っています"
     fi
 
-    echo "\n[10/10] 配布前の安全チェックを実行中..."
+    echo -e "\n[10/10] 配布前の安全チェックを実行中..."
     if unzip -l "${FINAL_ZIP_PATH}" | grep -q "wp-config.php"; then
         echo "  ❌ ZIPに wp-config.php が含まれています。配布禁止。"
         exit 1
@@ -266,7 +266,7 @@ if [ $? -eq 0 ]; then
     rm -rf "${BUILD_DIR}"
     echo "  ✅ 一時ファイル: クリーンアップ完了"
 
-    echo "\n--------------------------------------------------"
+    echo -e "\n--------------------------------------------------"
     echo "✅ KantanProEX 配布サイト用ビルドプロセスが正常に完了しました！"
     echo "エディション: ${EDITION} (${PLUGIN_NAME})"
     echo "ZIPファイル: ${FINAL_ZIP_PATH}"
@@ -281,6 +281,6 @@ if [ $? -eq 0 ]; then
     echo "  - CI 添付: .github/workflows/release-assets.yml（Release 公開時に自動ビルド）"
     echo "--------------------------------------------------"
 else
-    echo "\n❌ ZIPファイルの作成に失敗しました。"
+    echo -e "\n❌ ZIPファイルの作成に失敗しました。"
     exit 1
 fi
