@@ -11,7 +11,7 @@ alwaysApply: false
 
 | 版 | ローカルパス | GitHub |
 |----|-------------|--------|
-| 無料版 KantanPro | `wordpress/wp-content/plugins/KantanPro` | `KantanPro/KantanPro` |
+| 無料版 KantanPro | `wordpress/wp-content/plugins/KantanPro` | `KantanPro/KantanPro`（**GitHub Release + ZIP 1件**） |
 | 有料版 KantanProEX | `wordpress/wp-content/plugins/KantanProEX` | `KantanPro/KantanProEx` |
 
 バージョン番号は別系統（例: 無料 `1.2.x` / 有料 `1.3.x`）。同一機能変更時は**両方**バージョンを上げる。
@@ -32,7 +32,7 @@ alwaysApply: false
 - ルートに `*.zip` なし / `wp-cli.phar` 未追跡
 - `git status` → 未コミットがあればコミット → `git push origin main`
 
-### A. 無料版 KantanPro（ZIP のみ・GitHub Release なし）
+### A. 無料版 KantanPro（ZIP + GitHub Release）
 
 1. **バージョン更新**
    - `ktpwp.php` の `Version`
@@ -45,7 +45,12 @@ alwaysApply: false
    ./create_release_zip.sh
    ```
    → `/Users/kantanpro/Desktop/KantanPro_TEST_UP/KantanPro_{version}_{date}.zip`
-4. **合格基準（無料版）**
+4. **GitHub Release**
+   - `git tag v{version} && git push origin v{version}`
+   - `gh release create v{version} --repo KantanPro/KantanPro`
+   - タイトル例: `KantanPro（WP）v{version} をリリースしました`
+   - asset に `KantanPro_{version}_{date}.zip` を添付
+5. **合格基準（無料版）**
    - `unzip -t` OK / 3MB 未満
    - ルートフォルダ名: `KantanPro`（単一）
    - `ktpwp.php` + `readme.txt` あり
@@ -78,9 +83,10 @@ alwaysApply: false
 **無料版**
 
 1. バージョン（旧 → 新）、リリース種別
-2. ローカル ZIP パス
-3. 解凍後フォルダ名（`KantanPro`）
-4. コミットハッシュ（`KantanPro` リポジトリ）
+2. **GitHub Release URL** / zipballUrl / asset 1件の確認
+3. ローカル ZIP パス
+4. 解凍後フォルダ名（`KantanPro`）
+5. コミットハッシュ（`KantanPro` リポジトリ）
 
 **有料版**
 
@@ -99,7 +105,7 @@ B. フリー版 ZIP + EX Release まとめて（配布一式）
 無料版 KantanPro と有料版 KantanProEX の両方をリリースしてください。
 
 ## 前提
-- 無料版リポジトリ: KantanPro（GitHub: KantanPro/KantanPro）— ZIP のみ（GitHub Release なし）
+- 無料版リポジトリ: KantanPro（GitHub: KantanPro/KantanPro）— ZIP + GitHub Release（asset 1件）
 - 有料版リポジトリ: KantanProEX（GitHub: KantanPro/KantanProEx）— 4 エディション ZIP + GitHub Release
 - コミットメッセージは日本語
 - 機能変更・バグ修正があれば両方バージョンを上げる
@@ -117,7 +123,11 @@ B. フリー版 ZIP + EX Release まとめて（配布一式）
 4. ZIP 生成:
    cd .../plugins/KantanPro && ./create_release_zip.sh
    → /Users/kantanpro/Desktop/KantanPro_TEST_UP/
-5. 合格: unzip -t OK / 3MB未満 / ルート KantanPro / ktpwp.php + readme.txt
+5. GitHub Release:
+   git tag v{version} && git push origin v{version}
+   gh release create v{version} --repo KantanPro/KantanPro
+   asset に KantanPro_{version}_{date}.zip を添付
+6. 合格: unzip -t OK / 3MB未満 / ルート KantanPro / ktpwp.php + readme.txt
    / create_dummy_data.php を含む（無料版必須）
    / .md, vendor/, *.po, *.pot, 内包 *.zip は含まない
 
