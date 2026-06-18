@@ -488,8 +488,87 @@ class KTPWP_Update_Checker {
     private function is_github_url( $url ) {
         return is_string( $url ) && (
             strpos( $url, 'github.com' ) !== false ||
-            strpos( $url, 'githubusercontent.com' ) !== false
+            strpos( $url, 'githubusercontent.com' ) !== false ||
+            strpos( $url, 'codeload.github.com' ) !== false
         );
+    }
+
+    /**
+     * GitHub Release ダウンロード向けに、browser_download_url を優先して URL を正規化する。
+     *
+     * キャッシュ済み更新情報が API asset URL のままの場合や、管理画面の一括更新で
+     * 古い package URL が渡された場合に Forbidden を避ける。
+     *
+     * @param string $package ダウンロード URL
+     * @return string
+     */
+    private function normalize_github_package_url( $package ) {
+        $package = trim( (string) $package );
+        if ( $package === '' ) {
+            return '';
+        }
+
+        if ( strpos( $package, '/releases/download/' ) !== false ) {
+            return $package;
+        }
+
+        $update_data = get_option( 'ktpwp_update_available' );
+        if ( is_array( $update_data ) ) {
+            if ( ! empty( $update_data['browser_download_url'] ) ) {
+                return (string) $update_data['browser_download_url'];
+            }
+
+            if (
+                ! empty( $update_data['download_url'] )
+                && strpos( (string) $update_data['download_url'], '/releases/download/' ) !== false
+            ) {
+                return (string) $update_data['download_url'];
+            }
+        }
+
+        if (
+            strpos( $package, 'api.github.com' ) !== false
+            && strpos( $package, '/releases/assets/' ) !== false
+        ) {
+            $release = $this->get_latest_github_release();
+            if ( is_array( $release ) ) {
+                $resolved = $this->resolve_release_download_url( $release );
+                if ( ! empty( $resolved['url'] ) ) {
+                    return (string) $resolved['url'];
+                }
+            }
+        }
+
+        return $package;
+    }
+
+    /**
+     * GitHub から更新 ZIP をダウンロードする
+     *
+     * @param string $package ダウンロード URL
+     * @return string|WP_Error 一時ファイルパス
+     */
+    private function download_github_package( $package ) {
+        $package = $this->normalize_github_package_url( $package );
+        if ( $package === '' ) {
+            return new WP_Error( 'download_failed', 'ダウンロード URL が空です。' );
+        }
+
+        error_log( 'KantanPro: GitHub パッケージをダウンロードします - ' . $package );
+
+        add_filter( 'http_request_args', array( $this, 'github_download_args' ), 10, 2 );
+        $temp_file = download_url( $package, 300 );
+        remove_filter( 'http_request_args', array( $this, 'github_download_args' ), 10 );
+
+        if ( is_wp_error( $temp_file ) ) {
+            error_log(
+                'KantanPro: GitHub ダウンロード失敗 - '
+                . $temp_file->get_error_message()
+                . ' (url=' . $package . ')'
+            );
+        }
+
+        return $temp_file;
     }
 
     /**
@@ -513,18 +592,21 @@ class KTPWP_Update_Checker {
         if ( $url !== '' ) {
             error_log( 'KantanPro: エディション別 Release asset を使用 - edition=' . $edition . ' url=' . $url );
             return array(
-                'url'     => $url,
-                'source'  => 'asset',
-                'edition' => $edition,
+                'url'                  => $url,
+                'browser_download_url' => $url,
+                'source'               => 'asset',
+                'edition'              => $edition,
             );
         }
 
         if ( $edition === 'pro' && ! empty( $release_data['zipball_url'] ) ) {
             error_log( 'KantanPro: pro 向け zipball にフォールバック' );
+            $zipball = (string) $release_data['zipball_url'];
             return array(
-                'url'     => (string) $release_data['zipball_url'],
-                'source'  => 'zipball',
-                'edition' => $edition,
+                'url'                  => $zipball,
+                'browser_download_url' => $zipball,
+                'source'               => 'zipball',
+                'edition'              => $edition,
             );
         }
 
@@ -1025,6 +1107,7 @@ class KTPWP_Update_Checker {
                     'version' => $latest_version,
                     'new_version' => $data['tag_name'], // 元のバージョン文字列も保存
                     'download_url' => $download_url,
+                    'browser_download_url' => isset( $resolved['browser_download_url'] ) ? $resolved['browser_download_url'] : $download_url,
                     'download_source' => $download_source,
                     'update_edition' => $update_edition,
                     'manual_update_required' => $manual_required,
@@ -1649,15 +1732,10 @@ class KTPWP_Update_Checker {
         }
         
         // 一時ファイルにダウンロード
-        $added_download_filter = false;
         if ( $this->is_github_url( $download_url ) ) {
-            add_filter( 'http_request_args', array( $this, 'github_download_args' ), 10, 2 );
-            $added_download_filter = true;
-        }
-
-        $temp_file = download_url( $download_url );
-        if ( $added_download_filter ) {
-            remove_filter( 'http_request_args', array( $this, 'github_download_args' ), 10 );
+            $temp_file = $this->download_github_package( $download_url );
+        } else {
+            $temp_file = download_url( $download_url );
         }
 
         if ( is_wp_error( $temp_file ) ) {
@@ -2427,11 +2505,11 @@ class KTPWP_Update_Checker {
      * @return mixed
      */
     public function upgrader_pre_download( $reply, $package, $upgrader ) {
-        if ( $this->is_github_url( $package ) ) {
-            add_filter( 'http_request_args', array( $this, 'github_download_args' ), 10, 2 );
+        if ( false !== $reply || empty( $package ) || ! $this->is_github_url( $package ) ) {
+            return $reply;
         }
 
-        return $reply;
+        return $this->download_github_package( $package );
     }
 
     /**
@@ -2442,11 +2520,22 @@ class KTPWP_Update_Checker {
      * @return array
      */
     public function github_download_args( $args, $url ) {
-        if ( $this->is_github_url( $url ) ) {
-            $args['timeout'] = 60;
-            $args['headers'] = isset( $args['headers'] ) && is_array( $args['headers'] ) ? $args['headers'] : array();
-            $args['headers'] = array_merge( $args['headers'], $this->get_github_download_headers( $url ) );
+        if ( ! $this->is_github_url( $url ) ) {
+            return $args;
         }
+
+        $args['timeout'] = 60;
+        $args['headers'] = isset( $args['headers'] ) && is_array( $args['headers'] ) ? $args['headers'] : array();
+
+        $github_headers = $this->get_github_download_headers( $url );
+
+        // CDN / 公開ダウンロード URL には API 用ヘッダーを送らない（403 回避）
+        if ( strpos( $url, 'api.github.com' ) === false ) {
+            unset( $github_headers['Authorization'] );
+            $github_headers['Accept'] = '*/*';
+        }
+
+        $args['headers'] = array_merge( $args['headers'], $github_headers );
 
         return $args;
     }

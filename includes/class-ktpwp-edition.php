@@ -230,11 +230,12 @@ class KTPWP_Edition {
 				continue;
 			}
 
+			// WordPress の download_url では API asset URL より browser_download_url の方が安定する
 			$url = '';
-			if ( ! empty( $asset['url'] ) ) {
-				$url = (string) $asset['url'];
-			} elseif ( ! empty( $asset['browser_download_url'] ) ) {
+			if ( ! empty( $asset['browser_download_url'] ) ) {
 				$url = (string) $asset['browser_download_url'];
+			} elseif ( ! empty( $asset['url'] ) ) {
+				$url = (string) $asset['url'];
 			}
 
 			if ( $url !== '' ) {

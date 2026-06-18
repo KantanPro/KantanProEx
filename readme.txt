@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.73
+Stable tag: 1.3.74
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,10 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.74 - 2026年06月18日 =
+* WordPress 管理画面からの更新で「ダウンロードに失敗しました。 Forbidden」となる問題を修正
+* GitHub Release の browser_download_url を優先し、更新 ZIP のダウンロード処理を強化
 
 = 1.3.73 - 2026年06月18日 =
 * 公開商品のサンクスページ表示を簡素化（成功時は「ご購入ありがとうございました」のみ）
