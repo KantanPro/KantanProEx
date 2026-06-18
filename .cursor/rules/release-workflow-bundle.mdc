@@ -1,0 +1,144 @@
+---
+description: KantanPro 無料版 ZIP + KantanProEX 有料版 GitHub Release の配布一式リリース手順
+alwaysApply: false
+---
+
+# 配布一式リリース（B: フリー版 ZIP + EX Release）
+
+ユーザーが「リリース」「配布一式」「B.」等で依頼したとき、**無料版 ZIP と有料版 GitHub Release の両方**を行う。有料版のみの依頼でない限り、無料版を省略しない。
+
+## リポジトリ（2つ）
+
+| 版 | ローカルパス | GitHub |
+|----|-------------|--------|
+| 無料版 KantanPro | `wordpress/wp-content/plugins/KantanPro` | `KantanPro/KantanPro` |
+| 有料版 KantanProEX | `wordpress/wp-content/plugins/KantanProEX` | `KantanPro/KantanProEx` |
+
+バージョン番号は別系統（例: 無料 `1.2.x` / 有料 `1.3.x`）。同一機能変更時は**両方**バージョンを上げる。
+
+## リリース完了の明記（必須）
+
+回答冒頭に必ず:
+
+- **✅ リリース完了** — 無料 ZIP + 有料 4 ZIP + GitHub Release まで実施
+- **❌ リリース未実施** — 途中で止まっている、または片方のみ
+
+## 手順概要
+
+### 0. 作業前チェック（両リポジトリ）
+
+各リポジトリで:
+
+- ルートに `*.zip` なし / `wp-cli.phar` 未追跡
+- `git status` → 未コミットがあればコミット → `git push origin main`
+
+### A. 無料版 KantanPro（ZIP のみ・GitHub Release なし）
+
+1. **バージョン更新**
+   - `ktpwp.php` の `Version`
+   - `readme.txt` の `Stable tag` + changelog（日本語）
+   - `plugin_config.json` の `default_version` を同じバージョンに更新
+2. **コミット・push**（日本語メッセージ、例: 「〇〇を修正（v1.2.92）」）
+3. **ZIP 生成**
+   ```bash
+   cd /Users/kantanpro/Desktop/KantanPro/wordpress/wp-content/plugins/KantanPro
+   ./create_release_zip.sh
+   ```
+   → `/Users/kantanpro/Desktop/KantanPro_TEST_UP/KantanPro_{version}_{date}.zip`
+4. **合格基準（無料版）**
+   - `unzip -t` OK / 3MB 未満
+   - ルートフォルダ名: `KantanPro`（単一）
+   - `ktpwp.php` + `readme.txt` あり
+   - **`create_dummy_data.php` を含む**（無料版は必須）
+   - 含まない: `.md`, `vendor/`, `*.po`, `*.pot`, 内包 `*.zip`, `.cursor/`, `wp-cli.phar`
+
+### B. 有料版 KantanProEX（4 ZIP + GitHub Release）
+
+1. **バージョン更新** — `ktpwp.php` / `readme.txt`（changelog 日本語）
+2. **コミット・push**（日本語メッセージ）
+3. **4 エディション ZIP 生成**
+   ```bash
+   cd /Users/kantanpro/Desktop/KantanPro/wordpress/wp-content/plugins/KantanProEX
+   ./scripts/build-all-release-zips.sh
+   ```
+   → `/Users/kantanpro/Desktop/KantanProEX_TEST_UP/`
+4. **合格基準（各 EX ZIP）**
+   - `unzip -t` OK / 3MB 未満 / `ktpwp.php` + `readme.txt` あり
+   - 含まない: `.md`, `vendor/`, `create_dummy_data.php`, `*.po`, `*.pot`, 内包 `*.zip`
+   - `KTPWP_EDITION` / `KTPWP_STAFF_LIMIT` / `KANTANPRO_PLUGIN_NAME` がエディションどおり
+5. **GitHub Release**
+   - `git tag v{version} && git push origin main && git push origin v{version}`
+   - `gh release create v{version} --repo KantanPro/KantanProEx`
+   - タイトル例: `KantanProEX（WP）v{version} をリリースしました`
+   - asset に 4 ZIP 必須（pro / solo / team / business）
+   - solo / team / business は対応 asset 必須（ワンクリック更新用）
+
+### 6. 完了報告（必須・両方）
+
+**無料版**
+
+1. バージョン（旧 → 新）、リリース種別
+2. ローカル ZIP パス
+3. 解凍後フォルダ名（`KantanPro`）
+4. コミットハッシュ（`KantanPro` リポジトリ）
+
+**有料版**
+
+1. バージョン（旧 → 新）、リリース種別
+2. GitHub Release URL
+3. zipballUrl の有無
+4. assets 4 件の確認
+5. ローカル ZIP パス一覧・解凍後フォルダ名
+6. コミットハッシュ（`KantanProEx` リポジトリ）
+
+## チャット用プロンプト（コピペ）
+
+```
+B. フリー版 ZIP + EX Release まとめて（配布一式）
+
+無料版 KantanPro と有料版 KantanProEX の両方をリリースしてください。
+
+## 前提
+- 無料版リポジトリ: KantanPro（GitHub: KantanPro/KantanPro）— ZIP のみ（GitHub Release なし）
+- 有料版リポジトリ: KantanProEX（GitHub: KantanPro/KantanProEx）— 4 エディション ZIP + GitHub Release
+- コミットメッセージは日本語
+- 機能変更・バグ修正があれば両方バージョンを上げる
+  - 無料: ktpwp.php / readme.txt / plugin_config.json の default_version
+  - 有料: ktpwp.php / readme.txt の Stable tag + changelog
+
+## 0. 作業前チェック（両リポジトリ）
+- ルートに *.zip なし / wp-cli.phar 未追跡
+- git status → 未コミットがあればコミット → push
+
+## A. 無料版 KantanPro
+1. バージョン更新 + changelog（日本語）
+2. plugin_config.json の default_version も更新
+3. コミット・push（例: 「〇〇を修正（v1.2.92）」）
+4. ZIP 生成:
+   cd .../plugins/KantanPro && ./create_release_zip.sh
+   → /Users/kantanpro/Desktop/KantanPro_TEST_UP/
+5. 合格: unzip -t OK / 3MB未満 / ルート KantanPro / ktpwp.php + readme.txt
+   / create_dummy_data.php を含む（無料版必須）
+   / .md, vendor/, *.po, *.pot, 内包 *.zip は含まない
+
+## B. 有料版 KantanProEX
+1. バージョン更新 + changelog（日本語）
+2. コミット・push
+3. ZIP 生成:
+   cd .../plugins/KantanProEX && ./scripts/build-all-release-zips.sh
+   → /Users/kantanpro/Desktop/KantanProEX_TEST_UP/
+4. 合格（各 ZIP）: unzip -t OK / 3MB未満 / ktpwp.php + readme.txt
+   / create_dummy_data.php 含まない / エディション定数 OK
+5. GitHub Release:
+   git tag v{version} && git push origin main && git push origin v{version}
+   gh release create v{version} --repo KantanPro/KantanProEx
+   asset に 4 ZIP 添付（pro / solo / team / business）
+
+## 6. 完了報告（無料版 + 有料版の両方、項目は release-workflow-bundle ルール参照）
+```
+
+## 注意
+
+- 有料版のみのリリース依頼（「KantanProEX のみ」等）のときだけ A を省略可
+- 同一機能を両方に入れた場合、**有料だけリリースして無料を忘れない**
+- `create_release_zip.sh`（EX）は `#!/usr/bin/env bash` 必須（CI 互換）
