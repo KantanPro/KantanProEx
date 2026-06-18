@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.76
+Stable tag: 1.3.77
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,11 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.77 - 2026年06月18日 =
+* 公開商品即時購入の Stripe Checkout で「An error has occurred confirming the Checkout Session.」となる問題を修正
+* Checkout Session 作成時に購入フォームのメールを customer_email で指定するよう変更
+* 入金完了後に Stripe Customer を KantanPro 顧客へ紐付ける処理を追加
 
 = 1.3.76 - 2026年06月18日 =
 * 公開商品の即時購入で決済完了後もサンクスページが失敗表示になる問題を修正

@@ -342,7 +342,12 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 			);
 
 			if ( $use_checkout ) {
-				$checkout_result = $stripe->create_public_product_checkout_session( $order_id, $cancel_url, $return_url );
+				$checkout_result = $stripe->create_public_product_checkout_session(
+					$order_id,
+					$cancel_url,
+					$return_url,
+					isset( $form['email'] ) ? sanitize_email( $form['email'] ) : ''
+				);
 				if ( ! is_wp_error( $checkout_result ) ) {
 					$checkout_url = isset( $checkout_result['url'] ) ? trim( (string) $checkout_result['url'] ) : '';
 					if ( $checkout_url !== '' ) {

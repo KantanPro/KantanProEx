@@ -922,12 +922,13 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 		/**
 		 * 公開商品の即時購入用 Checkout Session（success_url でサンクスページへ戻る）。
 		 *
-		 * @param int    $order_id   受注 ID.
-		 * @param string $cancel_url キャンセル時の戻り先。
-		 * @param string $return_url サンクスページの「戻る」リンク先。
+		 * @param int    $order_id         受注 ID.
+		 * @param string $cancel_url       キャンセル時の戻り先。
+		 * @param string $return_url       サンクスページの「戻る」リンク先。
+		 * @param string $purchaser_email  購入フォームのメール（Checkout 用）。
 		 * @return array{session_id: string, url: string}|WP_Error
 		 */
-		public function create_public_product_checkout_session( $order_id, $cancel_url = '', $return_url = '' ) {
+		public function create_public_product_checkout_session( $order_id, $cancel_url = '', $return_url = '', $purchaser_email = '' ) {
 			global $wpdb;
 
 			$order_id = absint( $order_id );
@@ -965,9 +966,19 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				return new WP_Error( 'no_client', __( '顧客が見つかりません。', 'ktpwp' ) );
 			}
 
-			$customer_id = $this->get_or_create_customer( $client_id );
-			if ( is_wp_error( $customer_id ) ) {
-				return $customer_id;
+			$purchaser_email = sanitize_email( (string) $purchaser_email );
+			if ( $purchaser_email === '' || ! is_email( $purchaser_email ) ) {
+				$client_table = $wpdb->prefix . 'ktp_client';
+				$client       = $wpdb->get_row(
+					$wpdb->prepare(
+						"SELECT * FROM {$client_table} WHERE id = %d",
+						$client_id
+					)
+				);
+				$purchaser_email = $this->resolve_client_email( $client );
+			}
+			if ( $purchaser_email === '' || ! is_email( $purchaser_email ) ) {
+				return new WP_Error( 'no_email', __( '決済にはメールアドレスが必要です。', 'ktpwp' ) );
 			}
 
 			$line_items = $this->get_order_line_items( $order_id );
@@ -1028,7 +1039,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 			$metadata = array(
 				'ktp_order_id'        => (string) $order_id,
 				'ktp_public_purchase' => '1',
-				'ktp_return_url'      => $return_url,
+				'ktp_return_url'      => $this->truncate_stripe_metadata_value( $return_url ),
 			);
 
 			try {
@@ -1037,13 +1048,20 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 
 				$session = $stripe->checkout->sessions->create(
 					array(
-						'mode'        => 'payment',
-						'customer'    => $customer_id,
-						'line_items'  => $stripe_line_items,
-						'metadata'    => $metadata,
-						'success_url' => $success_url,
-						'cancel_url'  => $cancel_url,
-						'locale'      => 'ja',
+						'mode'                => 'payment',
+						'customer_email'      => $purchaser_email,
+						'customer_creation'   => 'if_required',
+						'line_items'          => $stripe_line_items,
+						'metadata'            => $metadata,
+						'payment_intent_data' => array(
+							'metadata' => array(
+								'ktp_order_id'        => (string) $order_id,
+								'ktp_public_purchase' => '1',
+							),
+						),
+						'success_url'         => $success_url,
+						'cancel_url'          => $cancel_url,
+						'locale'              => 'ja',
 					)
 				);
 
@@ -1118,6 +1136,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 			}
 
 			if ( ! empty( $order->stripe_paid_at ) ) {
+				$this->link_checkout_session_customer_to_client( $session, $order );
 				$this->repair_paid_order_progress( $order );
 				if ( class_exists( 'KTPWP_Public_Product_Order' ) ) {
 					KTPWP_Public_Product_Order::get_instance()->handle_instant_purchase_paid( (int) $order->id );
@@ -1125,6 +1144,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				return true;
 			}
 
+			$this->link_checkout_session_customer_to_client( $session, $order );
 			$paid_at = isset( $session->created ) ? (int) $session->created : time();
 			$this->apply_order_paid_state( $order, $paid_at );
 
@@ -1861,6 +1881,56 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				$data,
 				array( 'id' => absint( $order_id ) ),
 				$fmt,
+				array( '%d' )
+			);
+		}
+
+		/**
+		 * Stripe metadata 用に文字列を切り詰める（最大 500 文字）。
+		 *
+		 * @param string $value 値。
+		 * @param int    $max   最大長。
+		 * @return string
+		 */
+		private function truncate_stripe_metadata_value( $value, $max = 500 ) {
+			$value = (string) $value;
+			if ( function_exists( 'mb_substr' ) ) {
+				return mb_substr( $value, 0, $max );
+			}
+
+			return substr( $value, 0, $max );
+		}
+
+		/**
+		 * Checkout Session 完了後、Stripe Customer ID を KantanPro 顧客へ紐付ける。
+		 *
+		 * @param object $session Checkout Session。
+		 * @param object $order   受注行。
+		 * @return void
+		 */
+		private function link_checkout_session_customer_to_client( $session, $order ) {
+			global $wpdb;
+
+			if ( ! $session || ! $order || empty( $session->customer ) ) {
+				return;
+			}
+
+			$client_id = (int) ( $order->client_id ?? 0 );
+			if ( $client_id <= 0 || ! $this->client_table_has_column( 'stripe_customer_id' ) ) {
+				return;
+			}
+
+			$customer_id = sanitize_text_field( (string) $session->customer );
+			if ( $customer_id === '' || strncmp( $customer_id, 'cus_', 4 ) !== 0 ) {
+				return;
+			}
+
+			$table = $wpdb->prefix . 'ktp_client';
+			$wpdb->update(
+				$table,
+				array( 'stripe_customer_id' => $customer_id ),
+				array( 'id' => $client_id ),
+				array( '%s' ),
 				array( '%d' )
 			);
 		}
