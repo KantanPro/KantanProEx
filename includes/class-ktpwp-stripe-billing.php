@@ -1070,12 +1070,15 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 		 * @return void
 		 */
 		public function handle_public_checkout_session_completed( $session ) {
-			$metadata = isset( $session->metadata ) ? (array) $session->metadata : array();
+			$metadata = $this->get_checkout_session_metadata( $session );
 			if ( empty( $metadata['ktp_public_purchase'] ) ) {
 				return;
 			}
 
 			$order_id = isset( $metadata['ktp_order_id'] ) ? absint( $metadata['ktp_order_id'] ) : 0;
+			if ( $order_id <= 0 && isset( $session->id ) ) {
+				$order_id = $this->find_order_id_by_checkout_session_id( (string) $session->id );
+			}
 			if ( $order_id <= 0 ) {
 				return;
 			}
@@ -1098,8 +1101,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				return false;
 			}
 
-			$payment_status = isset( $session->payment_status ) ? (string) $session->payment_status : '';
-			if ( $payment_status !== 'paid' ) {
+			if ( ! $this->is_checkout_session_paid( $session ) ) {
 				return false;
 			}
 
@@ -1116,7 +1118,11 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 			}
 
 			if ( ! empty( $order->stripe_paid_at ) ) {
-				return $this->repair_paid_order_progress( $order );
+				$this->repair_paid_order_progress( $order );
+				if ( class_exists( 'KTPWP_Public_Product_Order' ) ) {
+					KTPWP_Public_Product_Order::get_instance()->handle_instant_purchase_paid( (int) $order->id );
+				}
+				return true;
 			}
 
 			$paid_at = isset( $session->created ) ? (int) $session->created : time();
@@ -1464,6 +1470,10 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				array( '%d' )
 			);
 
+			if ( class_exists( 'KTPWP_Public_Product_Order' ) ) {
+				KTPWP_Public_Product_Order::get_instance()->handle_instant_purchase_paid( (int) $order->id );
+			}
+
 			if ( $invoice_id !== '' && class_exists( 'KTPWP_Stripe_Subscription' ) && ! empty( $order->client_id ) ) {
 				$customer_id = $this->get_or_create_customer( (int) $order->client_id );
 				if ( ! is_wp_error( $customer_id ) ) {
@@ -1506,13 +1516,22 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 			}
 
 			if ( ! empty( $order->stripe_paid_at ) ) {
-				return $this->repair_paid_order_progress( $order );
+				$this->repair_paid_order_progress( $order );
+				if ( class_exists( 'KTPWP_Public_Product_Order' ) ) {
+					KTPWP_Public_Product_Order::get_instance()->handle_instant_purchase_paid( (int) $order->id );
+				}
+				return true;
 			}
 
 			if ( $this->is_stripe_checkout_session_id( (string) $order->stripe_invoice_id ) ) {
 				try {
 					$stripe  = new \Stripe\StripeClient( self::get_secret_key() );
-					$session = $stripe->checkout->sessions->retrieve( (string) $order->stripe_invoice_id );
+					$session = $stripe->checkout->sessions->retrieve(
+						(string) $order->stripe_invoice_id,
+						array(
+							'expand' => array( 'payment_intent' ),
+						)
+					);
 					return $this->sync_public_checkout_session_for_order( $order_id, $session );
 				} catch ( Exception $e ) {
 					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -1588,6 +1607,77 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 			);
 
 			return false !== $updated && $updated > 0;
+		}
+
+		/**
+		 * Checkout Session が入金済みかどうか。
+		 *
+		 * @param object $session Stripe Checkout Session.
+		 * @return bool
+		 */
+		public function is_checkout_session_paid( $session ) {
+			if ( ! $session ) {
+				return false;
+			}
+
+			$payment_status = isset( $session->payment_status ) ? (string) $session->payment_status : '';
+			if ( in_array( $payment_status, array( 'paid', 'no_payment_required' ), true ) ) {
+				return true;
+			}
+
+			if ( isset( $session->payment_intent ) ) {
+				$intent = $session->payment_intent;
+				if ( is_object( $intent ) && isset( $intent->status ) && (string) $intent->status === 'succeeded' ) {
+					return true;
+				}
+			}
+
+			return isset( $session->status ) && (string) $session->status === 'complete' && $payment_status === 'paid';
+		}
+
+		/**
+		 * Stripe metadata を連想配列として取得する。
+		 *
+		 * @param object $session Stripe Checkout Session.
+		 * @return array<string, string>
+		 */
+		public function get_checkout_session_metadata( $session ) {
+			$metadata = array();
+			if ( ! $session || ! isset( $session->metadata ) ) {
+				return $metadata;
+			}
+
+			foreach ( $session->metadata as $key => $value ) {
+				if ( is_scalar( $value ) || ( is_object( $value ) && method_exists( $value, '__toString' ) ) ) {
+					$metadata[ (string) $key ] = (string) $value;
+				}
+			}
+
+			return $metadata;
+		}
+
+		/**
+		 * Checkout Session ID から受注 ID を検索する。
+		 *
+		 * @param string $session_id Stripe Checkout Session ID.
+		 * @return int
+		 */
+		public function find_order_id_by_checkout_session_id( $session_id ) {
+			global $wpdb;
+
+			$session_id = sanitize_text_field( (string) $session_id );
+			if ( $session_id === '' || ! $this->order_table_has_column( 'stripe_invoice_id' ) ) {
+				return 0;
+			}
+
+			$order_table = $wpdb->prefix . 'ktp_order';
+
+			return (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT id FROM {$order_table} WHERE stripe_invoice_id = %s LIMIT 1",
+					$session_id
+				)
+			);
 		}
 
 		/**

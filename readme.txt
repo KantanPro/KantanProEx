@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.75
+Stable tag: 1.3.76
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,12 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.76 - 2026年06月18日 =
+* 公開商品の即時購入で決済完了後もサンクスページが失敗表示になる問題を修正
+* 即時購入の入金完了後に進捗を「受注」に更新するよう修正（決済前の「受付中」表示を解消）
+* 即時購入の管理者通知を入金完了後に送信するよう変更（メールの進捗も「受注」）
+* 即時購入の購入者向け決済完了メールを追加
 
 = 1.3.75 - 2026年06月18日 =
 * WordPress 更新時の「Too Many Requests」（GitHub API レート制限）を修正

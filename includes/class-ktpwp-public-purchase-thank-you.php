@@ -209,9 +209,16 @@ if ( ! class_exists( 'KTPWP_Public_Purchase_Thank_You' ) ) {
 				return $context;
 			}
 
+			$stripe_billing = KTPWP_Stripe_Billing::get_instance();
+
 			try {
 				$stripe  = new \Stripe\StripeClient( KTPWP_Stripe_Billing::get_secret_key() );
-				$session = $stripe->checkout->sessions->retrieve( $session_id );
+				$session = $stripe->checkout->sessions->retrieve(
+					$session_id,
+					array(
+						'expand' => array( 'payment_intent' ),
+					)
+				);
 			} catch ( Exception $e ) {
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 					error_log( 'KTPWP purchase thank you session: ' . $e->getMessage() );
@@ -219,23 +226,58 @@ if ( ! class_exists( 'KTPWP_Public_Purchase_Thank_You' ) ) {
 				return $context;
 			}
 
-			$metadata = isset( $session->metadata ) ? (array) $session->metadata : array();
-			if ( empty( $metadata['ktp_public_purchase'] ) ) {
-				return $context;
+			$metadata = $stripe_billing->get_checkout_session_metadata( $session );
+			$order_id = isset( $metadata['ktp_order_id'] ) ? absint( $metadata['ktp_order_id'] ) : 0;
+			if ( $order_id <= 0 ) {
+				$order_id = $stripe_billing->find_order_id_by_checkout_session_id( $session_id );
 			}
 
-			$order_id = isset( $metadata['ktp_order_id'] ) ? absint( $metadata['ktp_order_id'] ) : 0;
 			$context['order_id']   = $order_id;
 			$context['return_url'] = isset( $metadata['ktp_return_url'] ) ? esc_url_raw( (string) $metadata['ktp_return_url'] ) : '';
 
-			if ( $order_id > 0 && class_exists( 'KTPWP_Stripe_Billing' ) ) {
-				KTPWP_Stripe_Billing::get_instance()->sync_public_checkout_session_for_order( $order_id, $session );
+			$is_public_purchase = ! empty( $metadata['ktp_public_purchase'] ) || $order_id > 0;
+			if ( ! $is_public_purchase ) {
+				return $context;
 			}
 
-			$payment_status = isset( $session->payment_status ) ? (string) $session->payment_status : '';
-			$context['paid'] = ( $payment_status === 'paid' );
+			if ( $order_id > 0 ) {
+				$stripe_billing->sync_public_checkout_session_for_order( $order_id, $session );
+				$context['paid'] = $this->is_order_paid( $order_id ) || $stripe_billing->is_checkout_session_paid( $session );
+			} else {
+				$context['paid'] = $stripe_billing->is_checkout_session_paid( $session );
+			}
 
 			return $context;
+		}
+
+		/**
+		 * 受注が入金済みかどうか。
+		 *
+		 * @param int $order_id 受注 ID。
+		 * @return bool
+		 */
+		private function is_order_paid( $order_id ) {
+			global $wpdb;
+
+			$order_id = absint( $order_id );
+			if ( $order_id <= 0 ) {
+				return false;
+			}
+
+			$table = $wpdb->prefix . 'ktp_order';
+			$cols  = $wpdb->get_col( "SHOW COLUMNS FROM `{$table}`", 0 );
+			if ( ! is_array( $cols ) || ! in_array( 'stripe_paid_at', $cols, true ) ) {
+				return false;
+			}
+
+			$paid_at = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT stripe_paid_at FROM {$table} WHERE id = %d",
+					$order_id
+				)
+			);
+
+			return ! empty( $paid_at );
 		}
 
 		/**

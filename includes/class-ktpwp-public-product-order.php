@@ -84,7 +84,7 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 		 * @param array $form       フォーム入力。
 		 * @return array{success:bool,message:string,order_id?:int}
 		 */
-		public function submit_order( $service_id, array $form ) {
+		public function submit_order( $service_id, array $form, array $options = array() ) {
 			if ( function_exists( 'ktpwp_is_feature_enabled' ) && ! ktpwp_is_feature_enabled( 'public_products' ) ) {
 				$store_url = class_exists( 'KTPWP_Edition' ) ? KTPWP_Edition::get_store_url() : 'https://www.kantanpro.com/product/kantanpro-ex';
 				return array(
@@ -239,7 +239,7 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				error_log( 'KTPWP Public Product: Post-order setup failed for order ' . $order_id . ' - ' . $e->getMessage() );
 			}
 
-			if ( class_exists( 'KTPWP_Order_Admin_Notification' ) ) {
+			if ( class_exists( 'KTPWP_Order_Admin_Notification' ) && empty( $options['defer_admin_notification'] ) ) {
 				KTPWP_Order_Admin_Notification::get_instance()->notify_new_order(
 					$order_id,
 					KTPWP_Order_Admin_Notification::SOURCE_PUBLIC_PRODUCT,
@@ -288,7 +288,11 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				);
 			}
 
-			$result = $this->submit_order( $service_id, $form );
+			$result = $this->submit_order(
+				$service_id,
+				$form,
+				array( 'defer_admin_notification' => true )
+			);
 			if ( empty( $result['success'] ) ) {
 				return $result;
 			}
@@ -300,6 +304,14 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 					'message' => __( '決済の準備に失敗しました。', 'ktpwp' ),
 				);
 			}
+
+			$this->save_instant_purchase_context(
+				$order_id,
+				array(
+					'client_email' => isset( $form['email'] ) ? sanitize_email( $form['email'] ) : '',
+					'service_name' => isset( $service->service_name ) ? sanitize_text_field( (string) $service->service_name ) : '',
+				)
+			);
 
 			$this->save_order_payment_timing( $order_id, 'prepay' );
 
@@ -931,6 +943,142 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				array( '%s' ),
 				array( '%d' )
 			);
+		}
+
+		/**
+		 * 即時購入の決済完了通知用コンテキストを保存する。
+		 *
+		 * @param int                  $order_id 受注 ID。
+		 * @param array<string, mixed> $context  client_email, service_name など。
+		 * @return void
+		 */
+		private function save_instant_purchase_context( $order_id, array $context ) {
+			$order_id = absint( $order_id );
+			if ( $order_id <= 0 ) {
+				return;
+			}
+
+			set_transient( $this->get_instant_purchase_context_key( $order_id ), $context, DAY_IN_SECONDS );
+		}
+
+		/**
+		 * @param int $order_id 受注 ID。
+		 * @return string
+		 */
+		private function get_instant_purchase_context_key( $order_id ) {
+			return 'ktpwp_instant_purchase_ctx_' . absint( $order_id );
+		}
+
+		/**
+		 * Stripe 入金完了後に、即時購入の管理者通知・購入者メールを送信する。
+		 *
+		 * @param int $order_id 受注 ID。
+		 * @return bool 処理した場合 true。
+		 */
+		public function handle_instant_purchase_paid( $order_id ) {
+			$order_id = absint( $order_id );
+			if ( $order_id <= 0 ) {
+				return false;
+			}
+
+			$ctx_key = $this->get_instant_purchase_context_key( $order_id );
+			$context = get_transient( $ctx_key );
+			if ( ! is_array( $context ) ) {
+				return false;
+			}
+
+			delete_transient( $ctx_key );
+
+			if ( class_exists( 'KTPWP_Order_Admin_Notification' ) ) {
+				KTPWP_Order_Admin_Notification::get_instance()->notify_new_order(
+					$order_id,
+					KTPWP_Order_Admin_Notification::SOURCE_PUBLIC_PRODUCT,
+					array(
+						'client_email' => isset( $context['client_email'] ) ? (string) $context['client_email'] : '',
+						'service_name' => isset( $context['service_name'] ) ? (string) $context['service_name'] : '',
+					)
+				);
+			}
+
+			$this->notify_purchaser_payment_complete( $order_id, $context );
+
+			return true;
+		}
+
+		/**
+		 * 購入者へ決済完了メールを送信する。
+		 *
+		 * @param int                  $order_id 受注 ID。
+		 * @param array<string, mixed> $context  通知コンテキスト。
+		 * @return bool
+		 */
+		private function notify_purchaser_payment_complete( $order_id, array $context ) {
+			$email = isset( $context['client_email'] ) ? sanitize_email( (string) $context['client_email'] ) : '';
+			if ( $email === '' || ! is_email( $email ) ) {
+				return false;
+			}
+
+			global $wpdb;
+			$table = $wpdb->prefix . 'ktp_order';
+			$order = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT * FROM {$table} WHERE id = %d",
+					$order_id
+				)
+			);
+
+			if ( ! $order ) {
+				return false;
+			}
+
+			$site_name    = get_bloginfo( 'name' );
+			$project_name = isset( $order->project_name ) ? (string) $order->project_name : '';
+			$order_number = isset( $order->order_number ) ? (string) $order->order_number : '';
+			$service_name = isset( $context['service_name'] ) ? sanitize_text_field( (string) $context['service_name'] ) : $project_name;
+
+			$subject = sprintf(
+				/* translators: %s: site name */
+				__( '[%s] ご購入ありがとうございました', 'ktpwp' ),
+				$site_name
+			);
+
+			$body  = __( 'この度はご購入いただきありがとうございました。', 'ktpwp' ) . "\n\n";
+			$body .= __( 'お支払いが完了しました。', 'ktpwp' ) . "\n\n";
+
+			if ( $service_name !== '' ) {
+				$body .= __( '商品名:', 'ktpwp' ) . ' ' . $service_name . "\n";
+			}
+			if ( $order_number !== '' ) {
+				$body .= __( '受注番号:', 'ktpwp' ) . ' ' . $order_number . "\n";
+			}
+			if ( $project_name !== '' && $project_name !== $service_name ) {
+				$body .= __( '案件名:', 'ktpwp' ) . ' ' . $project_name . "\n";
+			}
+
+			$body .= "\n" . __( '内容の詳細は、担当者より改めてご連絡する場合がございます。', 'ktpwp' ) . "\n";
+			$body .= "\n" . __( '※ このメールは自動送信されています。', 'ktpwp' ) . "\n";
+
+			$headers = array( 'Content-Type: text/plain; charset=UTF-8' );
+			$smtp_settings = get_option( 'ktp_smtp_settings', array() );
+			$from_email    = ! empty( $smtp_settings['email_address'] ) ? sanitize_email( $smtp_settings['email_address'] ) : sanitize_email( get_option( 'admin_email' ) );
+			$from_name     = ! empty( $smtp_settings['smtp_from_name'] ) ? sanitize_text_field( $smtp_settings['smtp_from_name'] ) : $site_name;
+			if ( $from_email !== '' && is_email( $from_email ) ) {
+				$headers[] = $from_name !== ''
+					? 'From: ' . $from_name . ' <' . $from_email . '>'
+					: 'From: ' . $from_email;
+			}
+
+			if ( class_exists( 'KTPWP_Order_Auxiliary' ) ) {
+				$outcome = KTPWP_Order_Auxiliary::run_wp_mail_with_result(
+					static function () use ( $email, $subject, $body, $headers ) {
+						return wp_mail( $email, $subject, $body, $headers );
+					}
+				);
+
+				return ! empty( $outcome['success'] );
+			}
+
+			return (bool) wp_mail( $email, $subject, $body, $headers );
 		}
 
 	}
