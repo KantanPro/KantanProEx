@@ -494,6 +494,109 @@ class KTPWP_Update_Checker {
     }
 
     /**
+     * GitHub Release API レスポンスの transient キー
+     *
+     * @return string
+     */
+    private function get_release_cache_key() {
+        return 'ktpwp_github_release_' . md5( $this->github_repo );
+    }
+
+    /**
+     * Release asset のファイル名を URL から抽出する
+     *
+     * @param string $url ダウンロード URL
+     * @return string
+     */
+    private function extract_release_asset_filename( $url ) {
+        if ( ! is_string( $url ) || $url === '' ) {
+            return '';
+        }
+
+        if ( preg_match( '#/releases/download/[^/]+/([^/?#]+)#', $url, $matches ) ) {
+            return rawurldecode( $matches[1] );
+        }
+
+        return '';
+    }
+
+    /**
+     * GitHub Release の公開ダウンロード URL を組み立てる（API 不要）
+     *
+     * @param string $tag      リリースタグ（例: v1.3.74）
+     * @param string $filename asset ファイル名
+     * @return string
+     */
+    private function build_release_download_url( $tag, $filename ) {
+        $tag      = trim( (string) $tag );
+        $filename = trim( (string) $filename );
+
+        if ( $tag === '' || $filename === '' ) {
+            return '';
+        }
+
+        return sprintf(
+            'https://github.com/%s/releases/download/%s/%s',
+            $this->github_repo,
+            $tag,
+            rawurlencode( $filename )
+        );
+    }
+
+    /**
+     * 保存済み更新情報から公開ダウンロード URL を復元する
+     *
+     * @param array<string, mixed> $update_data 更新情報
+     * @return string
+     */
+    private function build_release_download_url_from_cache( array $update_data ) {
+        if ( ! empty( $update_data['browser_download_url'] ) ) {
+            $url = (string) $update_data['browser_download_url'];
+            if ( strpos( $url, '/releases/download/' ) !== false ) {
+                return $url;
+            }
+        }
+
+        if ( ! empty( $update_data['release_tag'] ) && ! empty( $update_data['asset_filename'] ) ) {
+            return $this->build_release_download_url(
+                (string) $update_data['release_tag'],
+                (string) $update_data['asset_filename']
+            );
+        }
+
+        return '';
+    }
+
+    /**
+     * GitHub API のレート制限により更新チェックをスキップすべきか
+     *
+     * @return bool
+     */
+    private function should_skip_github_update_check() {
+        $last_check = get_transient( 'ktpwp_last_update_check' );
+        return $last_check && ( time() - (int) $last_check ) < $this->check_interval;
+    }
+
+    /**
+     * 更新チェック用 package URL（公開ダウンロード URL を優先）
+     *
+     * @param array<string, mixed> $update_data 更新情報
+     * @return string
+     */
+    private function get_update_package_url( array $update_data ) {
+        $url = $this->build_release_download_url_from_cache( $update_data );
+        if ( $url !== '' ) {
+            return $url;
+        }
+
+        if ( ! empty( $update_data['download_url'] ) ) {
+            return (string) $update_data['download_url'];
+        }
+
+        return '';
+    }
+
+    /**
      * GitHub Release ダウンロード向けに、browser_download_url を優先して URL を正規化する。
      *
      * キャッシュ済み更新情報が API asset URL のままの場合や、管理画面の一括更新で
@@ -528,13 +631,12 @@ class KTPWP_Update_Checker {
 
         if (
             strpos( $package, 'api.github.com' ) !== false
-            && strpos( $package, '/releases/assets/' ) !== false
+            || strpos( $package, '/zipball/' ) !== false
         ) {
-            $release = $this->get_latest_github_release();
-            if ( is_array( $release ) ) {
-                $resolved = $this->resolve_release_download_url( $release );
-                if ( ! empty( $resolved['url'] ) ) {
-                    return (string) $resolved['url'];
+            if ( is_array( $update_data ) ) {
+                $cached_url = $this->build_release_download_url_from_cache( $update_data );
+                if ( $cached_url !== '' ) {
+                    return $cached_url;
                 }
             }
         }
@@ -554,21 +656,45 @@ class KTPWP_Update_Checker {
             return new WP_Error( 'download_failed', 'ダウンロード URL が空です。' );
         }
 
-        error_log( 'KantanPro: GitHub パッケージをダウンロードします - ' . $package );
-
-        add_filter( 'http_request_args', array( $this, 'github_download_args' ), 10, 2 );
-        $temp_file = download_url( $package, 300 );
-        remove_filter( 'http_request_args', array( $this, 'github_download_args' ), 10 );
-
-        if ( is_wp_error( $temp_file ) ) {
-            error_log(
-                'KantanPro: GitHub ダウンロード失敗 - '
-                . $temp_file->get_error_message()
-                . ' (url=' . $package . ')'
+        // API / zipball URL はレート制限の原因になるため公開 URL のみ許可
+        if (
+            strpos( $package, 'api.github.com' ) !== false
+            || strpos( $package, '/zipball/' ) !== false
+        ) {
+            error_log( 'KantanPro: API/zipball URL はダウンロードに使えません - ' . $package );
+            return new WP_Error(
+                'download_failed',
+                'GitHub API のレート制限を避けるため、公開ダウンロード URL が必要です。しばらく待ってから再度お試しください。'
             );
         }
 
-        return $temp_file;
+        error_log( 'KantanPro: GitHub パッケージをダウンロードします - ' . $package );
+
+        $max_attempts = 3;
+        for ( $attempt = 1; $attempt <= $max_attempts; $attempt++ ) {
+            add_filter( 'http_request_args', array( $this, 'github_download_args' ), 10, 2 );
+            $temp_file = download_url( $package, 300 );
+            remove_filter( 'http_request_args', array( $this, 'github_download_args' ), 10 );
+
+            if ( ! is_wp_error( $temp_file ) ) {
+                return $temp_file;
+            }
+
+            $message = $temp_file->get_error_message();
+            error_log(
+                'KantanPro: GitHub ダウンロード失敗 (試行 ' . $attempt . '/' . $max_attempts . ') - '
+                . $message
+                . ' (url=' . $package . ')'
+            );
+
+            if ( stripos( $message, 'Too Many Requests' ) === false || $attempt >= $max_attempts ) {
+                return $temp_file;
+            }
+
+            sleep( min( 60, (int) pow( 2, $attempt ) * 5 ) );
+        }
+
+        return new WP_Error( 'download_failed', 'GitHub からのダウンロードに失敗しました。' );
     }
 
     /**
@@ -594,6 +720,8 @@ class KTPWP_Update_Checker {
             return array(
                 'url'                  => $url,
                 'browser_download_url' => $url,
+                'asset_filename'       => $this->extract_release_asset_filename( $url ),
+                'release_tag'          => isset( $release_data['tag_name'] ) ? (string) $release_data['tag_name'] : '',
                 'source'               => 'asset',
                 'edition'              => $edition,
             );
@@ -605,6 +733,8 @@ class KTPWP_Update_Checker {
             return array(
                 'url'                  => $zipball,
                 'browser_download_url' => $zipball,
+                'asset_filename'       => '',
+                'release_tag'          => isset( $release_data['tag_name'] ) ? (string) $release_data['tag_name'] : '',
                 'source'               => 'zipball',
                 'edition'              => $edition,
             );
@@ -627,6 +757,12 @@ class KTPWP_Update_Checker {
      * @return array|false
      */
     private function get_latest_github_release() {
+        $cache_key = $this->get_release_cache_key();
+        $cached    = get_transient( $cache_key );
+        if ( is_array( $cached ) && ! empty( $cached['tag_name'] ) ) {
+            return $cached;
+        }
+
         $args = array(
             'timeout' => 30,
             'headers' => $this->get_github_headers(),
@@ -639,13 +775,19 @@ class KTPWP_Update_Checker {
         if ( ! is_wp_error( $response ) && wp_remote_retrieve_response_code( $response ) === 200 ) {
             $data = json_decode( wp_remote_retrieve_body( $response ), true );
             if ( is_array( $data ) && isset( $data['tag_name'] ) && empty( $data['draft'] ) && empty( $data['prerelease'] ) ) {
+                set_transient( $cache_key, $data, $this->check_interval );
                 return $data;
             }
         } else {
             if ( is_wp_error( $response ) ) {
                 error_log( 'KantanPro: GitHub latest API接続エラー: ' . $response->get_error_message() );
             } else {
-                error_log( 'KantanPro: GitHub latest APIレスポンス: ' . wp_remote_retrieve_response_code( $response ) . ' - ' . wp_remote_retrieve_body( $response ) );
+                $response_code = wp_remote_retrieve_response_code( $response );
+                error_log( 'KantanPro: GitHub latest APIレスポンス: ' . $response_code . ' - ' . wp_remote_retrieve_body( $response ) );
+                if ( (int) $response_code === 429 && is_array( $cached ) ) {
+                    error_log( 'KantanPro: GitHub API レート制限のためキャッシュ済み Release を使用します' );
+                    return $cached;
+                }
             }
         }
 
@@ -655,18 +797,22 @@ class KTPWP_Update_Checker {
 
         if ( is_wp_error( $list_response ) ) {
             error_log( 'KantanPro: GitHub releases API接続エラー: ' . $list_response->get_error_message() );
-            return false;
+            return is_array( $cached ) ? $cached : false;
         }
 
         $response_code = wp_remote_retrieve_response_code( $list_response );
         if ( $response_code !== 200 ) {
             error_log( 'KantanPro: GitHub releases API エラーレスポンス: ' . $response_code . ' - ' . wp_remote_retrieve_body( $list_response ) );
+            if ( (int) $response_code === 429 && is_array( $cached ) ) {
+                error_log( 'KantanPro: GitHub API レート制限のためキャッシュ済み Release を使用します' );
+                return $cached;
+            }
             return false;
         }
 
         $releases = json_decode( wp_remote_retrieve_body( $list_response ), true );
         if ( ! is_array( $releases ) ) {
-            return false;
+            return is_array( $cached ) ? $cached : false;
         }
 
         foreach ( $releases as $release ) {
@@ -674,11 +820,12 @@ class KTPWP_Update_Checker {
                 continue;
             }
             if ( isset( $release['tag_name'] ) ) {
+                set_transient( $cache_key, $release, $this->check_interval );
                 return $release;
             }
         }
 
-        return false;
+        return is_array( $cached ) ? $cached : false;
     }
     
     /**
@@ -1056,10 +1203,13 @@ class KTPWP_Update_Checker {
 
         // 最後のチェックから一定時間経過していない場合はスキップ
         $last_check = get_transient( 'ktpwp_last_update_check' );
-        if ( $last_check && ( time() - $last_check ) < $this->check_interval ) {
-            error_log( 'KantanPro: 更新チェック間隔が短すぎるため、スキップします' );
-            // 配布先での確実な更新チェックのため、間隔制限を緩和
-            // return false;
+        if ( $last_check && ( time() - (int) $last_check ) < $this->check_interval ) {
+            error_log( 'KantanPro: 更新チェック間隔が短いため、保存済み情報を使用します' );
+            $cached = get_option( 'ktpwp_update_available' );
+            if ( is_array( $cached ) ) {
+                return ! empty( $cached['no_update'] ) ? false : $cached;
+            }
+            return false;
         }
 
         // エラーハンドリングを強化
@@ -1108,6 +1258,8 @@ class KTPWP_Update_Checker {
                     'new_version' => $data['tag_name'], // 元のバージョン文字列も保存
                     'download_url' => $download_url,
                     'browser_download_url' => isset( $resolved['browser_download_url'] ) ? $resolved['browser_download_url'] : $download_url,
+                    'release_tag' => isset( $resolved['release_tag'] ) ? $resolved['release_tag'] : ( isset( $data['tag_name'] ) ? $data['tag_name'] : '' ),
+                    'asset_filename' => isset( $resolved['asset_filename'] ) ? $resolved['asset_filename'] : $this->extract_release_asset_filename( $download_url ),
                     'download_source' => $download_source,
                     'update_edition' => $update_edition,
                     'manual_update_required' => $manual_required,
@@ -1126,8 +1278,16 @@ class KTPWP_Update_Checker {
                 error_log( 'KantanPro: 保存された更新データ: ' . print_r( $update_data, true ) );
                 return $update_data;
             } else {
-                // 更新なし
-                update_option( 'ktpwp_update_available', false );
+                // 更新なし（false ではなく配列で保存し、管理画面アクセスのたびに API を叩かない）
+                update_option(
+                    'ktpwp_update_available',
+                    array(
+                        'no_update'    => true,
+                        'version'      => $current_version,
+                        'new_version'  => isset( $data['tag_name'] ) ? $data['tag_name'] : $this->current_version,
+                        'checked_at'   => time(),
+                    )
+                );
                 error_log( 'KantanPro: 更新は利用できません - 最新版です' );
                 error_log( 'KantanPro: 比較詳細 - 現在: ' . $current_version . ', 最新: ' . $latest_version . ', 比較結果: ' . $comparison_result );
                 return false;
@@ -2034,7 +2194,7 @@ class KTPWP_Update_Checker {
         }
 
         $update_data = get_option( 'ktpwp_update_available', false );
-        if ( ! $update_data || ! is_array( $update_data ) ) {
+        if ( ! $update_data || ! is_array( $update_data ) || ! empty( $update_data['no_update'] ) ) {
             return false;
         }
 
@@ -2198,6 +2358,7 @@ class KTPWP_Update_Checker {
         // KantanPro固有のキャッシュをクリア
         delete_transient( 'ktpwp_last_update_check' );
         delete_transient( 'ktpwp_last_force_check' );
+        delete_transient( $this->get_release_cache_key() );
         delete_option( 'ktpwp_update_available' );
         delete_option( 'ktpwp_latest_version' );
         delete_option( 'ktpwp_update_notice_dismissed' );
@@ -2220,6 +2381,7 @@ class KTPWP_Update_Checker {
         delete_transient( 'update_plugins' );
         delete_transient( 'ktpwp_last_update_check' );
         delete_transient( 'ktpwp_last_force_check' );
+        delete_transient( $this->get_release_cache_key() );
         error_log( 'KantanPro: 更新チェック用キャッシュをクリアしました（更新情報オプションは維持）' );
     }
 
@@ -2383,16 +2545,19 @@ class KTPWP_Update_Checker {
             }
         }
 
-        // キャッシュされた更新情報を取得
+        // キャッシュされた更新情報を取得（このフックは頻繁に実行されるため API は間隔内は叩かない）
         $update_data = get_option( 'ktpwp_update_available' );
 
-        // このフックは頻繁に実行されるため、毎回APIを叩かないように
-        // check_github_updates() は内部で実行間隔をチェックしているので安全に呼び出せる
-        if ( ! $update_data ) {
-            $update_data = $this->check_github_updates();
+        if ( false === $update_data ) {
+            if ( ! $this->should_skip_github_update_check() ) {
+                $update_data = $this->check_github_updates();
+            }
+        } elseif ( is_array( $update_data ) && ! empty( $update_data['no_update'] ) ) {
+            // 最新版として記録済み — API 呼び出し不要
+            $update_data = false;
         }
         
-        if ( $update_data && is_array( $update_data ) && isset( $update_data['version'] ) ) {
+        if ( $update_data && is_array( $update_data ) && isset( $update_data['version'] ) && empty( $update_data['no_update'] ) ) {
             $latest_version = $this->clean_version( $update_data['version'] );
             $current_version = $this->clean_version( $this->current_version );
 
@@ -2406,7 +2571,7 @@ class KTPWP_Update_Checker {
                 // 表示用のバージョン文字列を優先的に使用
                 $plugin_info->new_version = isset( $update_data['new_version'] ) ? $update_data['new_version'] : $update_data['version'];
                 $plugin_info->url = 'https://github.com/' . $this->github_repo;
-                $plugin_info->package = $update_data['download_url'];
+                $plugin_info->package = $this->get_update_package_url( $update_data );
                 $plugin_info->tested = get_bloginfo( 'version' ); // 現在のWPバージョンをセット
                 $plugin_info->requires = '5.0'; // 必要なWordPressバージョン
                 $plugin_info->requires_php = '7.4'; // 必要なPHPバージョン
