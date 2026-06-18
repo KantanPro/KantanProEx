@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.3.82
+ * Version: 1.3.83
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -1043,6 +1043,7 @@ if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
         'KTPWP_Contract_Recurring_Items' => 'includes/class-ktpwp-contract-recurring-items.php',
         'KTPWP_Service_Initial_Fees' => 'includes/class-ktpwp-service-initial-fees.php',
         'KTPWP_Service_Related_Orders' => 'includes/class-ktpwp-service-related-orders.php',
+        'KTPWP_Service_Import_Export' => 'includes/class-ktpwp-service-import-export.php',
         'KTPWP_Contract_DB'     => 'includes/class-ktpwp-contract-db.php',
         'KTPWP_Contract_Service_Public_Availability' => 'includes/class-ktpwp-contract-service-public-availability.php',
         'KTPWP_Order_Progress_Effects' => 'includes/class-ktpwp-order-progress-effects.php',
@@ -1106,6 +1107,10 @@ if ( defined( 'MY_PLUGIN_PATH' ) && is_string( MY_PLUGIN_PATH ) && MY_PLUGIN_PAT
 
 if ( class_exists( 'KTPWP_FM_Import' ) ) {
 	KTPWP_FM_Import::bootstrap();
+}
+
+if ( class_exists( 'KTPWP_Service_Import_Export' ) ) {
+	KTPWP_Service_Import_Export::bootstrap();
 }
 
 // 多言語化サポートを初期化

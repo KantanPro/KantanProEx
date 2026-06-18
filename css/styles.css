@@ -7394,3 +7394,92 @@ body.ktpwp-modal-open {
   margin: 6px 0 12px;
   padding-left: 24px;
 }
+
+/* サービス インポート／エクスポートモーダル（.ktp_header z-index:100000 より手前） */
+#ktp-service-import-export-modal.ktpwp-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  isolation: isolate;
+}
+
+#ktp-service-import-export-modal .ktpwp-modal-overlay {
+  align-items: flex-start;
+  overflow-y: auto;
+  padding: 24px 20px;
+}
+
+#ktp-service-import-export-modal .ktpwp-modal-content {
+  max-height: 90vh;
+  margin: auto 0;
+}
+
+#ktp-service-import-export-modal .ktpwp-modal-body {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 20px 24px 28px;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+}
+
+#ktp-service-import-export-modal .ktpwp-modal-body p {
+  margin: 0 0 12px;
+}
+
+#ktp-service-import-export-modal .ktpwp-modal-body .description {
+  margin: 0 0 12px;
+  color: #646970;
+  font-size: 13px;
+}
+
+#ktp-service-import-export-modal .ktp-service-ie-categories {
+  margin-bottom: 12px;
+}
+
+#ktp-service-import-export-modal .ktp-service-ie-default-public,
+#ktp-service-import-export-modal .ktp-service-ie-duplicate-policy,
+#ktp-service-import-export-modal .ktp-service-ie-existing-image-policy {
+  margin-top: 16px;
+}
+
+#ktp-service-import-export-modal .ktp-service-ie-select,
+#ktp-service-import-export-modal select[name="default_is_public"],
+#ktp-service-import-export-modal select[name="is_public_filter"],
+#ktp-service-import-export-modal select[name="existing_image_policy"] {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  box-sizing: border-box;
+}
+
+#ktp-service-import-export-modal .ktp-service-ie-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background-color: #0073aa;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  transition: background-color 0.2s ease;
+}
+
+#ktp-service-import-export-modal .ktp-service-ie-submit-btn:hover,
+#ktp-service-import-export-modal .ktp-service-ie-submit-btn:focus {
+  background-color: #005a87;
+  color: #fff;
+  outline: none;
+}
+
+.controller .ktp-service-controller-actions {
+  align-self: center;
+}

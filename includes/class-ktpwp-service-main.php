@@ -230,6 +230,9 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 
 			// JS通知は他タブと統一のため廃止（noticeのみ）
 			$message = '';
+			if ( class_exists( 'KTPWP_Service_Import_Export' ) ) {
+				$message .= KTPWP_Service_Import_Export::render_import_notice();
+			}
 
 			// -----------------------------
 			// リスト表示
@@ -1108,6 +1111,8 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			$search_keep_params  = array();
 			$search_toolbar_html = '';
 			$search_panel_html   = '';
+			$service_ie_buttons  = '';
+			$service_ie_modal    = '';
 			if ( isset( $_GET['data_id'] ) && $_GET['data_id'] !== '' ) {
 				$search_keep_params['data_id'] = sanitize_text_field( wp_unslash( $_GET['data_id'] ) );
 			}
@@ -1115,6 +1120,10 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				$search_ui           = KTPWP_Tab_Search_UI::get_instance();
 				$search_toolbar_html = $search_ui->render_toolbar_form( 'service', $search_keep_params );
 				$search_panel_html   = $search_ui->maybe_render_cross_search_panel( 'service' );
+			}
+			if ( class_exists( 'KTPWP_Service_Import_Export' ) ) {
+				$service_ie_buttons = KTPWP_Service_Import_Export::render_controller_buttons();
+				$service_ie_modal   = KTPWP_Service_Import_Export::render_modal_markup();
 			}
 
 			// JavaScript
@@ -1174,13 +1183,17 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
         </script>
         <!-- コントローラー/プレビューアイコン（プレビューは廃止） -->
         <div class="controller" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                 {$search_toolbar_html}
+                {$service_ie_buttons}
+                </div>
                 <div style="display:flex;gap:5px;margin-left:auto;">
                 <button onclick="printContent()" title="{$print_button_title}" style="padding: 6px 10px; font-size: 12px;">
                     <span class="material-symbols-outlined" aria-label="{$print_button_label}">print</span>
                 </button>
                 </div>
         </div>
+        {$service_ie_modal}
         END;
 
 			// コンテンツを返す（複数検索結果ダイアログ用スクリプトを含む）
