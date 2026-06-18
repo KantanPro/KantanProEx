@@ -1076,6 +1076,18 @@ body.ktpwp-public-product-modal-open {
 	text-decoration: none;
 }
 
+.ktpwp-purchase-thank-you--failed {
+	border-color: #fca5a5;
+	background: #fef2f2;
+}
+
+.ktpwp-purchase-thank-you__lead--error {
+	margin: 0;
+	font-size: 1.125rem;
+	font-weight: 600;
+	color: #991b1b;
+}
+
 .ktpwp-purchase-thank-you__back:hover,
 .ktpwp-purchase-thank-you__back:focus {
 	color: #fff;

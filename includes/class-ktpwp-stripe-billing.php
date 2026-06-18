@@ -1013,15 +1013,17 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				? KTPWP_Public_Purchase_Thank_You::get_success_url()
 				: home_url( '/' );
 
-			$cancel_url = esc_url_raw( (string) $cancel_url );
-			if ( $cancel_url === '' ) {
-				$cancel_url = home_url( '/' );
-			}
-
 			$return_url = esc_url_raw( (string) $return_url );
 			if ( $return_url === '' ) {
-				$return_url = $cancel_url;
+				$return_url = esc_url_raw( (string) $cancel_url );
 			}
+			if ( $return_url === '' ) {
+				$return_url = home_url( '/' );
+			}
+
+			$cancel_url = class_exists( 'KTPWP_Public_Purchase_Thank_You' )
+				? KTPWP_Public_Purchase_Thank_You::get_cancel_url( $return_url )
+				: $return_url;
 
 			$metadata = array(
 				'ktp_order_id'        => (string) $order_id,

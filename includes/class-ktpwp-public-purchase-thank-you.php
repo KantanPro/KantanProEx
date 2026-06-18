@@ -126,6 +126,25 @@ if ( ! class_exists( 'KTPWP_Public_Purchase_Thank_You' ) ) {
 		}
 
 		/**
+		 * Stripe cancel_url 用（キャンセル時はサンクスページで失敗表示）。
+		 *
+		 * @param string $return_url 「戻る」リンク先（商品一覧など）。
+		 * @return string
+		 */
+		public static function get_cancel_url( $return_url = '' ) {
+			$args = array(
+				'ktp_checkout' => 'cancelled',
+			);
+
+			$return_url = esc_url_raw( (string) $return_url );
+			if ( $return_url !== '' ) {
+				$args['return_url'] = $return_url;
+			}
+
+			return add_query_arg( $args, self::get_page_url() );
+		}
+
+		/**
 		 * ショートコード出力。
 		 *
 		 * @param array<string, string> $atts Attributes.
@@ -134,35 +153,31 @@ if ( ! class_exists( 'KTPWP_Public_Purchase_Thank_You' ) ) {
 		public function render_shortcode( $atts = array() ) {
 			unset( $atts );
 
-			$session_id = isset( $_GET['session_id'] ) ? sanitize_text_field( wp_unslash( $_GET['session_id'] ) ) : '';
-			$context    = $this->resolve_session_context( $session_id );
+			$checkout_flag = isset( $_GET['ktp_checkout'] ) ? sanitize_text_field( wp_unslash( $_GET['ktp_checkout'] ) ) : '';
+			$session_id    = isset( $_GET['session_id'] ) ? sanitize_text_field( wp_unslash( $_GET['session_id'] ) ) : '';
+			$return_url    = isset( $_GET['return_url'] ) ? esc_url_raw( wp_unslash( $_GET['return_url'] ) ) : '';
 
-			$html  = '<div class="ktpwp-purchase-thank-you">';
-			$html .= '<h2 class="ktpwp-purchase-thank-you__title">' . esc_html__( 'ご購入ありがとうございました', 'ktpwp' ) . '</h2>';
+			$is_failure = in_array( $checkout_flag, array( 'cancelled', 'failed' ), true );
 
-			if ( ! empty( $context['paid'] ) ) {
-				$html .= '<p class="ktpwp-purchase-thank-you__lead">' . esc_html__( 'お支払いが完了しました。担当者より改めてご連絡いたします。', 'ktpwp' ) . '</p>';
-
-				if ( ! empty( $context['product_label'] ) ) {
-					$html .= '<p class="ktpwp-purchase-thank-you__product"><strong>' . esc_html__( 'ご購入内容', 'ktpwp' ) . '</strong><br>' . esc_html( (string) $context['product_label'] ) . '</p>';
+			if ( $session_id !== '' ) {
+				$context = $this->resolve_session_context( $session_id );
+				if ( $return_url === '' && ! empty( $context['return_url'] ) ) {
+					$return_url = (string) $context['return_url'];
 				}
-
-				if ( ! empty( $context['order_id'] ) ) {
-					$html .= '<p class="ktpwp-purchase-thank-you__order-id">' . esc_html(
-						sprintf(
-							/* translators: %d: order ID */
-							__( '受付番号: %d', 'ktpwp' ),
-							(int) $context['order_id']
-						)
-					) . '</p>';
+				if ( ! $is_failure && empty( $context['paid'] ) ) {
+					$is_failure = true;
 				}
-			} elseif ( $session_id !== '' ) {
-				$html .= '<p class="ktpwp-purchase-thank-you__lead">' . esc_html__( '決済状況を確認しています。しばらくお待ちください。', 'ktpwp' ) . '</p>';
-			} else {
-				$html .= '<p class="ktpwp-purchase-thank-you__lead">' . esc_html__( 'このページは決済完了後に表示されます。', 'ktpwp' ) . '</p>';
 			}
 
-			$return_url = ! empty( $context['return_url'] ) ? (string) $context['return_url'] : '';
+			$modifier = $is_failure ? ' ktpwp-purchase-thank-you--failed' : '';
+			$html     = '<div class="ktpwp-purchase-thank-you' . $modifier . '">';
+
+			if ( $is_failure ) {
+				$html .= '<p class="ktpwp-purchase-thank-you__lead ktpwp-purchase-thank-you__lead--error">' . esc_html__( '決済できませんでした。もう一度お試しください。', 'ktpwp' ) . '</p>';
+			} else {
+				$html .= '<h2 class="ktpwp-purchase-thank-you__title">' . esc_html__( 'ご購入ありがとうございました', 'ktpwp' ) . '</h2>';
+			}
+
 			if ( $return_url !== '' ) {
 				$html .= '<p class="ktpwp-purchase-thank-you__actions"><a class="ktpwp-purchase-thank-you__back" href="' . esc_url( $return_url ) . '">' . esc_html__( '商品一覧へ戻る', 'ktpwp' ) . '</a></p>';
 			}
@@ -220,37 +235,7 @@ if ( ! class_exists( 'KTPWP_Public_Purchase_Thank_You' ) ) {
 			$payment_status = isset( $session->payment_status ) ? (string) $session->payment_status : '';
 			$context['paid'] = ( $payment_status === 'paid' );
 
-			if ( $order_id > 0 ) {
-				$context['product_label'] = $this->resolve_order_product_label( $order_id );
-			}
-
 			return $context;
-		}
-
-		/**
-		 * 受注の代表商品名。
-		 *
-		 * @param int $order_id 受注 ID.
-		 * @return string
-		 */
-		private function resolve_order_product_label( $order_id ) {
-			if ( ! class_exists( 'KTPWP_Order_Items' ) ) {
-				return '';
-			}
-
-			$items = KTPWP_Order_Items::get_instance()->get_invoice_items( $order_id );
-			$labels = array();
-			foreach ( $items as $item ) {
-				if ( ! is_array( $item ) ) {
-					continue;
-				}
-				$name = trim( (string) ( $item['product_name'] ?? '' ) );
-				if ( $name !== '' ) {
-					$labels[] = $name;
-				}
-			}
-
-			return implode( ' / ', array_unique( $labels ) );
 		}
 
 		/**
