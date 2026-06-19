@@ -13,14 +13,6 @@ document.addEventListener('DOMContentLoaded', function() {
         select.addEventListener('change', function() {
             // 進捗状態に合わせたクラスを更新
             this.className = 'progress-select status-' + this.value;
-            
-            // フォーム送信時にローディング表示を追加
-            const form = this.closest('form');
-            if (form) {
-                this.disabled = true;
-                this.style.opacity = '0.7';
-                this.style.cursor = 'wait';
-            }
         });
     });
 });

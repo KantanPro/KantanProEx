@@ -4456,10 +4456,11 @@ class KTPWP_Ajax {
 
 			wp_send_json_success(
 				array(
-					'warning_count'         => isset( $bundle['progress_warnings'][3] ) ? (int) $bundle['progress_warnings'][3] : 0,
-					'warning_days'          => isset( $bundle['warning_days'] ) ? (int) $bundle['warning_days'] : 3,
-					'invoice_warning_count' => isset( $bundle['invoice_warning_count'] ) ? (int) $bundle['invoice_warning_count'] : 0,
-					'payment_warning_count' => isset( $bundle['payment_warning_count'] ) ? (int) $bundle['payment_warning_count'] : 0,
+					'warning_count'           => isset( $bundle['progress_warnings'][3] ) ? (int) $bundle['progress_warnings'][3] : 0,
+					'warning_days'            => isset( $bundle['warning_days'] ) ? (int) $bundle['warning_days'] : 3,
+					'invoice_warning_count'   => isset( $bundle['invoice_warning_count'] ) ? (int) $bundle['invoice_warning_count'] : 0,
+					'payment_warning_count'   => isset( $bundle['payment_warning_count'] ) ? (int) $bundle['payment_warning_count'] : 0,
+					'progress_counts'         => isset( $bundle['progress_counts'] ) ? $bundle['progress_counts'] : array(),
 				)
 			);
 
@@ -5068,10 +5069,17 @@ class KTPWP_Ajax {
 				KTPWP_List_Warning_Counts::invalidate();
 			}
 
+			$progress_counts = array();
+			if ( class_exists( 'KTPWP_List_Warning_Counts' ) ) {
+				$bundle          = KTPWP_List_Warning_Counts::get_bundle();
+				$progress_counts = isset( $bundle['progress_counts'] ) ? $bundle['progress_counts'] : array();
+			}
+
 			wp_send_json_success( array(
 				'message' => __( '進捗を更新しました', 'ktpwp' ),
 				'progress' => $new_progress,
-				'completion_date' => isset( $update_data['completion_date'] ) ? $update_data['completion_date'] : null
+				'completion_date' => isset( $update_data['completion_date'] ) ? $update_data['completion_date'] : null,
+				'progress_counts' => $progress_counts,
 			) );
 		} else {
 			wp_send_json_error( __( 'データベース更新に失敗しました', 'ktpwp' ) );

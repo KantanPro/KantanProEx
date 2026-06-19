@@ -36,16 +36,49 @@ function getAjaxConfigForDeliveryDates() {
     return config;
 }
 
+/**
+ * 進捗フィルターボタンの件数表示を更新
+ *
+ * @param {Object.<number, number>} counts progress => count
+ */
+window.ktpUpdateProgressFilterCounts = function(counts) {
+    if (!counts || typeof counts !== 'object') {
+        return;
+    }
+    jQuery('.progress-btn').each(function() {
+        var $btn = jQuery(this);
+        var num = parseInt($btn.data('progress'), 10);
+        if (!num || counts[num] === undefined) {
+            return;
+        }
+        var $text = $btn.find('.progress-btn-text');
+        if (!$text.length) {
+            return;
+        }
+        var label = $text.text().replace(/\s*\(\d+\)\s*$/, '').trim();
+        $text.text(label + ' (' + counts[num] + ')');
+    });
+};
+
 // グローバル関数：受注書詳細での進捗変更処理
 window.handleProgressChange = function(selectElement) {
     console.log('[DELIVERY-DATES] handleProgressChange called');
     
     var $select = jQuery(selectElement);
-    var $completionInput = jQuery('#completion_date');
     var $form = $select.closest('form');
+    var $listItem = $select.closest('.ktp_work_list_item');
+    var $completionInput = $listItem.length
+        ? $listItem.find('.completion-date-input').first()
+        : jQuery('#completion_date');
+    if (!$completionInput.length) {
+        $completionInput = jQuery('#completion_date');
+    }
     
-    var newProgress = parseInt($select.val());
+    var newProgress = parseInt($select.val(), 10);
     var orderId = $form.find('input[name="update_progress_id"]').val();
+    
+    $select.removeClass('status-1 status-2 status-3 status-4 status-5 status-6 status-7');
+    $select.addClass('progress-select status-' + newProgress);
     
     console.log('[DELIVERY-DATES] 進捗変更処理:', {
         orderId: orderId,
@@ -134,6 +167,13 @@ window.handleProgressChange = function(selectElement) {
                         $hiddenCompletionField.val(response.data.completion_date);
                     }
                 }
+
+                if (response.data && response.data.progress_counts) {
+                    window.ktpUpdateProgressFilterCounts(response.data.progress_counts);
+                }
+                if (typeof window.ktpUpdateProgressButtonWarning === 'function') {
+                    window.ktpUpdateProgressButtonWarning();
+                }
             } else {
                 // エラー時の処理
                 console.error('[DELIVERY-DATES] 進捗更新に失敗しました:', response.data);
@@ -152,11 +192,16 @@ window.handleProgressChange = function(selectElement) {
         error: function(xhr, status, error) {
             // 通信エラー時の処理
             console.error('[DELIVERY-DATES] 進捗更新通信エラー:', error);
+            $select.prop('disabled', false);
             $select.css('border-color', '#f44336');
             setTimeout(function() {
                 $select.css('border-color', '');
             }, 3000);
             alert(ktpwpTranslate('進捗更新の通信でエラーが発生しました'));
+        },
+        complete: function() {
+            $select.prop('disabled', false);
+            $select.css({ opacity: '', cursor: '' });
         }
     });
 };
@@ -665,6 +710,10 @@ jQuery(document).ready(function($) {
                     var invoiceCount = response.data.invoice_warning_count || 0;
                     var paymentCount = response.data.payment_warning_count || 0;
                     var warningDays = response.data.warning_days;
+
+                    if (response.data.progress_counts) {
+                        window.ktpUpdateProgressFilterCounts(response.data.progress_counts);
+                    }
                     
                     // 受注タブ（progress=3）のバッジを更新
                     var $btn3 = $('.progress-btn').filter(function() { return $(this).data('progress') === 3; });
@@ -711,6 +760,8 @@ jQuery(document).ready(function($) {
             }
         });
     }
+
+    window.ktpUpdateProgressButtonWarning = updateProgressButtonWarning;
 
     // ページ読み込み時に既存の警告マークを更新
     function updateAllWarningMarks() {
@@ -769,6 +820,19 @@ jQuery(document).ready(function($) {
         // 進捗タブバッジはPHPで表示済みのため、ここでは更新しない（消えないようにする）
     }, 100);
 
+    // 進捗プルダウンの変更前の値を保持
+    $(document).on('focus', '.progress-select', function() {
+        $(this).data('prev-progress', parseInt($(this).val(), 10));
+    });
+
+    // 仕事リストの進捗フォーム送信を防止（AJAXで保存）
+    $(document).on('submit', 'form', function(e) {
+        if ($(this).find('select.progress-select').length) {
+            e.preventDefault();
+            return false;
+        }
+    });
+
     // 進捗プルダウンの変更を監視（仕事リスト用）
     $(document).on('change', '.progress-select', function() {
         console.log('[DELIVERY-DATES] 進捗プルダウンが変更されました（仕事リスト）');
@@ -778,8 +842,11 @@ jQuery(document).ready(function($) {
         var $deliveryInput = $listItem.find('.delivery-date-input');
         var $completionInput = $listItem.find('.completion-date-input');
         
-        var newProgress = parseInt($select.val());
-        var oldProgress = parseInt($select.find('option:selected').data('old-progress') || newProgress);
+        var newProgress = parseInt($select.val(), 10);
+        var oldProgress = parseInt($select.data('prev-progress'), 10);
+        if (isNaN(oldProgress)) {
+            oldProgress = newProgress;
+        }
         
         console.log('[DELIVERY-DATES] 進捗変更:', {
             oldProgress: oldProgress,
@@ -808,8 +875,8 @@ jQuery(document).ready(function($) {
             $completionInput.trigger('change');
         }
         
-        // 現在の進捗をold-progressとして保存
-        $select.find('option:selected').data('old-progress', newProgress);
+        // 現在の進捗を保存
+        $select.data('prev-progress', newProgress);
         
         // 納期フィールドが存在する場合、行の警告マークを更新
         if ($deliveryInput.length > 0) {
@@ -817,8 +884,9 @@ jQuery(document).ready(function($) {
             console.log('[DELIVERY-DATES] 納期フィールドあり、更新:', deliveryDate);
             updateWarningMark($deliveryInput, deliveryDate);
         }
-        // 進捗変更時は常にタブのバッジをリアルタイム更新（受注・完了の件数が変わるため）
-        updateProgressButtonWarning();
+
+        // サーバーへ進捗を保存し、フィルター件数を更新
+        handleProgressChange(this);
     });
 
     // 受注書詳細での進捗プルダウンの変更を監視

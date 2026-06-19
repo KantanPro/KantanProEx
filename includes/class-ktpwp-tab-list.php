@@ -667,7 +667,7 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 					// 進捗プルダウンを納期コンテナ内に配置
 					$content .= "<form method='post' action='' style='margin: 0px 0 0px 0;display:inline;'>";
 					$content .= "<input type='hidden' name='update_progress_id' value='{$order_id}' />";
-					$content .= "<select name='update_progress' class='progress-select status-{$progress}' onchange='this.form.submit()'>";
+					$content .= "<select name='update_progress' class='progress-select status-{$progress}'>";
 					foreach ( $progress_labels as $num => $label ) {
 						$selected = ( $progress === $num ) ? 'selected' : '';
 						$content .= "<option value='{$num}' {$selected}>{$label}</option>";
@@ -708,6 +708,9 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 					$wpdb->update( $table_name, $update_data, array( 'id' => $update_id ) );
 					if ( class_exists( 'KTPWP_Order_Progress_Effects' ) ) {
 						KTPWP_Order_Progress_Effects::after_progress_updated( $update_id, $update_progress );
+					}
+					if ( class_exists( 'KTPWP_List_Warning_Counts' ) ) {
+						KTPWP_List_Warning_Counts::invalidate();
 					}
 					// リダイレクトで再読み込み（POSTリダブミット防止）
 					wp_redirect( esc_url_raw( $_SERVER['REQUEST_URI'] ) );
