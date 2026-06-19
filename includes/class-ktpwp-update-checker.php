@@ -613,7 +613,7 @@ class KTPWP_Update_Checker {
             return '';
         }
 
-        if ( preg_match( '#/releases/download/[^/]+/([^/?#]+)#', $url, $matches ) ) {
+        if ( preg_match( '~/releases/download/[^/]+/([^/?#]+)~', $url, $matches ) ) {
             return rawurldecode( $matches[1] );
         }
 
