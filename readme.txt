@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.83
+Stable tag: 1.3.84
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,11 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.84 - 2026年06月19日 =
+* 管理画面・仕事リストの表示速度を改善（重複フック削除、警告件数キャッシュ、DBスキーマ確認のキャッシュ）
+* フロントエンドのアセット読み込みを整理（二重読込解消、ブラウザキャッシュの活用）
+* 本番環境での不要なデバッグログ出力を抑制
 
 = 1.3.83 - 2026年06月19日 =
 * サービス（商品）のインポート／エクスポート機能を追加（CSV / JSON / Googleスプレッドシート形式）

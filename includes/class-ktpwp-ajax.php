@@ -4361,28 +4361,40 @@ class KTPWP_Ajax {
 			global $wpdb;
 			$table_name = $wpdb->prefix . 'ktp_order';
 
-			// デバッグログを追加
-			error_log( 'KTPWP Ajax: Table name: ' . $table_name );
-			error_log( 'KTPWP Ajax: Order ID: ' . $order_id );
-			error_log( 'KTPWP Ajax: Field: ' . $field );
-			error_log( 'KTPWP Ajax: Value: ' . $value );
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( 'KTPWP Ajax: Table name: ' . $table_name );
+				error_log( 'KTPWP Ajax: Order ID: ' . $order_id );
+				error_log( 'KTPWP Ajax: Field: ' . $field );
+				error_log( 'KTPWP Ajax: Value: ' . $value );
+			}
 
-			// テーブルの存在確認
-			$table_exists = $wpdb->get_var( "SHOW TABLES LIKE '{$table_name}'" );
-			error_log( 'KTPWP Ajax: Table exists: ' . ( $table_exists ? 'YES' : 'NO' ) );
+			$table_exists = class_exists( 'KTPWP_Schema_Cache' )
+				? KTPWP_Schema_Cache::table_exists( $table_name )
+				: ( $wpdb->get_var( "SHOW TABLES LIKE '{$table_name}'" ) === $table_name );
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( 'KTPWP Ajax: Table exists: ' . ( $table_exists ? 'YES' : 'NO' ) );
+			}
 
 			// 日付カラムが未作成の環境向けに自動追加
 			$auto_add_date_fields = array( 'promised_delivery_date', 'desired_delivery_date', 'expected_delivery_date', 'completion_date' );
 			if ( in_array( $field, $auto_add_date_fields, true ) ) {
-				$column_exists = $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM `{$table_name}` LIKE %s", $field ) );
+				$column_exists = class_exists( 'KTPWP_Schema_Cache' )
+					? KTPWP_Schema_Cache::column_exists( $table_name, $field )
+					: $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM `{$table_name}` LIKE %s", $field ) );
 				if ( ! $column_exists ) {
 					$wpdb->query( "ALTER TABLE `{$table_name}` ADD COLUMN `{$field}` DATE NULL" );
+					if ( class_exists( 'KTPWP_Schema_Cache' ) ) {
+						KTPWP_Schema_Cache::invalidate( $table_name );
+					}
 				}
 			}
 
-			// カラムの存在確認
-			$column_exists = $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM `{$table_name}` LIKE %s", $field ) );
-			error_log( 'KTPWP Ajax: Column exists: ' . ( $column_exists ? 'YES' : 'NO' ) );
+			$column_exists = class_exists( 'KTPWP_Schema_Cache' )
+				? KTPWP_Schema_Cache::column_exists( $table_name, $field )
+				: $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM `{$table_name}` LIKE %s", $field ) );
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( 'KTPWP Ajax: Column exists: ' . ( $column_exists ? 'YES' : 'NO' ) );
+			}
 
 			// データベース更新
 			$result = $wpdb->update(
@@ -4393,12 +4405,17 @@ class KTPWP_Ajax {
 				array( '%d' )
 			);
 
-			error_log( 'KTPWP Ajax: Update result: ' . var_export( $result, true ) );
-			if ( $result === false ) {
-				error_log( 'KTPWP Ajax: Last error: ' . $wpdb->last_error );
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( 'KTPWP Ajax: Update result: ' . var_export( $result, true ) );
+				if ( $result === false ) {
+					error_log( 'KTPWP Ajax: Last error: ' . $wpdb->last_error );
+				}
 			}
 
 			$ok_message = ( $field === 'memo' ) ? __( 'メモを更新しました', 'ktpwp' ) : __( '納期を更新しました', 'ktpwp' );
+			if ( class_exists( 'KTPWP_List_Warning_Counts' ) ) {
+				KTPWP_List_Warning_Counts::invalidate();
+			}
 			wp_send_json_success(
 				array(
 					'message' => $ok_message,
@@ -4408,7 +4425,9 @@ class KTPWP_Ajax {
 			);
 
 		} catch ( Exception $e ) {
-			error_log( 'KTPWP Ajax update_delivery_date Error: ' . $e->getMessage() );
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( 'KTPWP Ajax update_delivery_date Error: ' . $e->getMessage() );
+			}
 			wp_send_json_error( array( 'message' => $e->getMessage() ) );
 		}
 	}
@@ -4418,220 +4437,36 @@ class KTPWP_Ajax {
 	 */
 	public function ajax_get_creating_warning_count() {
 		try {
-			// デバッグログ
-			error_log( 'KTPWP Ajax: ajax_get_creating_warning_count called' );
-
-			// 権限チェック
 			if ( ! current_user_can( 'edit_posts' ) && ! current_user_can( 'ktpwp_access' ) ) {
-				error_log( 'KTPWP Ajax: Permission check failed' );
 				wp_send_json_error( __( 'この操作を行う権限がありません。', 'ktpwp' ) );
 				return;
 			}
 
-			// nonce検証
 			if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( $_POST['nonce'], 'ktp_ajax_nonce' ) ) {
-				error_log( 'KTPWP Ajax: Nonce verification failed' );
 				wp_send_json_error( __( 'セキュリティ検証に失敗しました', 'ktpwp' ) );
 				return;
 			}
 
-			global $wpdb;
-			$table_name = $wpdb->prefix . 'ktp_order';
-
-			// 一般設定から警告日数を取得
-			$warning_days = 3; // デフォルト値
-			if ( class_exists( 'KTPWP_Settings' ) ) {
-				$warning_days = KTPWP_Settings::get_delivery_warning_days();
-			}
-
-			error_log( 'KTPWP Ajax: Warning days: ' . $warning_days . ', Table: ' . $table_name );
-
-			// 作成中（progress = 3）で納期警告の件数を取得
-			$query = $wpdb->prepare(
-				"SELECT COUNT(*) FROM `{$table_name}` WHERE progress = %d AND expected_delivery_date IS NOT NULL AND expected_delivery_date <= DATE_ADD(CURDATE(), INTERVAL %d DAY)",
-				3, // 作成中
-				$warning_days
-			);
-
-			error_log( 'KTPWP Ajax: Query: ' . $query );
-
-			$warning_count = $wpdb->get_var( $query );
-
-			if ( $warning_count === null ) {
-				error_log( 'KTPWP Ajax: Database error: ' . $wpdb->last_error );
-				wp_send_json_error( __( 'データベースエラーが発生しました', 'ktpwp' ) );
+			if ( ! class_exists( 'KTPWP_List_Warning_Counts' ) ) {
+				wp_send_json_error( __( '警告件数の取得に失敗しました', 'ktpwp' ) );
 				return;
 			}
 
-			error_log( 'KTPWP Ajax: Warning count: ' . $warning_count );
-
-			// 完了タブ（progress=4）の請求書締日警告件数（リアルタイム更新用）
-			$invoice_warning_count = 0;
-			$client_table           = $wpdb->prefix . 'ktp_client';
-			$query_invoice          = "SELECT o.id, o.client_id, o.completion_date, c.closing_day FROM {$table_name} o LEFT JOIN {$client_table} c ON o.client_id = c.id WHERE o.progress = 4 AND o.completion_date IS NOT NULL AND c.closing_day IS NOT NULL AND c.closing_day != 'なし'";
-			$orders_invoice         = $wpdb->get_results( $query_invoice );
-			$today                  = new DateTime();
-			$today->setTime( 0, 0, 0 );
-			foreach ( $orders_invoice as $order ) {
-				$completion_date = $order->completion_date;
-				if ( empty( $completion_date ) ) {
-					continue;
-				}
-				$dt = DateTime::createFromFormat( 'Y-m-d', $completion_date );
-				$errors = DateTime::getLastErrors();
-				if ( $dt === false || ( $errors && ( $errors['warning_count'] > 0 || $errors['error_count'] > 0 ) ) ) {
-					continue;
-				}
-				$completion_dt = $dt;
-				$year          = (int) $completion_dt->format( 'Y' );
-				$month         = (int) $completion_dt->format( 'm' );
-				if ( $year < 1 || $year > 9999 || $month < 1 || $month > 12 ) {
-					continue;
-				}
-				$closing_day = $order->closing_day;
-				if ( $closing_day === '末日' ) {
-					$closing_dt = new DateTime( "$year-$month-01" );
-					$closing_dt->modify( 'last day of this month' );
-				} else {
-					$closing_day_num = (int) $closing_day;
-					$closing_dt      = new DateTime( "$year-$month-" . str_pad( $closing_day_num, 2, '0', STR_PAD_LEFT ) );
-					$last_day        = (int) $closing_dt->format( 't' );
-					if ( $closing_day_num > $last_day ) {
-						$closing_dt->modify( 'last day of this month' );
-					}
-				}
-				$closing_dt->setTime( 0, 0, 0 );
-				$diff     = $today->diff( $closing_dt );
-				$days_left = $diff->invert ? -$diff->days : $diff->days;
-				if ( $days_left <= 0 ) {
-					$invoice_warning_count++;
-				}
-			}
-
-			// 請求済タブ（progress=5）の入金予定日（支払期日）超過件数（前入金済は対象外・リアルタイム更新用）
-			$payment_warning_count = 0;
-			$query_payment         = "SELECT o.id, o.client_id, o.completion_date, o.payment_timing AS order_payment_timing, c.closing_day, c.payment_month, c.payment_day, c.payment_timing AS client_payment_timing FROM {$table_name} o LEFT JOIN {$client_table} c ON o.client_id = c.id WHERE o.progress = 5 AND o.completion_date IS NOT NULL AND c.payment_month IS NOT NULL AND c.payment_day IS NOT NULL";
-			$orders_payment        = $wpdb->get_results( $query_payment );
-			foreach ( $orders_payment as $order ) {
-				// 前入金済みは未入金警告対象外
-				if ( class_exists( 'KTPWP_Payment_Timing' ) ) {
-					$order_obj  = (object) array(
-						'payment_timing' => isset( $order->order_payment_timing ) ? $order->order_payment_timing : null,
-						'client_id'      => isset( $order->client_id ) ? $order->client_id : 0,
-					);
-					$client_obj = (object) array(
-						'payment_timing' => isset( $order->client_payment_timing ) ? $order->client_payment_timing : null,
-					);
-					if ( KTPWP_Payment_Timing::is_prepay( $order_obj, $client_obj ) ) {
-						continue;
-					}
-				}
-
-				$completion_date = isset( $order->completion_date ) ? (string) $order->completion_date : '';
-				if ( $completion_date === '' ) {
-					continue;
-				}
-				$completion_dt = DateTime::createFromFormat( 'Y-m-d', $completion_date );
-				$errors = DateTime::getLastErrors();
-				if ( $completion_dt === false || ( $errors && ( $errors['warning_count'] > 0 || $errors['error_count'] > 0 ) ) ) {
-					continue;
-				}
-				$completion_dt->setTime( 0, 0, 0 );
-
-				$year  = (int) $completion_dt->format( 'Y' );
-				$month = (int) $completion_dt->format( 'm' );
-				if ( $year < 1 || $year > 9999 || $month < 1 || $month > 12 ) {
-					continue;
-				}
-
-				$closing_day   = isset( $order->closing_day ) ? (string) $order->closing_day : '末日';
-				$payment_month = isset( $order->payment_month ) ? (string) $order->payment_month : '翌月';
-				$payment_day   = isset( $order->payment_day ) ? (string) $order->payment_day : '末日';
-
-				// 完了日が属する請求月（締め日基準）を決定
-				$billing_year  = $year;
-				$billing_month = $month;
-				if ( $closing_day !== '' && $closing_day !== 'なし' ) {
-					if ( $closing_day === '末日' ) {
-						$closing_dt = new DateTime( "$year-$month-01" );
-						$closing_dt->modify( 'last day of this month' );
-					} else {
-						$closing_day_num = (int) $closing_day;
-						$closing_dt      = new DateTime( "$year-$month-" . str_pad( (string) $closing_day_num, 2, '0', STR_PAD_LEFT ) );
-						$last_day        = (int) $closing_dt->format( 't' );
-						if ( $closing_day_num > $last_day ) {
-							$closing_dt->modify( 'last day of this month' );
-						}
-					}
-					$closing_dt->setTime( 0, 0, 0 );
-					if ( $completion_dt > $closing_dt ) {
-						$billing_month++;
-						if ( $billing_month > 12 ) {
-							$billing_month = 1;
-							$billing_year++;
-						}
-					}
-				}
-
-				// 支払月を計算（今月/翌月/翌々月）
-				$payment_year  = $billing_year;
-				$payment_m_num = $billing_month;
-				switch ( $payment_month ) {
-					case '今月':
-						$payment_m_num = $billing_month;
-						break;
-					case '翌々月':
-						$payment_m_num = $billing_month + 2;
-						if ( $payment_m_num > 12 ) {
-							$payment_m_num -= 12;
-							$payment_year++;
-						}
-						break;
-					case '翌月':
-					default:
-						$payment_m_num = $billing_month + 1;
-						if ( $payment_m_num > 12 ) {
-							$payment_m_num = 1;
-							$payment_year++;
-						}
-						break;
-				}
-
-				// 支払日を計算（末日/即日/指定日）
-				if ( $payment_day === '即日' ) {
-					$due_dt = clone $completion_dt;
-				} else {
-					$due_dt = new DateTime();
-					$due_dt->setDate( $payment_year, $payment_m_num, 1 );
-					if ( $payment_day === '末日' ) {
-						$due_dt->modify( 'last day of this month' );
-					} else {
-						$payment_day_num = (int) str_replace( '日', '', $payment_day );
-						$due_dt->setDate( $payment_year, $payment_m_num, max( 1, $payment_day_num ) );
-						$last_day = (int) $due_dt->format( 't' );
-						if ( $payment_day_num > $last_day ) {
-							$due_dt->modify( 'last day of this month' );
-						}
-					}
-					$due_dt->setTime( 0, 0, 0 );
-				}
-
-				if ( $today > $due_dt ) {
-					$payment_warning_count++;
-				}
-			}
+			$bundle = KTPWP_List_Warning_Counts::get_bundle();
 
 			wp_send_json_success(
 				array(
-					'warning_count'        => (int) $warning_count,
-					'warning_days'         => $warning_days,
-					'invoice_warning_count' => (int) $invoice_warning_count,
-					'payment_warning_count' => (int) $payment_warning_count,
+					'warning_count'         => isset( $bundle['progress_warnings'][3] ) ? (int) $bundle['progress_warnings'][3] : 0,
+					'warning_days'          => isset( $bundle['warning_days'] ) ? (int) $bundle['warning_days'] : 3,
+					'invoice_warning_count' => isset( $bundle['invoice_warning_count'] ) ? (int) $bundle['invoice_warning_count'] : 0,
+					'payment_warning_count' => isset( $bundle['payment_warning_count'] ) ? (int) $bundle['payment_warning_count'] : 0,
 				)
 			);
 
 		} catch ( Exception $e ) {
-			error_log( 'KTPWP Ajax ajax_get_creating_warning_count Error: ' . $e->getMessage() );
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( 'KTPWP Ajax ajax_get_creating_warning_count Error: ' . $e->getMessage() );
+			}
 			wp_send_json_error( __( 'エラーが発生しました: ' . $e->getMessage(), 'ktpwp' ) );
 		}
 	}
@@ -5228,6 +5063,9 @@ class KTPWP_Ajax {
 		if ( $result !== false ) {
 			if ( class_exists( 'KTPWP_Order_Progress_Effects' ) ) {
 				KTPWP_Order_Progress_Effects::after_progress_updated( $order_id, $new_progress );
+			}
+			if ( class_exists( 'KTPWP_List_Warning_Counts' ) ) {
+				KTPWP_List_Warning_Counts::invalidate();
 			}
 
 			wp_send_json_success( array(

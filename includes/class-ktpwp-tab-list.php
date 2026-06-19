@@ -60,8 +60,9 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 
 			$recurring_billing_view = isset( $_GET['recurring_billing'] ) && '1' === (string) wp_unslash( $_GET['recurring_billing'] );
 			$list_type_recurring    = isset( $_GET['list_type'] ) && 'recurring' === sanitize_key( wp_unslash( $_GET['list_type'] ) );
-			$order_columns          = $wpdb->get_col( "SHOW COLUMNS FROM `{$table_name}`" );
-			$order_has_contract_id  = is_array( $order_columns ) && in_array( 'contract_id', $order_columns, true );
+			$order_has_contract_id  = class_exists( 'KTPWP_Schema_Cache' )
+				? KTPWP_Schema_Cache::column_exists( $table_name, 'contract_id' )
+				: in_array( 'contract_id', (array) $wpdb->get_col( "SHOW COLUMNS FROM `{$table_name}`" ), true );
 			$list_type_where        = ( $list_type_recurring && $order_has_contract_id ) ? ' AND contract_id > 0' : '';
 
 			// フリーワード検索用GETパラメータ
@@ -117,213 +118,19 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 			// 印刷時だけページネーションを無視して全件取得する
 			$print_all = isset( $_GET['print_all'] ) && (string) $_GET['print_all'] !== '' && (string) $_GET['print_all'] !== '0';
 
-			// Get count for each progress status with prepared statements
-			$progress_counts = array();
-			$progress_warnings = array(); // 納期警告カウント用
-
-			foreach ( $progress_labels as $num => $label ) {
-				$count = $wpdb->get_var(
-                    $wpdb->prepare(
-                        "SELECT COUNT(*) FROM `{$table_name}` WHERE progress = %d",
-                        $num
-                    )
-                );
-				$progress_counts[ $num ] = (int) $count;
-
-				// 受注（progress = 3）の場合、納期警告の件数を取得
-				if ( $num == 3 ) {
-					// 一般設定から警告日数を取得
-					$warning_days = 3; // デフォルト値
-					if ( class_exists( 'KTPWP_Settings' ) ) {
-						$warning_days = KTPWP_Settings::get_delivery_warning_days();
-					}
-
-					$warning_count = $wpdb->get_var(
-                        $wpdb->prepare(
-                            "SELECT COUNT(*) FROM `{$table_name}` WHERE progress = %d AND expected_delivery_date IS NOT NULL AND expected_delivery_date <= DATE_ADD(CURDATE(), INTERVAL %d DAY)",
-                            $num,
-                            $warning_days
-                        )
-                    );
-					$progress_warnings[ $num ] = (int) $warning_count;
-				} else {
-					$progress_warnings[ $num ] = 0;
-				}
-			}
-
-			// ▼▼▼ 完了タブの請求書締日警告件数をカウント ▼▼▼
-			$invoice_warning_count = 0;
-			if ( isset( $progress_labels[4] ) ) {
-				// プレースホルダーが不要なクエリなので、直接実行
-				$query_invoice_warning = "SELECT o.id, o.client_id, o.completion_date, c.closing_day FROM {$table_name} o LEFT JOIN {$wpdb->prefix}ktp_client c ON o.client_id = c.id WHERE o.progress = 4 AND o.completion_date IS NOT NULL AND c.closing_day IS NOT NULL AND c.closing_day != 'なし'";
-				$orders_for_invoice_warning = $wpdb->get_results( $query_invoice_warning );
-				$today = new DateTime();
-				$today->setTime( 0, 0, 0 );
-				foreach ( $orders_for_invoice_warning as $order ) {
-					$completion_date = $order->completion_date;
-					if ( empty( $completion_date ) ) {
-						continue;
-					}
-					// 日付フォーマットチェック
-					$dt = DateTime::createFromFormat( 'Y-m-d', $completion_date );
-					$errors = DateTime::getLastErrors();
-					if ( $dt === false || ( $errors && ( $errors['warning_count'] > 0 || $errors['error_count'] > 0 ) ) ) {
-						if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-							error_log( 'KTPWP: 不正なcompletion_date検出: ' . print_r( $completion_date, true ) );
-						}
-						continue;
-					}
-					$completion_dt = $dt;
-					$year = (int) $completion_dt->format( 'Y' );
-					$month = (int) $completion_dt->format( 'm' );
-					if ( $year < 1 || $year > 9999 || $month < 1 || $month > 12 ) {
-						continue;
-					}
-					$closing_day = $order->closing_day;
-					if ( $closing_day === '末日' ) {
-						$closing_dt = new DateTime( "$year-$month-01" );
-						$closing_dt->modify( 'last day of this month' );
-					} else {
-						$closing_day_num = intval( $closing_day );
-						$closing_dt = new DateTime( "$year-$month-" . str_pad( $closing_day_num, 2, '0', STR_PAD_LEFT ) );
-						$last_day = (int) $closing_dt->format( 't' );
-						if ( $closing_day_num > $last_day ) {
-							$closing_dt->modify( 'last day of this month' );
-						}
-					}
-					$closing_dt->setTime( 0, 0, 0 );
-					$diff = $today->diff( $closing_dt );
-					$days_left = $diff->invert ? -$diff->days : $diff->days;
-					// 請求日当日以降の場合に警告マークを表示
-					if ( $days_left <= 0 ) {
-						$invoice_warning_count++;
-					}
-				}
-			}
-
-			// ▼▼▼ 請求済タブの入金予定日（支払期日）超過件数をカウント（前入金済は対象外） ▼▼▼
-			$payment_warning_count = 0;
-			if ( isset( $progress_labels[5] ) ) {
-				$client_table = $wpdb->prefix . 'ktp_client';
-				$query_payment_warning = "SELECT o.id, o.client_id, o.completion_date, o.payment_timing AS order_payment_timing, c.closing_day, c.payment_month, c.payment_day, c.payment_timing AS client_payment_timing FROM {$table_name} o LEFT JOIN {$client_table} c ON o.client_id = c.id WHERE o.progress = 5 AND o.completion_date IS NOT NULL AND c.payment_month IS NOT NULL AND c.payment_day IS NOT NULL";
-				$orders_for_payment_warning = $wpdb->get_results( $query_payment_warning );
-
-				$today = new DateTime();
-				$today->setTime( 0, 0, 0 );
-
-				foreach ( $orders_for_payment_warning as $order ) {
-					// 前入金済み（前払い・WC受注・EC受注）は未入金警告対象外
-					if ( class_exists( 'KTPWP_Payment_Timing' ) ) {
-						$order_obj  = (object) array(
-							'payment_timing' => isset( $order->order_payment_timing ) ? $order->order_payment_timing : null,
-							'client_id'      => isset( $order->client_id ) ? $order->client_id : 0,
-						);
-						$client_obj = (object) array(
-							'payment_timing' => isset( $order->client_payment_timing ) ? $order->client_payment_timing : null,
-						);
-						if ( KTPWP_Payment_Timing::is_prepay( $order_obj, $client_obj ) ) {
-							continue;
-						}
-					}
-
-					$completion_date = isset( $order->completion_date ) ? (string) $order->completion_date : '';
-					if ( $completion_date === '' ) {
-						continue;
-					}
-
-					$completion_dt = DateTime::createFromFormat( 'Y-m-d', $completion_date );
-					$errors = DateTime::getLastErrors();
-					if ( $completion_dt === false || ( $errors && ( $errors['warning_count'] > 0 || $errors['error_count'] > 0 ) ) ) {
-						continue;
-					}
-					$completion_dt->setTime( 0, 0, 0 );
-
-					$closing_day   = isset( $order->closing_day ) ? (string) $order->closing_day : '末日';
-					$payment_month = isset( $order->payment_month ) ? (string) $order->payment_month : '翌月';
-					$payment_day   = isset( $order->payment_day ) ? (string) $order->payment_day : '末日';
-
-					$year  = (int) $completion_dt->format( 'Y' );
-					$month = (int) $completion_dt->format( 'm' );
-					if ( $year < 1 || $year > 9999 || $month < 1 || $month > 12 ) {
-						continue;
-					}
-
-					// 完了日が属する請求月（締め日基準）を決定
-					$billing_year  = $year;
-					$billing_month = $month;
-					if ( $closing_day !== '' && $closing_day !== 'なし' ) {
-						if ( $closing_day === '末日' ) {
-							$closing_dt = new DateTime( "$year-$month-01" );
-							$closing_dt->modify( 'last day of this month' );
-						} else {
-							$closing_day_num = (int) $closing_day;
-							$closing_dt      = new DateTime( "$year-$month-" . str_pad( (string) $closing_day_num, 2, '0', STR_PAD_LEFT ) );
-							$last_day        = (int) $closing_dt->format( 't' );
-							if ( $closing_day_num > $last_day ) {
-								$closing_dt->modify( 'last day of this month' );
-							}
-						}
-						$closing_dt->setTime( 0, 0, 0 );
-
-						// 完了日が締め日を過ぎている場合は翌月締め扱い
-						if ( $completion_dt > $closing_dt ) {
-							$billing_month++;
-							if ( $billing_month > 12 ) {
-								$billing_month = 1;
-								$billing_year++;
-							}
-						}
-					}
-
-					// 支払月を計算（今月/翌月/翌々月）
-					$payment_year  = $billing_year;
-					$payment_m_num = $billing_month;
-					switch ( $payment_month ) {
-						case '今月':
-							$payment_m_num = $billing_month;
-							break;
-						case '翌々月':
-							$payment_m_num = $billing_month + 2;
-							if ( $payment_m_num > 12 ) {
-								$payment_m_num -= 12;
-								$payment_year++;
-							}
-							break;
-						case '翌月':
-						default:
-							$payment_m_num = $billing_month + 1;
-							if ( $payment_m_num > 12 ) {
-								$payment_m_num = 1;
-								$payment_year++;
-							}
-							break;
-					}
-
-					// 支払日を計算（末日/即日/指定日）
-					if ( $payment_day === '即日' ) {
-						$due_dt = clone $completion_dt;
-					} else {
-						$due_dt = new DateTime();
-						$due_dt->setDate( $payment_year, $payment_m_num, 1 );
-						if ( $payment_day === '末日' ) {
-							$due_dt->modify( 'last day of this month' );
-						} else {
-							$payment_day_num = (int) str_replace( '日', '', $payment_day );
-							$due_dt->setDate( $payment_year, $payment_m_num, max( 1, $payment_day_num ) );
-							$last_day = (int) $due_dt->format( 't' );
-							if ( $payment_day_num > $last_day ) {
-								$due_dt->modify( 'last day of this month' );
-							}
-						}
-						$due_dt->setTime( 0, 0, 0 );
-					}
-
-					// 入金予定日（支払期日）を過ぎている場合にカウント
-					if ( $today > $due_dt ) {
-						$payment_warning_count++;
-					}
-				}
-			}
+			// Get count for each progress status（Transient キャッシュ利用）
+			$warning_bundle        = class_exists( 'KTPWP_List_Warning_Counts' )
+				? KTPWP_List_Warning_Counts::get_bundle()
+				: array(
+					'progress_counts'         => array(),
+					'progress_warnings'       => array(),
+					'invoice_warning_count'   => 0,
+					'payment_warning_count'   => 0,
+				);
+			$progress_counts       = isset( $warning_bundle['progress_counts'] ) ? $warning_bundle['progress_counts'] : array();
+			$progress_warnings     = isset( $warning_bundle['progress_warnings'] ) ? $warning_bundle['progress_warnings'] : array();
+			$invoice_warning_count = isset( $warning_bundle['invoice_warning_count'] ) ? (int) $warning_bundle['invoice_warning_count'] : 0;
+			$payment_warning_count = isset( $warning_bundle['payment_warning_count'] ) ? (int) $warning_bundle['payment_warning_count'] : 0;
 
 			$content .= '</div>'; // .controller end
 

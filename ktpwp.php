@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.3.83
+ * Version: 1.3.84
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -1057,6 +1057,9 @@ if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
         'KTPWP_Stripe_Billing'    => 'includes/class-ktpwp-stripe-billing.php',
         'KTPWP_Stripe_Subscription' => 'includes/class-ktpwp-stripe-subscription.php',
         'KTPWP_Contract_Invoice_Mail' => 'includes/class-ktpwp-contract-invoice-mail.php',
+        'KTPWP_Cache'               => 'includes/class-ktpwp-cache.php',
+        'KTPWP_Schema_Cache'        => 'includes/class-ktpwp-schema-cache.php',
+        'KTPWP_List_Warning_Counts' => 'includes/class-ktpwp-list-warning-counts.php',
     );
 
     foreach ( $classes as $class_name => $file_path ) {
@@ -3049,23 +3052,6 @@ if ( get_option( 'ktpwp_version', '0' ) !== KANTANPRO_PLUGIN_VERSION ) {
     add_action( 'plugins_loaded', 'ktpwp_run_auto_migrations', 8 );
 }
 
-// プラグイン再有効化時の自動マイグレーション
-add_action( 'admin_init', 'ktpwp_check_reactivation_migration' );
-
-// プラグイン更新時の自動マイグレーション
-add_action( 'upgrader_process_complete', 'ktpwp_plugin_upgrade_migration', 10, 2 );
-
-// 新規インストール検出と自動マイグレーション
-add_action( 'admin_init', 'ktpwp_detect_new_installation' );
-
-// 利用規約同意チェック（管理画面でのみ実行 - パフォーマンス最適化）
-if ( is_admin() ) {
-    add_action( 'admin_init', 'ktpwp_check_terms_agreement' );
-}
-
-// 配布用の追加安全チェック
-add_action( 'init', 'ktpwp_distribution_safety_check', 1 );
-
 /**
  * 部署テーブルを作成する関数
  */
@@ -4615,6 +4601,20 @@ function ktpwp_should_enqueue_frontend_assets() {
     return (bool) apply_filters( 'ktpwp_should_enqueue_frontend_assets', $load );
 }
 
+/**
+ * プラグイン内アセットのバージョン文字列（filemtime 付き）
+ *
+ * @param string $relative_path プラグインルートからの相対パス。
+ * @return string
+ */
+function ktpwp_asset_version( $relative_path ) {
+    $path = KTPWP_PLUGIN_DIR . ltrim( $relative_path, '/' );
+    if ( file_exists( $path ) ) {
+        return KANTANPRO_PLUGIN_VERSION . '.' . filemtime( $path );
+    }
+    return KANTANPRO_PLUGIN_VERSION;
+}
+
 function ktpwp_scripts_and_styles( $hook = '' ) {
     // 管理画面ではフロント用 JS/CSS・Google CDN の jQuery を読み込まない。
     // コアの jQuery / メニュー用スクリプトを上書きすると、ダッシュボードなど左メニューのサブメニューが表示されなくなる。
@@ -4636,7 +4636,13 @@ function ktpwp_scripts_and_styles( $hook = '' ) {
         );
 
         if ( $is_site_health_page ) {
-            wp_enqueue_style( 'ktpwp-site-health-reset', plugins_url( 'css/site-health-reset.css', __FILE__ ) . '?v=' . time(), array(), KANTANPRO_PLUGIN_VERSION, 'all' );
+            wp_enqueue_style(
+                'ktpwp-site-health-reset',
+                plugins_url( 'css/site-health-reset.css', __FILE__ ),
+                array(),
+                ktpwp_asset_version( 'css/site-health-reset.css' ),
+                'all'
+            );
         }
 
         return;
@@ -4646,72 +4652,17 @@ function ktpwp_scripts_and_styles( $hook = '' ) {
         return;
     }
 
-    wp_enqueue_script(
-        'ktp-number-format',
-        plugins_url( 'js/ktp-number-format.js', __FILE__ ),
-        array(),
-        KANTANPRO_PLUGIN_VERSION,
-        true
-    );
-    wp_enqueue_script( 'ktp-js', plugins_url( 'js/ktp-js.js', __FILE__ ) . '?v=' . time(), array( 'jquery', 'ktp-number-format' ), null, true );
-
-    // デバッグモードの設定（WP_DEBUGまたは開発環境でのみ有効）
-    $debug_mode = ( defined( 'WP_DEBUG' ) && WP_DEBUG ) || ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG );
-    wp_add_inline_script( 'ktp-js', 'var ktpwpDebugMode = ' . json_encode( $debug_mode ) . ';' );
-
-    // コスト項目トグル用の国際化ラベルをJSに渡す
-    wp_add_inline_script( 'ktp-js', 'var ktpwpCostShowLabel = ' . json_encode( '表示' ) . ';' );
-    wp_add_inline_script( 'ktp-js', 'var ktpwpCostHideLabel = ' . json_encode( '非表示' ) . ';' );
-    wp_add_inline_script( 'ktp-js', 'var ktpwpStaffChatShowLabel = ' . json_encode( '表示' ) . ';' );
-    wp_add_inline_script( 'ktp-js', 'var ktpwpStaffChatHideLabel = ' . json_encode( '非表示' ) . ';' );
-
-    // スタイルを読み込み（フロントエンドのみ）
-    wp_register_style( 'ktp-css', plugins_url( 'css/styles.css', __FILE__ ) . '?v=' . time(), array(), KANTANPRO_PLUGIN_VERSION, 'all' );
-    wp_enqueue_style( 'ktp-css' );
-    // 進捗プルダウン用のスタイルシートを追加
-    wp_enqueue_style( 'ktp-progress-select', plugins_url( 'css/progress-select.css', __FILE__ ) . '?v=' . time(), array( 'ktp-css' ), KANTANPRO_PLUGIN_VERSION, 'all' );
-    // 設定タブ用のスタイルシートを追加
-    wp_enqueue_style( 'ktp-setting-tab', plugins_url( 'css/ktp-setting-tab.css', __FILE__ ) . '?v=' . time(), array( 'ktp-css' ), KANTANPRO_PLUGIN_VERSION, 'all' );
-    // レポートタブ用のスタイルシートを追加
-    wp_enqueue_style( 'ktp-report', plugins_url( 'css/ktp-report.css', __FILE__ ) . '?v=' . time(), array( 'ktp-css' ), KANTANPRO_PLUGIN_VERSION, 'all' );
-
-    // Material Symbolsを無効化し、SVGアイコンに置き換え
-    // wp_enqueue_style( 'ktpwp-material-icons', 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0', array(), null );
-
-    // Google Fontsのプリロード設定も無効化
-    // add_action(
-    //     'wp_head',
-    //     function () {
-    //         echo '<link rel="preconnect" href="https://fonts.googleapis.com">' . "\n";
-    //         echo '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' . "\n";
-    //         echo '<link rel="preload" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" as="style" onload="this.onload=null;this.rel=\'stylesheet\'">' . "\n";
-    //     },
-    //     1
-    // );
-    wp_enqueue_script( 'jquery', 'https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js', array(), '3.5.1', true );
-    wp_enqueue_script( 'ktp-order-inline-projectname', plugins_url( 'js/ktp-order-inline-projectname.js', __FILE__ ), array( 'jquery' ), KANTANPRO_PLUGIN_VERSION, true );
-    // Nonceをjsに渡す（案件名インライン編集用）
-    if ( current_user_can( 'manage_options' ) || current_user_can( 'ktpwp_access' ) ) {
-        wp_add_inline_script(
-            'ktp-order-inline-projectname',
-            'var ktpwp_inline_edit_nonce = ' . json_encode(
-                array(
-					'nonce' => wp_create_nonce( 'ktp_update_project_name' ),
-                )
-            ) . ';'
+    // メインアセットは KTPWP_Assets が読み込む。ここでは Assets に無いものだけ追加する。
+    $current_tab = isset( $_GET['tab_name'] ) ? sanitize_key( wp_unslash( $_GET['tab_name'] ) ) : '';
+    if ( 'report' === $current_tab ) {
+        wp_enqueue_style(
+            'ktp-report',
+            plugins_url( 'css/ktp-report.css', __FILE__ ),
+            array( 'ktp-css' ),
+            ktpwp_asset_version( 'css/ktp-report.css' ),
+            'all'
         );
     }
-
-    // ajaxurl をフロントエンドに渡す（nonce は AJAX クラス / Assets で設定するため、ここでは上書きしない）
-    wp_add_inline_script( 'ktp-js', 'var ajaxurl = ' . json_encode( admin_url( 'admin-ajax.php' ) ) . ';' );
-
-    // Ajax nonceを追加 - AJAXクラスで管理されるため、ここでは設定しない
-    // wp_add_inline_script( 'ktp-invoice-items', 'var ktp_ajax_nonce = ' . json_encode( wp_create_nonce( 'ktp_ajax_nonce' ) ) . ';' );
-    // wp_add_inline_script( 'ktp-cost-items', 'var ktp_ajax_nonce = ' . json_encode( wp_create_nonce( 'ktp_ajax_nonce' ) ) . ';' );
-
-    // ajaxurlをJavaScriptで利用可能にする - AJAXクラスで管理されるため、ここでは設定しない
-    // wp_add_inline_script( 'ktp-invoice-items', 'var ajaxurl = ' . json_encode( admin_url( 'admin-ajax.php' ) ) . ';' );
-    // wp_add_inline_script( 'ktp-cost-items', 'var ajaxurl = ' . json_encode( admin_url( 'admin-ajax.php' ) ) . ';' );
 
     // デバッグモードでAJAXデバッグスクリプトを読み込み（ファイルが存在する場合のみ）
     if ( defined( 'WP_DEBUG' ) && WP_DEBUG && file_exists( plugin_dir_path( __FILE__ ) . 'debug-ajax.js' ) ) {
@@ -4771,7 +4722,13 @@ function ktpwp_scripts_and_styles( $hook = '' ) {
 // サイトヘルスページ専用のCSS読み込み
 function ktpwp_site_health_styles() {
     // サイトヘルスページ専用のリセットCSSを読み込み
-    wp_enqueue_style( 'ktpwp-site-health-reset', plugins_url( 'css/site-health-reset.css', __FILE__ ) . '?v=' . time(), array(), KANTANPRO_PLUGIN_VERSION, 'all' );
+    wp_enqueue_style(
+        'ktpwp-site-health-reset',
+        plugins_url( 'css/site-health-reset.css', __FILE__ ),
+        array(),
+        ktpwp_asset_version( 'css/site-health-reset.css' ),
+        'all'
+    );
 }
 
 // サイトヘルスページでのみ実行
