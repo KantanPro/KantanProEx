@@ -667,7 +667,7 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 					// 進捗プルダウンを納期コンテナ内に配置
 					$content .= "<form method='post' action='' style='margin: 0px 0 0px 0;display:inline;'>";
 					$content .= "<input type='hidden' name='update_progress_id' value='{$order_id}' />";
-					$content .= "<select name='update_progress' class='progress-select status-{$progress}'>";
+					$content .= "<select name='update_progress' class='progress-select status-{$progress}' onchange='this.form.submit()'>";
 					foreach ( $progress_labels as $num => $label ) {
 						$selected = ( $progress === $num ) ? 'selected' : '';
 						$content .= "<option value='{$num}' {$selected}>{$label}</option>";

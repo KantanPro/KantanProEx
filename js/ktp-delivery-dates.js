@@ -67,6 +67,7 @@ window.handleProgressChange = function(selectElement) {
     var $select = jQuery(selectElement);
     var $form = $select.closest('form');
     var $listItem = $select.closest('.ktp_work_list_item');
+    var isListContext = $listItem.length > 0;
     var $completionInput = $listItem.length
         ? $listItem.find('.completion-date-input').first()
         : jQuery('#completion_date');
@@ -173,6 +174,24 @@ window.handleProgressChange = function(selectElement) {
                 }
                 if (typeof window.ktpUpdateProgressButtonWarning === 'function') {
                     window.ktpUpdateProgressButtonWarning();
+                }
+
+                // 仕事リストでは、進捗が現在のフィルターと一致しなくなった案件を
+                // 正しいフィルターへ移動させるためにリストを再読み込みする。
+                if (isListContext) {
+                    var filterProgress = 1;
+                    try {
+                        var sp = new URLSearchParams(window.location.search);
+                        var pParam = sp.get('progress');
+                        filterProgress = pParam ? parseInt(pParam, 10) : 1;
+                    } catch (e) {
+                        filterProgress = 1;
+                    }
+                    if (newProgress !== filterProgress) {
+                        setTimeout(function() {
+                            window.location.reload();
+                        }, 400);
+                    }
                 }
             } else {
                 // エラー時の処理
@@ -820,73 +839,16 @@ jQuery(document).ready(function($) {
         // 進捗タブバッジはPHPで表示済みのため、ここでは更新しない（消えないようにする）
     }, 100);
 
-    // 進捗プルダウンの変更前の値を保持
-    $(document).on('focus', '.progress-select', function() {
-        $(this).data('prev-progress', parseInt($(this).val(), 10));
-    });
-
-    // 仕事リストの進捗フォーム送信を防止（AJAXで保存）
-    $(document).on('submit', 'form', function(e) {
-        if ($(this).find('select.progress-select').length) {
-            e.preventDefault();
-            return false;
-        }
-    });
-
     // 進捗プルダウンの変更を監視（仕事リスト用）
+    // 保存・件数更新・案件の移動はサーバー側（onchange のフォーム送信 → リダイレクト）で行う。
+    // ここでは見た目（ステータス色）だけ即時反映する。
     $(document).on('change', '.progress-select', function() {
-        console.log('[DELIVERY-DATES] 進捗プルダウンが変更されました（仕事リスト）');
-        
         var $select = $(this);
-        var $listItem = $select.closest('.ktp_work_list_item');
-        var $deliveryInput = $listItem.find('.delivery-date-input');
-        var $completionInput = $listItem.find('.completion-date-input');
-        
         var newProgress = parseInt($select.val(), 10);
-        var oldProgress = parseInt($select.data('prev-progress'), 10);
-        if (isNaN(oldProgress)) {
-            oldProgress = newProgress;
-        }
-        
-        console.log('[DELIVERY-DATES] 進捗変更:', {
-            oldProgress: oldProgress,
-            newProgress: newProgress,
-            hasDeliveryInput: $deliveryInput.length > 0,
-            hasCompletionInput: $completionInput.length > 0
-        });
-        
-        // 進捗が「完了」（progress = 4）に変更された場合、完了日を自動設定
-        if (newProgress === 4 && oldProgress !== 4 && $completionInput.length > 0) {
-            console.log('[DELIVERY-DATES] 進捗が完了に変更されたため、完了日を自動設定します');
-            var today = new Date();
-            var todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD形式
-            $completionInput.val(todayStr);
-            
-            // 完了日フィールドの変更をトリガーして保存
-            $completionInput.trigger('change');
-        }
-        
-        // 進捗が受注以前（受付中、見積中、受注）に変更された場合、完了日をクリア
-        if ([1, 2, 3].includes(newProgress) && oldProgress > 3 && $completionInput.length > 0) {
-            console.log('[DELIVERY-DATES] 進捗が受注以前に変更されたため、完了日をクリアします');
-            $completionInput.val('');
-            
-            // 完了日フィールドの変更をトリガーして保存
-            $completionInput.trigger('change');
-        }
-        
-        // 現在の進捗を保存
-        $select.data('prev-progress', newProgress);
-        
-        // 納期フィールドが存在する場合、行の警告マークを更新
-        if ($deliveryInput.length > 0) {
-            var deliveryDate = $deliveryInput.val();
-            console.log('[DELIVERY-DATES] 納期フィールドあり、更新:', deliveryDate);
-            updateWarningMark($deliveryInput, deliveryDate);
-        }
-
-        // サーバーへ進捗を保存し、フィルター件数を更新
-        handleProgressChange(this);
+        $select.removeClass('status-1 status-2 status-3 status-4 status-5 status-6 status-7');
+        $select.addClass('progress-select status-' + newProgress);
+        // フォームは onchange='this.form.submit()' で送信され、
+        // サーバー側で進捗・完了日・件数（キャッシュ破棄）が更新され、案件が正しい進捗へ移動する。
     });
 
     // 受注書詳細での進捗プルダウンの変更を監視
