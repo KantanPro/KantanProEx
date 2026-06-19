@@ -2825,14 +2825,12 @@ class KTPWP_Update_Checker {
      * @param string $package パッケージ URL
      * @return bool
      */
-    private function is_package_for_our_repo( $package ) {
-        $package = (string) $package;
-        $repo    = (string) $this->github_repo;
+	private function is_package_for_our_repo( $package ) {
+		$package = (string) $package;
 
-        return stripos( $package, $repo ) !== false
-            || stripos( $package, 'KantanPro/KantanProEX' ) !== false
-            || stripos( $package, 'KantanPro/KantanProEx' ) !== false;
-    }
+		return (bool) preg_match( '#github\.com/KantanPro/KantanProEx/(?:archive/refs/tags/|releases/download/)#i', $package )
+			|| (bool) preg_match( '#api\.github\.com/repos/KantanPro/KantanProEx/(?:zipball|releases/assets/)#i', $package );
+	}
 
     /**
      * GitHubダウンロード用のHTTPリクエスト引数を調整する
