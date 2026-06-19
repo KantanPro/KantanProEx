@@ -1983,7 +1983,10 @@ class KTPWP_Shortcodes {
                     </p>
                     <p class="ktpwp-public-product-order-form__field ktpwp-public-product-order-form__field--quantity">
                         <label for="ktpwp-pp-quantity"><?php echo esc_html__( '数量', 'ktpwp' ); ?></label>
-                        <input type="number" id="ktpwp-pp-quantity" name="quantity" min="1" step="1" value="1" />
+                        <span class="ktpwp-public-product-order-form__quantity-control">
+                            <input type="number" id="ktpwp-pp-quantity" name="quantity" min="1" step="1" value="1" inputmode="numeric" />
+                            <span class="ktpwp-public-product-order-form__quantity-unit" hidden></span>
+                        </span>
                     </p>
                     <p class="ktpwp-public-product-order-form__field">
                         <label for="ktpwp-pp-message"><?php echo esc_html__( 'ご要望・備考', 'ktpwp' ); ?></label>

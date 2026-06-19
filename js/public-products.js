@@ -521,23 +521,35 @@
 		}
 
 		function syncQuantityField(product) {
-		if (!form) {
-			return;
-		}
+			if (!form) {
+				return;
+			}
 
-		var field = qs(form, '.ktpwp-public-product-order-form__field--quantity');
-		if (!field) {
-			return;
-		}
+			var field = qs(form, '.ktpwp-public-product-order-form__field--quantity');
+			if (!field) {
+				return;
+			}
 
-		var fixed = product && product.quantity_fixed === true;
-		field.hidden = fixed;
+			var fixed = product && product.quantity_fixed === true;
+			field.hidden = fixed;
 
-		var qty = qs(field, 'input[name="quantity"]');
-		if (qty) {
-			qty.value = '1';
+			var qty = qs(field, 'input[name="quantity"]');
+			if (qty) {
+				qty.value = '1';
+			}
+
+			var unitEl = qs(field, '.ktpwp-public-product-order-form__quantity-unit');
+			if (unitEl) {
+				var unit = product && product.unit ? String(product.unit).trim() : '';
+				if (unit !== '') {
+					unitEl.textContent = unit;
+					unitEl.hidden = false;
+				} else {
+					unitEl.textContent = '';
+					unitEl.hidden = true;
+				}
+			}
 		}
-	}
 
 	function openDetail(el, options) {
 			options = options || {};

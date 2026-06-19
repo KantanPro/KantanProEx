@@ -2678,7 +2678,76 @@ class KTPWP_Update_Checker {
             return $reply;
         }
 
+        if ( ! $this->should_handle_github_download( $package, $upgrader ) ) {
+            return $reply;
+        }
+
         return $this->download_github_package( $package );
+    }
+
+    /**
+     * 自プラグイン更新の GitHub ダウンロードのみ処理する
+     *
+     * @param string $package  パッケージ URL
+     * @param object $upgrader アップグレーダー
+     * @return bool
+     */
+    private function should_handle_github_download( $package, $upgrader ) {
+        $hook_extra = $this->get_upgrader_hook_extra( $upgrader );
+
+        if ( isset( $hook_extra['plugin'] ) && $hook_extra['plugin'] !== '' ) {
+            return $this->is_target_plugin_basename( $hook_extra['plugin'] );
+        }
+
+        if ( ! empty( $hook_extra['plugins'] ) && is_array( $hook_extra['plugins'] ) ) {
+            foreach ( $hook_extra['plugins'] as $plugin_basename ) {
+                if ( $this->is_target_plugin_basename( $plugin_basename ) ) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        return $this->is_package_for_our_repo( $package );
+    }
+
+    /**
+     * アップグレーダーから hook_extra を取得
+     *
+     * @param object $upgrader アップグレーダー
+     * @return array<string, mixed>
+     */
+    private function get_upgrader_hook_extra( $upgrader ) {
+        $hook_extra = array();
+
+        if ( ! is_object( $upgrader ) || ! isset( $upgrader->skin ) || ! is_object( $upgrader->skin ) ) {
+            return $hook_extra;
+        }
+
+        if ( ! empty( $upgrader->skin->plugin ) ) {
+            $hook_extra['plugin'] = (string) $upgrader->skin->plugin;
+        }
+
+        if ( ! empty( $upgrader->skin->options['hook_extra'] ) && is_array( $upgrader->skin->options['hook_extra'] ) ) {
+            $hook_extra = array_merge( $hook_extra, $upgrader->skin->options['hook_extra'] );
+        }
+
+        return $hook_extra;
+    }
+
+    /**
+     * パッケージ URL が自リポジトリ向けか
+     *
+     * @param string $package パッケージ URL
+     * @return bool
+     */
+    private function is_package_for_our_repo( $package ) {
+        $package = (string) $package;
+        $repo    = (string) $this->github_repo;
+
+        return stripos( $package, $repo ) !== false
+            || stripos( $package, 'KantanPro/KantanProEX' ) !== false
+            || stripos( $package, 'KantanPro/KantanProEx' ) !== false;
     }
 
     /**

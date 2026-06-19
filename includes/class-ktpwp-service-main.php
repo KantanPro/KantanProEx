@@ -475,7 +475,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					$results[] = '<tr class="ktp-service-list-data-row" data-href="' . $row_url . '" onclick="window.location.href=this.dataset.href">' .
 					'<td class="col-id">' . $id . '</td>' .
 					'<td class="col-image"><span class="ktp-service-list-thumb-wrap"><img src="' . esc_url( $thumb_url ) . '" alt="' . esc_attr( $service_name_raw ) . '" class="ktp-service-list-thumb" loading="lazy" decoding="async" onerror="this.src=\'' . esc_url( $default_thumb_url ) . '\'" /></span></td>' .
-					'<td class="col-name">' . $service_name . '</td>' .
+					'<td class="col-name" title="' . esc_attr( $service_name_raw ) . '">' . $service_name . '</td>' .
 					'<td class="col-public">' . $this->render_service_public_badge( $is_public, $row_stock, (int) $row->id, $contract_cycle_value ) . '</td>' .
 					$contract_cycle_cell .
 					$price_unit_cell .

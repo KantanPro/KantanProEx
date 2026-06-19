@@ -1567,6 +1567,7 @@ form > .create-order-btn {
   padding: 20px;
   box-sizing: border-box;
   text-align: left;
+  min-width: 0;
 }
 
 /* 詳細BOX */
@@ -1706,6 +1707,8 @@ form > .create-order-btn {
 
 /* サービスリスト（表形式） */
 .ktp-service-list-table-wrap {
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
 }
 
@@ -1725,7 +1728,7 @@ form > .create-order-btn {
 }
 
 .ktp-service-list-table tbody td {
-  padding: 4px 12px;
+  padding: 4px 6px;
 }
 
 .ktp-service-list-table thead th {
@@ -2700,24 +2703,71 @@ form > .create-order-btn {
 }
 
 .ktp-service-list-table.ktp-list-table--service .col-image {
-  width: 7%;
+  max-width: 40px;
+  min-width: 40px;
+  width: 40px;
 }
 
 .ktp-service-list-table.ktp-list-table--service .ktp-service-list-thumb-wrap {
-  aspect-ratio: 1 / 1;
-  height: auto;
-  margin: 0;
-  width: 100%;
+  flex-shrink: 0;
+  height: 32px;
+  margin: 0 auto;
+  max-height: 32px;
+  max-width: 32px;
+  width: 32px;
 }
 
 .ktp-service-list-table.ktp-list-table--service .ktp-service-list-thumb {
   height: 100%;
+  max-height: 32px;
+  max-width: 32px;
   object-fit: cover;
   width: 100%;
 }
 
 .ktp-service-list-table.ktp-list-table--service .col-name {
-  width: 24%;
+  max-width: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 18%;
+}
+
+.ktp-service-list-table.ktp-list-table--service col.col-id {
+  width: 5%;
+}
+
+.ktp-service-list-table.ktp-list-table--service col.col-image {
+  width: 40px;
+}
+
+.ktp-service-list-table.ktp-list-table--service col.col-name {
+  width: 18%;
+}
+
+.ktp-service-list-table.ktp-list-table--service col.col-public {
+  width: 8%;
+}
+
+.ktp-service-list-table.ktp-list-table--service col.col-contract {
+  width: 9%;
+}
+
+.ktp-service-list-table.ktp-list-table--service col.col-price-unit {
+  width: 22%;
+}
+
+.ktp-service-list-table.ktp-list-table--service col.col-category {
+  width: 15%;
+}
+
+.ktp-service-list-table.ktp-list-table--service col.col-frequency {
+  width: 10%;
+}
+
+.ktp-service-list-table.ktp-list-table--service col.col-tax {
+  width: 8%;
 }
 
 .ktp-service-list-table.ktp-list-table--service .col-public {
@@ -2750,17 +2800,19 @@ form > .create-order-btn {
 
 .ktp-service-list-table .col-image {
   line-height: 0;
+  max-width: 40px;
+  min-width: 40px;
   text-align: center;
-  width: 52px;
+  width: 40px;
 }
 
 .ktp-service-list-table tbody td.col-image {
-  padding: 4px 6px;
+  padding: 4px 4px;
   vertical-align: middle;
 }
 
 .ktp-service-list-table thead th.col-image {
-  padding: 6px 8px;
+  padding: 6px 4px;
 }
 
 .ktp-service-list-table .ktp-service-list-thumb-wrap {
@@ -2771,12 +2823,14 @@ form > .create-order-btn {
   box-sizing: border-box;
   display: flex;
   flex-shrink: 0;
-  height: 40px;
+  height: 32px;
   justify-content: center;
   line-height: 0;
   margin: 0 auto;
+  max-height: 32px;
+  max-width: 32px;
   overflow: hidden;
-  width: 40px;
+  width: 32px;
 }
 
 .ktp-service-list-table .ktp-service-list-thumb {

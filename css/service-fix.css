@@ -12,9 +12,10 @@
     border: 1px solid #e0e0e0;
     border-radius: 5px;
     margin-bottom: 20px;
-    overflow: hidden;
     max-width: 100%;
+    min-width: 0;
     display: block;
+    overflow: visible;
 }
 
 .data_list_title {

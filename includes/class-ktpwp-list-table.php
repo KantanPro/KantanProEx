@@ -31,6 +31,9 @@ if ( ! class_exists( 'KTPWP_List_Table' ) ) {
 				$table_classes .= ' ' . sanitize_html_class( (string) $table_class );
 			}
 			$html .= '<table class="' . esc_attr( $table_classes ) . '">';
+			if ( $table_class === 'ktp-list-table--service' ) {
+				$html .= self::render_service_colgroup( $columns );
+			}
 			$html .= '<thead><tr>';
 
 			foreach ( $columns as $column ) {
@@ -155,6 +158,23 @@ if ( ! class_exists( 'KTPWP_List_Table' ) ) {
 			$attrs .= 'window.location.href=this.dataset.href;"';
 
 			return $attrs;
+		}
+
+		/**
+		 * サービス一覧用 colgroup（列幅を thead より先に固定し、長いサービス名で右列が隠れないようにする）。
+		 *
+		 * @param array<int, array<string, string>> $columns 列定義。
+		 * @return string
+		 */
+		private static function render_service_colgroup( array $columns ) {
+			$html = '<colgroup>';
+			foreach ( $columns as $column ) {
+				$class = isset( $column['class'] ) ? (string) $column['class'] : '';
+				$html .= '<col class="' . esc_attr( $class ) . '">';
+			}
+			$html .= '</colgroup>';
+
+			return $html;
 		}
 
 		/**
