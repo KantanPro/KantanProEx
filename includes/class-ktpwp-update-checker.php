@@ -668,13 +668,47 @@ class KTPWP_Update_Checker {
     }
 
     /**
+     * 更新チェックの実効間隔（「最新版」判定済みは短く再確認する）
+     *
+     * @return int 秒
+     */
+    private function get_effective_update_check_interval() {
+        $cached = get_option( 'ktpwp_update_available' );
+        if ( is_array( $cached ) && ! empty( $cached['no_update'] ) ) {
+            // 新リリース直後の取りこぼし防止（既定24時間 → 最大1時間）
+            return min( $this->check_interval, HOUR_IN_SECONDS );
+        }
+
+        return $this->check_interval;
+    }
+
+    /**
+     * GitHub Release キャッシュを使わず API を叩くべきか
+     *
+     * キャッシュ版がインストール版以下のとき、より新しい Release が出た可能性がある。
+     *
+     * @param array<string, mixed> $cached_release GitHub Release API レスポンス
+     * @return bool
+     */
+    private function should_bypass_release_cache( array $cached_release ) {
+        if ( empty( $cached_release['tag_name'] ) ) {
+            return true;
+        }
+
+        $cached_version  = $this->clean_version( (string) $cached_release['tag_name'] );
+        $current_version = $this->clean_version( $this->current_version );
+
+        return version_compare( $cached_version, $current_version, '<=' );
+    }
+
+    /**
      * GitHub API のレート制限により更新チェックをスキップすべきか
      *
      * @return bool
      */
     private function should_skip_github_update_check() {
         $last_check = get_transient( 'ktpwp_last_update_check' );
-        return $last_check && ( time() - (int) $last_check ) < $this->check_interval;
+        return $last_check && ( time() - (int) $last_check ) < $this->get_effective_update_check_interval();
     }
 
     /**
@@ -859,7 +893,7 @@ class KTPWP_Update_Checker {
     private function get_latest_github_release() {
         $cache_key = $this->get_release_cache_key();
         $cached    = get_transient( $cache_key );
-        if ( is_array( $cached ) && ! empty( $cached['tag_name'] ) ) {
+        if ( is_array( $cached ) && ! empty( $cached['tag_name'] ) && ! $this->should_bypass_release_cache( $cached ) ) {
             return $cached;
         }
 
@@ -1222,7 +1256,8 @@ class KTPWP_Update_Checker {
             wp_die( __( 'この操作を実行する権限がありません。', 'ktpwp' ) );
         }
         
-        // 更新チェック実行
+        // 更新チェック実行（キャッシュをクリアして GitHub から再取得）
+        $this->clear_plugin_cache_for_update_check();
         $this->check_github_updates();
         
         // プラグインページにリダイレクト
@@ -1303,7 +1338,7 @@ class KTPWP_Update_Checker {
 
         // 最後のチェックから一定時間経過していない場合はスキップ
         $last_check = get_transient( 'ktpwp_last_update_check' );
-        if ( $last_check && ( time() - (int) $last_check ) < $this->check_interval ) {
+        if ( $last_check && ( time() - (int) $last_check ) < $this->get_effective_update_check_interval() ) {
             error_log( 'KantanPro: 更新チェック間隔が短いため、保存済み情報を使用します' );
             $cached = get_option( 'ktpwp_update_available' );
             if ( is_array( $cached ) ) {
@@ -2201,7 +2236,7 @@ class KTPWP_Update_Checker {
 
         if ( ! $force ) {
             $last_check = get_transient( 'ktpwp_last_update_check' );
-            if ( $last_check && ( time() - (int) $last_check ) < $this->check_interval ) {
+            if ( $last_check && ( time() - (int) $last_check ) < $this->get_effective_update_check_interval() ) {
                 $ran = true;
                 return (bool) $this->has_header_update_badge();
             }
@@ -2637,8 +2672,12 @@ class KTPWP_Update_Checker {
                 $update_data = $this->check_github_updates();
             }
         } elseif ( is_array( $update_data ) && ! empty( $update_data['no_update'] ) ) {
-            // 最新版として記録済み — API 呼び出し不要
-            $update_data = false;
+            if ( ! $this->should_skip_github_update_check() ) {
+                $update_data = $this->check_github_updates();
+            }
+            if ( ! is_array( $update_data ) || ! empty( $update_data['no_update'] ) ) {
+                $update_data = false;
+            }
         }
         
         if ( $update_data && is_array( $update_data ) && isset( $update_data['version'] ) && empty( $update_data['no_update'] ) ) {
