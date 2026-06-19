@@ -273,6 +273,106 @@ class KTPWP_Update_Checker {
     }
 
     /**
+     * KantanProEX 有料版ファミリー（pro / solo / team / business / zipball 一時名）のベースネームか
+     *
+     * @param string $basename ベースネーム
+     * @return bool
+     */
+    private function is_kantanproex_family_basename( $basename ) {
+        if ( $this->is_target_plugin_basename( $basename ) ) {
+            return true;
+        }
+
+        if ( ! is_string( $basename ) || $basename === '' ) {
+            return false;
+        }
+
+        if ( strtolower( basename( $basename ) ) !== 'ktpwp.php' ) {
+            return false;
+        }
+
+        $dir = strtolower( dirname( $basename ) );
+        if ( preg_match( '/^kantanproex(?:solo|team|business)?$/', $dir ) ) {
+            return true;
+        }
+
+        return (bool) preg_match( '/^kantanpro-kantanproex-[a-f0-9]{6,}$/i', $dir );
+    }
+
+    /**
+     * WordPress 標準の更新一覧に載せるべき更新があるか（キャッシュのみ参照・API 非呼び出し）
+     *
+     * @return bool
+     */
+    private function should_expose_wordpress_update_response() {
+        $update_data = get_option( 'ktpwp_update_available', false );
+        if ( ! is_array( $update_data ) || ! empty( $update_data['no_update'] ) || empty( $update_data['version'] ) ) {
+            return false;
+        }
+
+        $latest_version  = $this->clean_version( $update_data['version'] );
+        $current_version = $this->clean_version( $this->current_version );
+        if ( ! version_compare( $latest_version, $current_version, '>' ) ) {
+            return false;
+        }
+
+        return ! empty( $update_data['download_url'] ) && empty( $update_data['manual_update_required'] );
+    }
+
+    /**
+     * 幽霊更新（管理バー件数と更新画面の不一致）を防ぐため、古い transient エントリを除去する。
+     * フロントの管理バー表示時も実行する（GitHub API は呼ばない）。
+     *
+     * @param object|false|null $transient 更新トランジェント
+     * @return object
+     */
+    private function prune_stale_update_transient_entries( $transient ) {
+        if ( ! is_object( $transient ) ) {
+            $transient = new stdClass();
+        }
+
+        if ( ! function_exists( 'get_plugins' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
+        $installed_plugins = get_plugins();
+
+        foreach ( array( 'checked', 'response', 'no_update' ) as $bucket ) {
+            if ( ! isset( $transient->{$bucket} ) || ! is_array( $transient->{$bucket} ) ) {
+                continue;
+            }
+
+            foreach ( array_keys( $transient->{$bucket} ) as $basename ) {
+                if ( ! $this->is_kantanproex_family_basename( $basename ) ) {
+                    continue;
+                }
+                if ( $basename === $this->plugin_basename ) {
+                    continue;
+                }
+
+                unset( $transient->{$bucket}[ $basename ] );
+            }
+        }
+
+        if ( isset( $transient->response ) && is_array( $transient->response ) ) {
+            foreach ( array_keys( $transient->response ) as $basename ) {
+                if ( ! $this->is_kantanproex_family_basename( $basename ) ) {
+                    continue;
+                }
+                if ( ! isset( $installed_plugins[ $basename ] ) ) {
+                    unset( $transient->response[ $basename ] );
+                }
+            }
+        }
+
+        if ( ! $this->should_expose_wordpress_update_response() && isset( $transient->response[ $this->plugin_basename ] ) ) {
+            unset( $transient->response[ $this->plugin_basename ] );
+        }
+
+        return $transient;
+    }
+
+    /**
      * 更新フック引数から対象プラグインのベースネームを解決する
      *
      * @param array $hook_extra フック情報
@@ -2517,12 +2617,10 @@ class KTPWP_Update_Checker {
      * @return object 更新されたトランジェント
      */
     public function check_for_plugin_update( $transient ) {
+        $transient = $this->prune_stale_update_transient_entries( $transient );
+
         if ( ! is_admin() && ! ( defined( 'DOING_CRON' ) && DOING_CRON ) ) {
             return $transient;
-        }
-
-        if ( ! is_object( $transient ) ) {
-            $transient = new stdClass();
         }
 
         if ( ! isset( $transient->checked ) || ! is_array( $transient->checked ) ) {
@@ -2530,24 +2628,6 @@ class KTPWP_Update_Checker {
         }
 
         $transient->checked[ $this->plugin_basename ] = $this->current_version;
-
-        // 一時展開ディレクトリ由来の古いキーを除去し、functions.phpの file_get_contents 警告を回避する
-        foreach ( array( 'checked', 'response', 'no_update' ) as $bucket ) {
-            if ( ! isset( $transient->{$bucket} ) || ! is_array( $transient->{$bucket} ) ) {
-                continue;
-            }
-
-            foreach ( array_keys( $transient->{$bucket} ) as $basename ) {
-                if ( ! $this->is_target_plugin_basename( $basename ) ) {
-                    continue;
-                }
-                if ( $basename === $this->plugin_basename ) {
-                    continue;
-                }
-
-                unset( $transient->{$bucket}[ $basename ] );
-            }
-        }
 
         // キャッシュされた更新情報を取得（このフックは頻繁に実行されるため API は間隔内は叩かない）
         $update_data = get_option( 'ktpwp_update_available' );
@@ -2643,6 +2723,10 @@ class KTPWP_Update_Checker {
                 if ( isset( $transient->no_update[ $this->plugin_basename ] ) ) {
                     unset( $transient->no_update[ $this->plugin_basename ] );
                 }
+                } else {
+                    if ( isset( $transient->response[ $this->plugin_basename ] ) ) {
+                        unset( $transient->response[ $this->plugin_basename ] );
+                    }
                 }
             } else {
                 if ( ! isset( $transient->no_update ) || ! is_array( $transient->no_update ) ) {

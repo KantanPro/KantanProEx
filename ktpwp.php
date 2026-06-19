@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.3.85
+ * Version: 1.3.86
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -147,6 +147,31 @@ if ( ! function_exists( 'ktpwp_ex_is_main_ex_plugin_slug' ) ) {
             return true;
         }
         // GitHub zipball 由来の一時フォルダ（strpos だと kantanpro-kantanproex-* に誤判定しうる無料版等を避ける）
+        return (bool) preg_match( '/^kantanpro-kantanproex-[a-f0-9]{6,}$/i', $dir );
+    }
+}
+
+if ( ! function_exists( 'ktpwp_ex_is_ex_family_plugin_slug' ) ) {
+    /**
+     * KantanProEX 有料版ファミリー（pro / solo / team / business / zipball 一時名）の ktpwp.php 行か。
+     *
+     * @param string $plugin_basename active_plugins 等の値。
+     * @return bool
+     */
+    function ktpwp_ex_is_ex_family_plugin_slug( $plugin_basename ) {
+        if ( ! is_string( $plugin_basename ) || $plugin_basename === '' ) {
+            return false;
+        }
+        if ( strtolower( basename( $plugin_basename ) ) !== 'ktpwp.php' ) {
+            return false;
+        }
+        if ( function_exists( 'ktpwp_ex_is_main_ex_plugin_slug' ) && ktpwp_ex_is_main_ex_plugin_slug( $plugin_basename ) ) {
+            return true;
+        }
+        $dir = strtolower( dirname( $plugin_basename ) );
+        if ( preg_match( '/^kantanproex(?:solo|team|business)?$/', $dir ) ) {
+            return true;
+        }
         return (bool) preg_match( '/^kantanpro-kantanproex-[a-f0-9]{6,}$/i', $dir );
     }
 }
@@ -295,7 +320,7 @@ if ( ! function_exists( 'ktpwp_ex_repair_plugin_storage_paths' ) ) {
                         continue;
                     }
                     foreach ( array_keys( $transient->{$bucket} ) as $basename ) {
-                        if ( ! ktpwp_ex_is_main_ex_plugin_slug( $basename ) ) {
+                        if ( ! function_exists( 'ktpwp_ex_is_ex_family_plugin_slug' ) || ! ktpwp_ex_is_ex_family_plugin_slug( $basename ) ) {
                             continue;
                         }
                         if ( is_readable( $plugin_root . $basename ) ) {

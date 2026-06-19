@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.85
+Stable tag: 1.3.86
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,10 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.86 - 2026年06月19日 =
+* WordPress 管理バーに「更新1件」と表示されるが更新画面に何もない問題を修正（幽霊更新の transient 掃除）
+* エディション別フォルダ・zipball 一時名の古い更新情報を自動除去
 
 = 1.3.85 - 2026年06月19日 =
 * サービスリストの列幅・数量フィールドのレイアウトを改善
