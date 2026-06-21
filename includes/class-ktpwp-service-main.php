@@ -1181,16 +1181,20 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
             //     }
             // }
         </script>
-        <!-- コントローラー/プレビューアイコン（プレビューは廃止） -->
-        <div class="controller" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <!-- コントローラー（検索全幅1行、ボタン＋印刷は2行目） -->
+        <div class="controller ktp-service-controller">
+                <div class="ktp-service-controller__search">
                 {$search_toolbar_html}
+                </div>
+                <div class="ktp-service-controller__bar">
+                <div class="ktp-service-controller-actions">
                 {$service_ie_buttons}
                 </div>
-                <div style="display:flex;gap:5px;margin-left:auto;">
+                <div class="ktp-service-controller__tools">
                 <button onclick="printContent()" title="{$print_button_title}" style="padding: 6px 10px; font-size: 12px;">
                     <span class="material-symbols-outlined" aria-label="{$print_button_label}">print</span>
                 </button>
+                </div>
                 </div>
         </div>
         {$service_ie_modal}
