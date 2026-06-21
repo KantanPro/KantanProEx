@@ -5958,6 +5958,9 @@ body.ktpwp-modal-open {
 /* 伝票処理タブ controller内ボタンカラー */
 .controller .delete-order-btn,
 .ktp-order-delete-footer .delete-order-btn {
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
   background: #d9534f !important;
   color: #fff !important;
   border: 1px solid #d43f3a !important;

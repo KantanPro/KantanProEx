@@ -641,6 +641,15 @@ class KTPWP_Assets {
         $this->enqueue_scripts( false );
         $this->localize_frontend_scripts();
 
+        // 受注書削除 confirm（専用 JS が読めない環境向けに ktp-js へフォールバックも付与）
+        if ( wp_script_is( 'ktp-order-delete-confirm', 'registered' ) ) {
+            wp_enqueue_script( 'ktp-order-delete-confirm' );
+        }
+        if ( wp_script_is( 'ktp-js', 'enqueued' ) ) {
+            $delete_confirm_boot = "(function(){if(window.__ktpOrderDeleteConfirmV2){return;}document.addEventListener('submit',function(e){var f=e.target;if(!f||!f.classList||!f.classList.contains('ktp-order-delete-form')){return;}var c=f.querySelector('input[name=\"delete_confirmed\"]');if(c&&c.value==='1'){return;}e.preventDefault();if(typeof e.stopImmediatePropagation==='function'){e.stopImmediatePropagation();}var m='';var h=f.querySelector('input.ktp-order-delete-message');if(h&&h.value){m=h.value;}else if(window.ktpOrderDeleteConfirm&&window.ktpOrderDeleteConfirm.message){m=window.ktpOrderDeleteConfirm.message;}else{m='本当にこの受注書を削除しますか？\\n\\n請求明細・原価明細・スタッフチャット・添付ファイル・メール送信履歴も削除されます。\\nこの操作は元に戻せません。';}if(typeof window.ktpwpTranslate==='function'){m=window.ktpwpTranslate(m);}if(!m||!window.confirm(m)){return;}if(c){c.value='1';}HTMLFormElement.prototype.submit.call(f);},true);window.__ktpOrderDeleteConfirmV2=true;})();";
+            wp_add_inline_script( 'ktp-js', $delete_confirm_boot, 'after' );
+        }
+
         // 税制ポリシーをJSへ注入
         if ( class_exists( 'KTPWP_Tax_Policy' ) ) {
             $tax_config = KTPWP_Tax_Policy::get_js_config();
@@ -771,7 +780,6 @@ class KTPWP_Assets {
             'ktp-delivery-dates',
             'ktp-order-preview',
             'ktp-order-inline-projectname',
-            'ktp-order-delete-confirm',
             'ktp-order-contract',
             'ktp-email-popup',
             'ktp-progress-select',
@@ -794,7 +802,7 @@ class KTPWP_Assets {
                     continue;
                 }
 
-                // 受注書以外のタブでは受注書関連JSをスキップ
+                // 受注書以外のタブでは受注書関連JSをスキップ（ktp-order-delete-confirm は order_only 対象外で常時読込）
                 if ( $should_skip_order_scripts && in_array( $handle, $order_only_scripts, true ) ) {
                     continue;
                 }

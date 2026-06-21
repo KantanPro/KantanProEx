@@ -1176,7 +1176,7 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				$delete_confirmed = isset( $_POST['delete_confirmed'] ) ? sanitize_text_field( wp_unslash( $_POST['delete_confirmed'] ) ) : '';
 
 				if ( $delete_confirmed !== '1' ) {
-					$content .= '<div class="error" style="padding:12px 14px;margin:12px 0;border:1px solid #f44336;background:#ffebee;border-radius:6px;">'
+					$content .= '<div class="ktpwp-error-notice" role="alert" style="padding:12px 14px;margin:12px 0;border:1px solid #f44336;background:#ffebee;border-radius:6px;color:#b71c1c;">'
 						. esc_html__( '受注書の削除は確認後にのみ実行できます。ページを再読み込みして、もう一度お試しください。', 'ktpwp' )
 						. '</div>';
 				} else {
@@ -2024,7 +2024,6 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 
 					$content .= '<div class="ktp-order-delete-footer">';
 					$content .= $this->render_order_delete_form( $order_data, $client_table );
-					$content .= $this->render_order_delete_confirm_script();
 					$content .= '</div>';
 
 					// 削除ボタンはフッター直上に移動済み
@@ -3300,40 +3299,23 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				) > 0;
 			}
 
+			$confirm_message = $this->get_order_delete_confirm_message();
+
 			$html  = '<form method="post" action="' . esc_url( $current_url ) . '" class="ktp-order-delete-form">';
+			$html .= '<input type="hidden" class="ktp-order-delete-message" value="' . esc_attr( $confirm_message ) . '" tabindex="-1" aria-hidden="true" />';
+			$html .= '<input type="hidden" name="tab_name" value="order" />';
 			$html .= '<input type="hidden" name="order_id" value="' . esc_attr( $order_data->id ) . '">';
 			$html .= '<input type="hidden" name="delete_order" value="1">';
 			$html .= '<input type="hidden" name="delete_confirmed" value="" class="ktp-order-delete-confirmed-input" />';
 			$html .= '<input type="hidden" name="client_exists" value="' . ( $client_exists ? '1' : '0' ) . '">';
 			$html .= wp_nonce_field( 'delete_order_action', 'delete_nonce', true, false );
-			$html .= '<button type="button" class="delete-order-btn ktp-order-delete-trigger" data-ktp-order-delete="1">';
+			$html .= '<button type="submit" class="delete-order-btn ktp-order-delete-trigger" data-ktp-order-delete="1">';
 			$html .= '<span class="material-symbols-outlined" aria-label="' . esc_attr__( '削除', 'ktpwp' ) . '">delete</span>';
 			$html .= esc_html__( '受注書を削除', 'ktpwp' );
 			$html .= '</button>';
 			$html .= '</form>';
 
 			return $html;
-		}
-
-		/**
-		 * 受注書削除ボタン用 confirm スクリプト（フッター JS 読込前のフォールバック）。
-		 *
-		 * @return string
-		 */
-		private function render_order_delete_confirm_script() {
-			static $rendered = false;
-			if ( $rendered ) {
-				return '';
-			}
-			$rendered = true;
-
-			$message = $this->get_order_delete_confirm_message();
-
-			$script = '(function(){if(window.__ktpOrderDeleteConfirmBound){return;}window.__ktpOrderDeleteConfirmBound=true;var msg='
-				. wp_json_encode( $message )
-				. ';document.addEventListener("click",function(e){var btn=e.target&&e.target.closest?e.target.closest(".ktp-order-delete-trigger"):null;if(!btn||btn.disabled){return;}var form=btn.closest("form.ktp-order-delete-form");if(!form){return;}e.preventDefault();e.stopPropagation();if(!window.confirm(msg)){return;}var field=form.querySelector("input[name=\\"delete_confirmed\\"]");if(field){field.value="1";}HTMLFormElement.prototype.submit.call(form);},true);})();';
-
-			return '<script>' . $script . '</script>';
 		}
 	} // End of KTPWP_Order_Class
 

@@ -601,6 +601,8 @@ class KTPWP_I18n {
             '対象外に変更しますか？\n受注書は残り、顧客データは復元可能です。' => 'Change this customer to inactive?\nOrders remain, and customer data can be restored.',
             '顧客データと部署データを削除しますか？\n\n注意：\n• 顧客データと部署データが完全に削除されます\n• 受注書は残りますが、顧客情報は失われます\n• この操作は元に戻せません' => 'Delete customer and department data?\n\nCaution:\n• Customer and department data will be permanently deleted\n• Orders will remain, but customer information will be lost\n• This action cannot be undone',
             '顧客データと関連する受注書を完全に削除しますか？\n\n警告：\n• 顧客データが完全に削除されます\n• 関連するすべての受注書が削除されます\n• この操作は元に戻せません\n• データの復元は不可能です' => 'Permanently delete customer data and related orders?\n\nWarning:\n• Customer data will be permanently deleted\n• All related orders will be deleted\n• This action cannot be undone\n• The data cannot be restored',
+            "本当にこの受注書を削除しますか？\n\n請求明細・原価明細・スタッフチャット・添付ファイル・メール送信履歴も削除されます。\nこの操作は元に戻せません。" => "Delete this order?\n\nInvoice lines, cost lines, staff chat, attachments, and email history will also be deleted.\nThis action cannot be undone.",
+            '受注書の削除は確認後にのみ実行できます。ページを再読み込みして、もう一度お試しください。' => 'Order deletion requires confirmation. Reload the page and try again.',
             '受注書作成（対象外顧客のため無効）' => 'Create order (disabled for inactive customer)',
             '顧客ID: ' => 'Customer ID: ',
             '対象外顧客のため、受注書を作成できません。' => 'Cannot create an order for an inactive customer.',
