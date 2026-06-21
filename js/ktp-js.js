@@ -351,12 +351,64 @@ document.addEventListener('DOMContentLoaded', function () {
         return state;
     }
 
+    var TAB_RESTORE_COOKIE = 'ktp_restore_v1';
+
+    function readTabRestoreCookie() {
+        if (!document.cookie) {
+            return null;
+        }
+        var prefix = TAB_RESTORE_COOKIE + '=';
+        var parts = document.cookie.split(';');
+        for (var i = 0; i < parts.length; i++) {
+            var part = parts[i].trim();
+            if (part.indexOf(prefix) !== 0) {
+                continue;
+            }
+            try {
+                return JSON.parse(decodeURIComponent(part.substring(prefix.length)));
+            } catch (e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    function syncTabStateCookie(tabName, state) {
+        if (!tabName) {
+            return;
+        }
+        try {
+            var payload = JSON.stringify({ tab: tabName, s: state || {} });
+            if (payload.length > 1800) {
+                if (window.ktpDebugMode) {
+                    console.warn('KTPWP: タブ状態 Cookie が大きすぎるためスキップします');
+                }
+                return;
+            }
+            var secure = window.location.protocol === 'https:' ? '; Secure' : '';
+            document.cookie = TAB_RESTORE_COOKIE + '=' + encodeURIComponent(payload)
+                + '; path=/; max-age=2592000; SameSite=Lax' + secure;
+        } catch (e) {
+            if (window.ktpDebugMode) {
+                console.warn('KTPWP: タブ状態 Cookie の保存に失敗しました:', e);
+            }
+        }
+    }
+
+    function tabStatesMatch(tabName, a, b) {
+        var keys = TAB_STATE_KEYS[tabName] || [];
+        return keys.every(function (key) {
+            return String((a && a[key]) || '') === String((b && b[key]) || '');
+        });
+    }
+
     function saveTabState(tabName, state) {
         if (!tabName) {
             return;
         }
         try {
             localStorage.setItem(TAB_STATE_PREFIX + tabName, JSON.stringify(state || {}));
+            syncTabStateCookie(tabName, state || {});
             if (window.ktpDebugMode) {
                 console.log('KTPWP: タブ状態を保存しました:', tabName, state);
             }
@@ -397,6 +449,13 @@ document.addEventListener('DOMContentLoaded', function () {
     function saveCurrentTabStateFromUrl() {
         var tabName = getCurrentTabName();
         var params = new URLSearchParams(window.location.search);
+
+        // URL に状態パラメータが無いときは localStorage / Cookie を上書きしない
+        // （サーバーが Cookie から描画した直後のクリーン URL 対策）
+        if (!tabUrlHasSavedState(tabName, params)) {
+            return;
+        }
+
         var state = extractTabState(tabName, params);
 
         if (tabName === 'order') {
@@ -416,6 +475,24 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    function syncUrlBarFromSavedState(tabName, saved) {
+        if (!saved || Object.keys(saved).length === 0) {
+            return;
+        }
+        var params = new URLSearchParams(window.location.search);
+        if (tabUrlHasSavedState(tabName, params)) {
+            return;
+        }
+        var url = new URL(window.location.href);
+        Object.keys(saved).forEach(function (key) {
+            url.searchParams.set(key, saved[key]);
+        });
+        window.history.replaceState({}, '', url.toString());
+        if (window.ktpDebugMode) {
+            console.log('KTPWP: タブ状態を URL に同期しました（リロードなし）:', tabName, saved);
+        }
+    }
+
     function restoreTabStateOnLoad() {
         var tabName = getCurrentTabName();
         var params = new URLSearchParams(window.location.search);
@@ -426,26 +503,29 @@ document.addEventListener('DOMContentLoaded', function () {
             return false;
         }
 
-        if (tabUrlHasSavedState(tabName, params)) {
-            return false;
-        }
-
         var saved = loadTabState(tabName);
         if (!saved || Object.keys(saved).length === 0) {
             return false;
         }
 
-        var url = new URL(window.location.href);
-        Object.keys(saved).forEach(function (key) {
-            url.searchParams.set(key, saved[key]);
-        });
+        var cookieData = readTabRestoreCookie();
+        var cookieState = (cookieData && cookieData.tab === tabName && cookieData.s) ? cookieData.s : null;
+        var cookieSynced = cookieState && tabStatesMatch(tabName, cookieState, saved);
 
-        if (window.ktpDebugMode) {
-            console.log('KTPWP: タブ状態を復元します:', tabName, saved);
+        if (!cookieSynced) {
+            syncTabStateCookie(tabName, saved);
+            if (!sessionStorage.getItem('ktp_restore_cookie_migrated')) {
+                sessionStorage.setItem('ktp_restore_cookie_migrated', '1');
+                if (window.ktpDebugMode) {
+                    console.log('KTPWP: タブ状態 Cookie を同期するため 1 回だけリロードします:', tabName, saved);
+                }
+                window.location.reload();
+                return true;
+            }
         }
 
-        window.location.replace(url.toString());
-        return true;
+        syncUrlBarFromSavedState(tabName, saved);
+        return false;
     }
 
     function buildTabNavigationUrl(baseHref, targetTabName) {

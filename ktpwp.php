@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.3.91
+ * Version: 1.3.92
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -4578,6 +4578,130 @@ function ktpwp_ensure_shortcodes_registered() {
     $shortcodes->register_shortcodes();
 }
 add_action( 'init', 'ktpwp_ensure_shortcodes_registered', 20 );
+
+/**
+ * タブ表示状態として URL に載せるクエリキー一覧（js/ktp-js.js の TAB_STATE_KEYS と同期）。
+ *
+ * @param string $tab_name タブ名。
+ * @return array<int, string>
+ */
+function ktpwp_get_tab_state_allowed_keys( $tab_name ) {
+	$map = array(
+		'list'     => array( 'progress', 'page_start', 'page_stage', 'flg', 'list_type' ),
+		'order'    => array( 'order_id' ),
+		'client'   => array( 'data_id', 'sort_by', 'sort_order', 'page_start', 'page_stage', 'view_mode', 'order_sort_by', 'order_sort_order' ),
+		'service'  => array( 'data_id', 'sort_by', 'sort_order', 'page_start', 'page_stage' ),
+		'supplier' => array( 'data_id', 'sort_by', 'sort_order', 'page_start', 'page_stage', 'skills_sort_by', 'skills_sort_order', 'skills_page' ),
+		'report'   => array( 'report_type', 'period', 'tax_year' ),
+	);
+
+	$tab_name = sanitize_key( (string) $tab_name );
+
+	return $map[ $tab_name ] ?? array();
+}
+
+/**
+ * タブ復元用コンパクト Cookie（ktp_restore_v1）を解析する。
+ *
+ * @param string|null $tab_name 対象タブ。null のとき Cookie 内の tab をそのまま使う。
+ * @return array{tab: string, state: array<string, string>}
+ */
+function ktpwp_parse_tab_state_restore_cookie( $tab_name = null ) {
+	$empty = array(
+		'tab'   => '',
+		'state' => array(),
+	);
+
+	if ( empty( $_COOKIE['ktp_restore_v1'] ) || ! is_string( $_COOKIE['ktp_restore_v1'] ) ) {
+		return $empty;
+	}
+
+	$decoded = json_decode( wp_unslash( $_COOKIE['ktp_restore_v1'] ), true );
+	if ( ! is_array( $decoded ) ) {
+		return $empty;
+	}
+
+	$cookie_tab = isset( $decoded['tab'] ) ? sanitize_key( (string) $decoded['tab'] ) : '';
+	if ( $cookie_tab === '' ) {
+		return $empty;
+	}
+
+	if ( $tab_name !== null ) {
+		$tab_name = sanitize_key( (string) $tab_name );
+		if ( $tab_name === '' || $cookie_tab !== $tab_name ) {
+			return $empty;
+		}
+	} else {
+		$tab_name = $cookie_tab;
+	}
+
+	$raw_state = isset( $decoded['s'] ) && is_array( $decoded['s'] ) ? $decoded['s'] : array();
+	$allowed   = ktpwp_get_tab_state_allowed_keys( $tab_name );
+	$state     = array();
+
+	foreach ( $raw_state as $key => $value ) {
+		if ( ! is_string( $key ) || ! in_array( $key, $allowed, true ) ) {
+			continue;
+		}
+		if ( $value === null || $value === '' ) {
+			continue;
+		}
+		$state[ $key ] = sanitize_text_field( (string) $value );
+	}
+
+	return array(
+		'tab'   => $tab_name,
+		'state' => $state,
+	);
+}
+
+/**
+ * フロント KantanPro 画面: Cookie のタブ状態を $_GET にマージし、起動時の二重リロードを防ぐ。
+ *
+ * @return void
+ */
+function ktpwp_apply_frontend_tab_state_from_cookie() {
+	if ( is_admin() || ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) ) {
+		return;
+	}
+
+	if ( ! ktpwp_is_frontend_kantanpro_app_page() ) {
+		return;
+	}
+
+	if ( isset( $_GET['query_post'] ) ) {
+		$query_post = sanitize_text_field( wp_unslash( $_GET['query_post'] ) );
+		if ( $query_post === 'istmode' || $query_post === 'srcmode' ) {
+			return;
+		}
+	}
+
+	$tab_name = 'list';
+	if ( isset( $_POST['tab_name'] ) && is_string( $_POST['tab_name'] ) ) {
+		$tab_name = sanitize_key( wp_unslash( $_POST['tab_name'] ) );
+	} elseif ( isset( $_GET['tab_name'] ) ) {
+		$tab_name = sanitize_key( wp_unslash( $_GET['tab_name'] ) );
+	}
+
+	$allowed_tabs = array( 'list', 'order', 'client', 'service', 'supplier', 'report' );
+	if ( ! in_array( $tab_name, $allowed_tabs, true ) ) {
+		$tab_name = 'list';
+	}
+
+	$parsed = ktpwp_parse_tab_state_restore_cookie( $tab_name );
+	if ( empty( $parsed['state'] ) ) {
+		return;
+	}
+
+	foreach ( $parsed['state'] as $key => $value ) {
+		if ( isset( $_GET[ $key ] ) && (string) wp_unslash( $_GET[ $key ] ) !== '' ) {
+			continue;
+		}
+		$_GET[ $key ]     = $value;
+		$_REQUEST[ $key ] = $value;
+	}
+}
+add_action( 'wp', 'ktpwp_apply_frontend_tab_state_from_cookie', 0 );
 
 /**
  * フロントで KantanPro 業務画面（[ktpwp_all_tab] 等）が表示されているか判定する。

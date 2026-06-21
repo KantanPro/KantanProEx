@@ -141,8 +141,16 @@ class KTPWP_View_Tabs_Class {
      * @return array<string, string>
      */
     private function get_saved_tab_state( $tab_name ) {
-        // タブ状態は localStorage で管理（Cookie 肥大化による 431 回避）。
-        return array();
+        if ( ! function_exists( 'ktpwp_parse_tab_state_restore_cookie' ) ) {
+            return array();
+        }
+
+        $parsed = ktpwp_parse_tab_state_restore_cookie( $tab_name );
+        if ( empty( $parsed['state'] ) ) {
+            return array();
+        }
+
+        return $parsed['state'];
     }
 
     /**
