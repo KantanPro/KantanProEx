@@ -3479,8 +3479,10 @@ input[name="tab_item"] {
   position: relative;
 }
 
-/* URL フィールド + 地球アイコン（KantanBiz 詳細表示と同様） */
-.form-group.form-group--url .ktp-url-field-wrap {
+/* URL / メール / 電話 フィールド + アクションアイコン（KantanBiz 詳細表示と同様） */
+.form-group.form-group--url .ktp-url-field-wrap,
+.form-group.form-group--email .ktp-url-field-wrap,
+.form-group.form-group--phone .ktp-url-field-wrap {
   display: flex;
   align-items: center;
   flex: 1 1 auto;
@@ -3488,7 +3490,9 @@ input[name="tab_item"] {
   min-width: 0;
 }
 
-.form-group.form-group--url .ktp-url-field-wrap input {
+.form-group.form-group--url .ktp-url-field-wrap input,
+.form-group.form-group--email .ktp-url-field-wrap input,
+.form-group.form-group--phone .ktp-url-field-wrap input {
   flex: 1 1 auto;
   width: auto !important;
   min-width: 0;
@@ -3498,10 +3502,12 @@ input[name="tab_item"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 36px;
   flex-shrink: 0;
   width: 36px;
   height: 36px;
   padding: 0;
+  overflow: hidden;
   border: 1px solid #ddd;
   border-radius: 4px;
   background-color: #fff;
@@ -3527,6 +3533,9 @@ input[name="tab_item"] {
 .ktp-url-open-link__icon {
   width: 18px;
   height: 18px;
+  max-width: 18px;
+  max-height: 18px;
+  flex-shrink: 0;
 }
 
 /* ラベル */

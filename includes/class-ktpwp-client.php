@@ -1223,6 +1223,12 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 					'type' => 'email',
 					'name' => 'email',
 				),
+				'電話番号' => array(
+					'type' => 'text',
+					'name' => 'phone',
+					'pattern' => '\\d*',
+					'placeholder' => '半角数字 ハイフン不要',
+				),
 				'URL' => array(
 					'type' => 'text',
 					'name' => 'url',
@@ -1232,12 +1238,6 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 					'type' => 'text',
 					'name' => 'representative_name',
 					'placeholder' => '代表者名',
-				),
-				'電話番号' => array(
-					'type' => 'text',
-					'name' => 'phone',
-					'pattern' => '\\d*',
-					'placeholder' => '半角数字 ハイフン不要',
 				),
 				'郵便番号' => array(
 					'type' => 'text',
@@ -1570,8 +1570,9 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 						$data_forms .= "<div class=\"form-group\"><label for=\"{$fieldId}\">{$label_i18n}：</label> <select id=\"{$fieldId}\" name=\"{$fieldName}\"{$required}>{$options}</select></div>";
 					} else {
 						$fieldId = 'ktp-client-' . preg_replace( '/[^a-zA-Z0-9_-]/', '', $fieldName );
-						if ( $fieldName === 'url' && class_exists( 'KTPWP_External_Url' ) ) {
-							$data_forms .= KTPWP_External_Url::render_url_form_group(
+						$contact_html = class_exists( 'KTPWP_External_Url' )
+							? KTPWP_External_Url::maybe_render_form_group(
+								$fieldName,
 								__( $label, 'ktpwp' ),
 								$fieldId,
 								$field,
@@ -1579,7 +1580,10 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 								$pattern,
 								$required,
 								$placeholder
-							);
+							)
+							: null;
+						if ( $contact_html !== null ) {
+							$data_forms .= $contact_html;
 						} else {
 							$generated_html = "<div class=\"form-group\"><label for=\"{$fieldId}\">{$label_i18n}：</label> <input id=\"{$fieldId}\" type=\"{$field['type']}\" name=\"{$fieldName}\" value=\"" . esc_attr( $value ) . "\"{$pattern}{$required}{$placeholder}></div>";
 							$data_forms .= $generated_html;
@@ -1777,10 +1781,17 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 				$data_forms .= '<form method="post" action="' . esc_url( $form_action_url ) . '">';
 				$data_forms .= wp_nonce_field( 'ktp_client_action', 'ktp_client_nonce', true, false );
 
-				// 基本情報フィールド（メールまで）
-				$basic_fields = array( 'company_name', 'user_name', 'email' );
+				// 基本情報フィールド（URLまで）
+				$basic_field_labels = array(
+					'company_name' => '会社名',
+					'user_name'    => '名前',
+					'email'        => 'メール',
+					'phone'        => '電話番号',
+					'url'          => 'URL',
+				);
+				$basic_fields = array_keys( $basic_field_labels );
 				foreach ( $basic_fields as $field_name ) {
-					$field = $fields[ $field_name === 'company_name' ? '会社名' : ( $field_name === 'user_name' ? '名前' : 'メール' ) ];
+					$field = $fields[ $basic_field_labels[ $field_name ] ];
 					$value = $action === 'update' ? ( isset( ${$field_name} ) ? ${$field_name} : '' ) : '';
 
 					$pattern = isset( $field['pattern'] ) ? ' pattern="' . esc_attr( $field['pattern'] ) . '"' : '';
@@ -1788,7 +1799,23 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 					$placeholder = isset( $field['placeholder'] ) ? ' placeholder="' . esc_attr__( $field['placeholder'], 'ktpwp' ) . '"' : '';
 
 					$fieldId = 'ktp-client-' . preg_replace( '/[^a-zA-Z0-9_-]/', '', $field['name'] );
-					$data_forms .= '<div class="form-group"><label for="' . $fieldId . '">' . esc_html__( $field_name === 'company_name' ? '会社名' : ( $field_name === 'user_name' ? '名前' : 'メール' ), 'ktpwp' ) . '：</label> <input id="' . $fieldId . '" type="' . esc_attr( $field['type'] ) . '" name="' . esc_attr( $field['name'] ) . '" value="' . esc_attr( $value ) . '"' . $pattern . $required . $placeholder . '></div>';
+					$contact_html = class_exists( 'KTPWP_External_Url' )
+						? KTPWP_External_Url::maybe_render_form_group(
+							$field['name'],
+							__( $basic_field_labels[ $field_name ], 'ktpwp' ),
+							$fieldId,
+							$field,
+							$value,
+							$pattern,
+							$required,
+							$placeholder
+						)
+						: null;
+					if ( $contact_html !== null ) {
+						$data_forms .= $contact_html;
+					} else {
+						$data_forms .= '<div class="form-group"><label for="' . $fieldId . '">' . esc_html__( $basic_field_labels[ $field_name ], 'ktpwp' ) . '：</label> <input id="' . $fieldId . '" type="' . esc_attr( $field['type'] ) . '" name="' . esc_attr( $field['name'] ) . '" value="' . esc_attr( $value ) . '"' . $pattern . $required . $placeholder . '></div>';
+					}
 				}
 
 				// 部署設定セクション（シンプルデザイン）
@@ -1890,18 +1917,12 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 				$data_forms .= '</div>';
 
 				// 残りのフィールド
-				$remaining_fields = array( 'url', 'representative_name', 'phone', 'postal_code', 'prefecture', 'city', 'address', 'building', 'closing_day', 'payment_month', 'payment_day', 'payment_method', 'tax_category', 'payment_timing', 'category', 'client_status', 'memo' );
+				$remaining_fields = array( 'representative_name', 'postal_code', 'prefecture', 'city', 'address', 'building', 'closing_day', 'payment_month', 'payment_day', 'payment_method', 'tax_category', 'payment_timing', 'category', 'client_status', 'memo' );
 				foreach ( $remaining_fields as $field_name ) {
 					$field_key = '';
 					switch ( $field_name ) {
-						case 'url':
-									$field_key = 'URL';
-			                break;
 						case 'representative_name':
 									$field_key = '代表者名';
-			                break;
-						case 'phone':
-									$field_key = '電話番号';
 			                break;
 						case 'postal_code':
 									$field_key = '郵便番号';
@@ -1981,8 +2002,9 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 						$data_forms .= '<div class="form-group"><label for="' . $fieldId . '">' . esc_html__( $field_key, 'ktpwp' ) . '：</label> <select id="' . $fieldId . '" name="' . esc_attr( $field['name'] ) . '"' . $required . '>' . $options . '</select></div>';
 					} else {
 						$fieldId = 'ktp-client-' . preg_replace( '/[^a-zA-Z0-9_-]/', '', $field['name'] );
-						if ( $field['name'] === 'url' && class_exists( 'KTPWP_External_Url' ) ) {
-							$data_forms .= KTPWP_External_Url::render_url_form_group(
+						$contact_html = class_exists( 'KTPWP_External_Url' )
+							? KTPWP_External_Url::maybe_render_form_group(
+								$field['name'],
 								__( $field_key, 'ktpwp' ),
 								$fieldId,
 								$field,
@@ -1990,7 +2012,10 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 								$pattern,
 								$required,
 								$placeholder
-							);
+							)
+							: null;
+						if ( $contact_html !== null ) {
+							$data_forms .= $contact_html;
 						} else {
 							$data_forms .= '<div class="form-group"><label for="' . $fieldId . '">' . esc_html__( $field_key, 'ktpwp' ) . '：</label> <input id="' . $fieldId . '" type="' . esc_attr( $field['type'] ) . '" name="' . esc_attr( $field['name'] ) . '" value="' . esc_attr( $value ) . '"' . $pattern . $required . $placeholder . '></div>';
 						}
