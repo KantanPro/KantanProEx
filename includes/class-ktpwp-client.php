@@ -343,6 +343,10 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 
 			// 表示モードの取得（デフォルトは顧客一覧）
 			$view_mode = isset( $_GET['view_mode'] ) ? sanitize_text_field( $_GET['view_mode'] ) : 'customer_list';
+			$print_all = isset( $_GET['print_all'] ) && (string) $_GET['print_all'] !== '' && (string) $_GET['print_all'] !== '0';
+			if ( $print_all ) {
+				$view_mode = 'customer_list';
+			}
 
 			// ソート順の取得（デフォルトはIDの降順）
 			$sort_by = 'id';
@@ -355,7 +359,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 			if ( isset( $_GET['sort_by'] ) ) {
 				$sort_by = sanitize_text_field( $_GET['sort_by'] );
 				// 安全なカラム名のみ許可（SQLインジェクション対策）
-				$allowed_columns = array( 'id', 'company_name', 'name', 'frequency', 'time', 'client_status', 'category' );
+				$allowed_columns = array( 'id', 'company_name', 'name', 'phone', 'frequency', 'time', 'client_status' );
 				if ( ! in_array( $sort_by, $allowed_columns ) ) {
 					$sort_by = 'id'; // 不正な値の場合はデフォルトに戻す
 				}
@@ -707,10 +711,20 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 				$sort_column = esc_sql( $sort_by ); // SQLインジェクション対策
 				$sort_column_prepared = str_replace( '%', '%%', $sort_column ); // % を %% にエスケープ
 				$sort_direction = $sort_order === 'ASC' ? 'ASC' : 'DESC'; // SQLインジェクション対策
-				$query = $wpdb->prepare(
-					"SELECT * FROM {$table_name} WHERE 1=1{$list_search_where} ORDER BY {$sort_column_prepared} {$sort_direction} LIMIT %d, %d",
-					array_merge( $list_search_args, array( intval( $page_start ), intval( $query_limit ) ) )
-				);
+				if ( $print_all ) {
+					$page_start   = 0;
+					$current_page = 1;
+					$total_pages  = 1;
+					$query        = $wpdb->prepare(
+						"SELECT * FROM {$table_name} WHERE 1=1{$list_search_where} ORDER BY {$sort_column_prepared} {$sort_direction}",
+						$list_search_args
+					);
+				} else {
+					$query = $wpdb->prepare(
+						"SELECT * FROM {$table_name} WHERE 1=1{$list_search_where} ORDER BY {$sort_column_prepared} {$sort_direction} LIMIT %d, %d",
+						array_merge( $list_search_args, array( intval( $page_start ), intval( $query_limit ) ) )
+					);
+				}
 				$post_row = $wpdb->get_results( $query );
 
 				$results = array(); // 結果を格納する配列を初期化
@@ -734,12 +748,12 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 								'sort_key' => 'name',
 							),
 							array(
-								'class'    => 'col-category',
-								'label'    => __( 'カテゴリー', 'ktpwp' ),
-								'sort_key' => 'category',
+								'class'    => 'col-phone',
+								'label'    => __( '電話番号', 'ktpwp' ),
+								'sort_key' => 'phone',
 							),
 							array(
-								'class'    => 'col-frequency',
+								'class'    => 'col-frequency no-print',
 								'label'    => __( '頻度', 'ktpwp' ),
 								'sort_key' => 'frequency',
 							),
@@ -795,17 +809,15 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 
 						$is_excluded = ( $client_status === '対象外' || $client_status === 'Inactive' );
 						$row_class   = $is_excluded ? 'ktp-data-list-row--excluded' : '';
-
-						// カテゴリーが空の場合は何も表示しない
-						$display_category = ! empty( $category ) ? $category : '';
+						$display_phone = $phone !== '' ? $phone : '—';
 
 						$row_attrs = KTPWP_List_Table::row_nav_attrs( $link_url, $cookie_name, (int) $row->id, $row_class );
 						$results[] = '<tr' . $row_attrs . '>'
 							. '<td class="col-id">' . $id . '</td>'
 							. '<td class="col-company">' . $company_name . '</td>'
 							. '<td class="col-contact">' . $user_name . '</td>'
-							. '<td class="col-category">' . esc_html( $display_category ) . '</td>'
-							. '<td class="col-frequency">' . $frequency . '</td>'
+							. '<td class="col-phone">' . esc_html( $display_phone ) . '</td>'
+							. '<td class="col-frequency no-print">' . $frequency . '</td>'
 							. '</tr>';
 					}
 
@@ -821,16 +833,22 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 			}
 
 			// 統一されたページネーションデザインを使用
-			$results_f = $this->render_pagination( $current_page, $total_pages, $query_limit, $name, $flg, $base_page_url, $total_rows, $view_mode, $client_id ?? null );
+			$results_f = '';
+			if ( $view_mode !== 'order_history' ) {
+				$results_f = '</div></div>';
+			}
+			if ( ! $print_all ) {
+				$results_f .= $this->render_pagination( $current_page, $total_pages, $query_limit, $name, $flg, $base_page_url, $total_rows, $view_mode, $client_id ?? null );
+			}
 
 			// 顧客データが0件の場合の処理
-			if ( $total_rows == 0 ) {
+			if ( ! $print_all && $total_rows == 0 ) {
 				// 協力会社タブと同じパターンで「info顧客データがありません」を表示
 				$results_f .= '<div style="padding: 15px 20px; background: linear-gradient(135deg, #fff3cd 0%, #fff8e1 100%); border-radius: 6px; margin: 15px 0; color: #856404; font-weight: 600; text-align: center; box-shadow: 0 3px 12px rgba(0,0,0,0.07); display: flex; align-items: center; justify-content: center; font-size: 16px; gap: 10px;">'
 					. '<span class="material-symbols-outlined" style="color: #ffc107;">info</span>'
 					. esc_html__( '顧客データがありません。', 'ktpwp' )
 					. '</div>';
-			} else {
+			} elseif ( ! $print_all ) {
 				// 受注履歴セクションを追加（リストBOX内、ページネーションの後）
 				// 詳細BOXに表示されている顧客のIDを取得して注文履歴タイトルを生成
 				$current_customer_name = '';
@@ -1493,9 +1511,49 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 			// 右側：印刷ボタン（プレビューは廃止）
 			$controller_html .= '</div>'; // 左側（検索＋ボタン）終了
 			$controller_html .= '<div style="display: flex; gap: 5px;">';
-			$controller_html .= '<button onclick="printContent()" title="' . esc_attr__( '印刷する', 'ktpwp' ) . '" style="padding: 8px 12px; font-size: 12px; background: #fff; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; transition: all 0.2s ease;">'
-            . '<span class="material-symbols-outlined" aria-label="' . esc_attr__( '印刷', 'ktpwp' ) . '" style="font-size: 18px; color: #333;">print</span>'
-            . '</button>';
+			$my_company_for_print = '';
+			if ( class_exists( 'KTPWP_Settings' ) ) {
+				$my_company_for_print = KTPWP_Settings::get_company_info();
+			}
+			if ( empty( $my_company_for_print ) ) {
+				$my_company_for_print = get_bloginfo( 'name' );
+			}
+			$my_company_for_print = wp_strip_all_tags( (string) $my_company_for_print );
+			$my_company_for_print = preg_replace( '/\S+@\S+\.\S+/', '', $my_company_for_print );
+			$my_company_for_print = preg_replace( '/\s+/', ' ', trim( $my_company_for_print ) );
+
+			$clients_print_args = array(
+				'tab_name'   => $name,
+				'print_all'  => 1,
+				'page_start' => 0,
+				'page_stage' => 2,
+			);
+			if ( isset( $_GET['sort_by'] ) && (string) $_GET['sort_by'] !== '' ) {
+				$clients_print_args['sort_by'] = sanitize_text_field( wp_unslash( $_GET['sort_by'] ) );
+			}
+			if ( isset( $_GET['sort_order'] ) && (string) $_GET['sort_order'] !== '' ) {
+				$clients_print_args['sort_order'] = sanitize_text_field( wp_unslash( $_GET['sort_order'] ) );
+			}
+			$clients_list_print_url = esc_url( add_query_arg( $clients_print_args, $base_page_url ) );
+
+			if ( class_exists( 'KTPWP_Ui_Generator' ) ) {
+				$controller_html .= KTPWP_Ui_Generator::render_tab_print_button(
+					array(
+						'id'    => 'js-clients-list-print-btn',
+						'label' => __( '顧客リスト印刷', 'ktpwp' ),
+						'title' => __( '印刷（ブラウザの印刷／PDFに保存）', 'ktpwp' ),
+						'attrs' => array(
+							'data-tab-list-print'        => '1',
+							'data-print-target'          => '#ktp-clients-print-list-only',
+							'data-print-fetch-url'       => $clients_list_print_url,
+							'data-print-extract-selector' => '#ktp-clients-print-list-only',
+							'data-print-filename-base'   => __( '顧客リスト', 'ktpwp' ),
+							'data-print-title'           => __( '顧客リスト', 'ktpwp' ),
+							'data-print-footer-name'     => $my_company_for_print,
+						),
+					)
+				);
+			}
 
 			$controller_html .= '</div>'; // 右側のボタン群終了
 			$controller_html .= '</div>'; // 左側（検索＋ボタン）終了

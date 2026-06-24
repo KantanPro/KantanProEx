@@ -301,7 +301,7 @@ if ( ! class_exists( 'KTPWP_Work_List_Schedule' ) ) {
 			$html .= '<div class="work-list-schedule-modal__header">';
 			$html .= '<h2 id="work-list-schedule-modal-title" class="work-list-schedule-modal__title">' . esc_html__( '工程表（受注）', 'ktpwp' ) . '</h2>';
 			$html .= '<div class="work-list-schedule-modal__actions">';
-			$html .= '<button type="button" id="js-work-list-schedule-print-btn" class="ktp-list-schedule-btn" title="' . esc_attr__( '印刷（ブラウザの印刷／PDFに保存）', 'ktpwp' ) . '">' . esc_html__( '印刷', 'ktpwp' ) . '</button>';
+			$html .= '<button type="button" id="js-work-list-schedule-print-btn" class="ktp-tab-print-btn ktp-list-schedule-btn" title="' . esc_attr__( '印刷（ブラウザの印刷／PDFに保存）', 'ktpwp' ) . '">' . esc_html__( '印刷', 'ktpwp' ) . '</button>';
 			$html .= '<button type="button" class="work-list-schedule-close" aria-label="' . esc_attr__( '閉じる', 'ktpwp' ) . '">&times;</button>';
 			$html .= '</div></div>';
 			$html .= '<div id="work-list-schedule-modal-body" class="work-list-schedule-modal__body" data-loading-text="' . esc_attr__( '読み込み中…', 'ktpwp' ) . '" data-error-text="' . esc_attr__( '工程表を読み込めませんでした。', 'ktpwp' ) . '">';

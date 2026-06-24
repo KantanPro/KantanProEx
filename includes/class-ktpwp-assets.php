@@ -569,6 +569,13 @@ class KTPWP_Assets {
                 'in_footer' => true,
                 'admin'     => false,
             ),
+            'ktp-tab-list-print' => array(
+                'src'       => 'js/ktp-tab-list-print.js',
+                'deps'      => array( 'jquery' ),
+                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-tab-list-print.js' ),
+                'in_footer' => true,
+                'admin'     => false,
+            ),
             'ktp-list-schedule' => array(
                 'src'       => 'js/ktp-list-schedule.js',
                 'deps'      => array(),
@@ -803,6 +810,10 @@ class KTPWP_Assets {
             'ktp-progress-select',
         );
 
+        // マスタ一覧タブ（顧客・サービス等）のリスト印刷
+        $tab_list_print_tabs         = array( 'client', 'service', 'supplier' );
+        $tab_list_print_only_scripts = array( 'ktp-tab-list-print' );
+
         // 顧客タブ専用（顧客以外のタブでは不要な MutationObserver を避ける）
         $client_only_scripts = array( 'ktp-client-delete-popup', 'ktp-client-invoice', 'ktp-client-contract' );
 
@@ -827,6 +838,12 @@ class KTPWP_Assets {
                 // 顧客タブ以外では顧客専用JSをスキップ
                 if ( ! $is_admin && $current_tab_name !== '' && $current_tab_name !== 'client'
                     && in_array( $handle, $client_only_scripts, true ) ) {
+                    continue;
+                }
+                // リスト印刷JSは対象マスタタブのみ
+                if ( ! $is_admin && $current_tab_name !== ''
+                    && ! in_array( $current_tab_name, $tab_list_print_tabs, true )
+                    && in_array( $handle, $tab_list_print_only_scripts, true ) ) {
                     continue;
                 }
                 // 仕事リスト以外では定期請求JSをスキップ
