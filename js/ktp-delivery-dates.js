@@ -228,22 +228,6 @@ window.handleProgressChange = function(selectElement) {
 jQuery(document).ready(function($) {
     'use strict';
 
-    // 受注書タブの納期入力・進捗セレクト・バッジが DOM に存在しない場合は、
-    // document レベルの change / click 委譲を一切張らずに即 return する。
-    // （サービス／協力会社／顧客タブでの無駄なイベント処理・再描画を避けるため）
-    if (
-        $('.delivery-date-input').length === 0 &&
-        $('.completion-date-input').length === 0 &&
-        $('.order-created-date-input').length === 0 &&
-        $('#completion_date').length === 0 &&
-        $('.progress-select').length === 0 &&
-        $('#order_progress_select').length === 0 &&
-        $('.order-progress-badge').length === 0 &&
-        $('.delivery-warning-badge').length === 0
-    ) {
-        return;
-    }
-
     console.log('[DELIVERY-DATES] 納期警告機能が読み込まれました');
     
     // 統一されたAJAX設定の取得
@@ -367,45 +351,62 @@ jQuery(document).ready(function($) {
     });
 
     // 納期フィールドの変更を監視
-    $(document).on('change', '.delivery-date-input', function() {
-        console.log('[DELIVERY-DATES] 納期フィールドが変更されました');
-        var $input = $(this);
-        var orderId = $input.data('order-id');
-        var field = $input.data('field');
-        var value = $input.val();
-        
-        console.log('[DELIVERY-DATES] 変更内容:', { 
-            orderId: orderId, 
-            field: field, 
+    $(document).on('mousedown click input', '.ktp_work_list_item .delivery-date-input, .ktp_work_list_item .completion-date-input', function(e) {
+        e.stopPropagation();
+    });
+
+    function saveDeliveryDateInput($input) {
+        if ($input.data('ktp-delivery-saving')) {
+            return;
+        }
+
+        var orderId = $input.attr('data-order-id') || $input.data('order-id');
+        var field = $input.attr('data-field') || $input.data('field');
+        var value = $input.val() || '';
+        var lastSaved = $input.attr('data-last-saved');
+        if (typeof lastSaved === 'undefined') {
+            lastSaved = '';
+        }
+
+        if (String(value) === String(lastSaved)) {
+            return;
+        }
+
+        console.log('[DELIVERY-DATES] 納期フィールドが変更されました', {
+            orderId: orderId,
+            field: field,
             value: value,
-            inputId: $input.attr('id'),
-            inputName: $input.attr('name')
+            lastSaved: lastSaved
         });
-        
-        // フィールド名の検証
+
         if (!field) {
             console.error('[DELIVERY-DATES] エラー: data-field属性が設定されていません');
             alert(ktpwpTranslate('フィールド名が設定されていません。ページを再読み込みしてください。'));
             return;
         }
-        
-        // 保存中の表示
+
+        if (!orderId) {
+            console.error('[DELIVERY-DATES] エラー: data-order-id属性が設定されていません');
+            alert(ktpwpTranslate('受注IDが取得できません。ページを再読み込みしてください。'));
+            return;
+        }
+
+        $input.data('ktp-delivery-saving', true);
         $input.prop('disabled', true);
         $input.css('opacity', '0.6');
-        
-        // nonceの取得
+
         const ajaxConfig = getAjaxConfig();
         const nonce = ajaxConfig.nonce;
-        
+
         if (!nonce) {
             console.error('[DELIVERY-DATES] エラー: nonceが取得できません');
             alert(ktpwpTranslate('セキュリティトークンが取得できません。ページを再読み込みしてください。'));
+            $input.data('ktp-delivery-saving', false);
             $input.prop('disabled', false);
             $input.css('opacity', '1');
             return;
         }
-        
-        // Ajaxでデータを保存
+
         $.ajax({
             url: ajaxConfig.url,
             type: 'POST',
@@ -419,22 +420,16 @@ jQuery(document).ready(function($) {
             success: function(response) {
                 console.log('[DELIVERY-DATES] 納期Ajax応答:', response);
                 if (response.success) {
-                    // 成功時の処理
+                    $input.attr('data-last-saved', value);
                     $input.css('border-color', '#4caf50');
                     $input.css('background-color', '#f1f8e9');
-                    
-                    // 行の警告マークを更新
                     updateWarningMark($input, value);
-                    // 納期変更後は進捗タブのバッジも更新（ユーザー操作時のみ）
                     updateProgressButtonWarning();
-                    
-                    // 3秒後に元のスタイルに戻す
                     setTimeout(function() {
                         $input.css('border-color', '');
                         $input.css('background-color', '');
                     }, 3000);
                 } else {
-                    // エラー時の処理
                     $input.css('border-color', '#f44336');
                     $input.css('background-color', '#ffebee');
                     var errorMessage = 'エラーが発生しました';
@@ -447,17 +442,20 @@ jQuery(document).ready(function($) {
                 }
             },
             error: function() {
-                // 通信エラー時の処理
                 $input.css('border-color', '#f44336');
                 $input.css('background-color', '#ffebee');
                 alert(ktpwpTranslate('通信エラーが発生しました'));
             },
             complete: function() {
-                // 処理完了時の処理
+                $input.data('ktp-delivery-saving', false);
                 $input.prop('disabled', false);
                 $input.css('opacity', '1');
             }
         });
+    }
+
+    $(document).on('change blur', '.delivery-date-input', function() {
+        saveDeliveryDateInput($(this));
     });
 
     // 完了日フィールドの変更を監視

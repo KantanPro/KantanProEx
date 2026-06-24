@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.97
+Stable tag: 1.3.98
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,11 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.98 - 2026年06月24日 =
+* 仕事リスト受注タブに工程表ボタンとモーダル表示を追加（受注日→約束納期、未設定時は希望納期）
+* 仕事リストの納期表示を約束納期に変更し、Ajax保存と promised_delivery_date カラム追加マイグレーションを実装
+* 仕事リストコントローラーとソート順説明のモバイル向けレスポンシブ表示を改善（進捗フィルタは変更なし）
 
 = 1.3.97 - 2026年06月24日 =
 * WEB問い合わせの顧客・部署処理を統一（公開商品・Contact Form 7・WooCommerce）

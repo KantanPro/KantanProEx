@@ -68,6 +68,16 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 			// フリーワード検索用GETパラメータ
 			$list_search = isset( $_GET['list_search'] ) ? sanitize_text_field( wp_unslash( $_GET['list_search'] ) ) : '';
 
+			$selected_progress = isset( $_GET['progress'] ) ? absint( $_GET['progress'] ) : 1;
+			$schedule_view     = isset( $_GET['schedule'] ) && '1' === (string) wp_unslash( $_GET['schedule'] );
+
+			if ( $schedule_view && 3 === $selected_progress && ! $recurring_billing_view && class_exists( 'KTPWP_Work_List_Schedule' ) ) {
+				$orders   = KTPWP_Work_List_Schedule::fetch_orders( $wpdb, $list_type_where );
+				$schedule = KTPWP_Work_List_Schedule::build( $orders );
+
+				return KTPWP_Work_List_Schedule::render_schedule_page( $schedule );
+			}
+
     // Controller container display at top（検索全幅1行、フィルタ＋印刷は2行目）
 			$content .= '<div class="controller ktp-list-controller">';
 			$content .= '<div class="ktp-list-controller__search">';
@@ -96,6 +106,9 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 				$content   .= $billing_ui->render_list_view_switcher( $tab_name, $recurring_billing_view );
 				if ( ! $recurring_billing_view ) {
 					$content .= $billing_ui->render_list_type_filter( $tab_name, $list_type_recurring );
+					if ( 3 === $selected_progress ) {
+						$content .= '<button type="button" id="js-work-list-schedule-btn" class="ktp-list-schedule-btn" title="' . esc_attr__( '受注案件の工程表を表示（受注日→約束納期）', 'ktpwp' ) . '" data-loading-text="' . esc_attr__( '読み込み中…', 'ktpwp' ) . '" data-error-text="' . esc_attr__( '工程表を読み込めませんでした。', 'ktpwp' ) . '">' . esc_html__( '工程表', 'ktpwp' ) . '</button>';
+					}
 				}
 			}
 			$content .= '</div>';
@@ -120,7 +133,6 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 				7 => __( 'ボツ', 'ktpwp' ),
 			);
 
-			$selected_progress = isset( $_GET['progress'] ) ? absint( $_GET['progress'] ) : 1;
 			// 印刷時だけページネーションを無視して全件取得する
 			$print_all = isset( $_GET['print_all'] ) && (string) $_GET['print_all'] !== '' && (string) $_GET['print_all'] !== '0';
 
@@ -152,8 +164,8 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 			}
 
 			// Workflow area to display progress buttons in full width
-			$content .= '<div class="workflow" style="width:100%;margin:0px 0 0px 0;">';
-			$content .= '<div class="progress-filter" style="display:flex;gap:8px;width:100%;justify-content:center;">';
+			$content .= '<div class="workflow ktp-list-workflow" style="width:100%;margin:0px 0 0px 0;">';
+			$content .= '<div class="progress-filter ktp-list-progress-filter" style="display:flex;gap:8px;width:100%;justify-content:center;">';
 
 			// 進捗アイコンの定義
 			$progress_icons = array(
@@ -264,18 +276,19 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 			$total_rows = $wpdb->get_var( $total_query );
 			$total_pages = ceil( $total_rows / $query_limit );
 			$current_page = floor( $page_start / $query_limit ) + 1;
+			$effective_due_sql = "COALESCE(NULLIF(promised_delivery_date, '0000-00-00'), NULLIF(desired_delivery_date, '0000-00-00'))";
 
 			// データ取得（進捗が「受注」の場合は納期順でソート）
 			if ( $print_all ) {
 				// ページネーション無視：LIMIT を付けず全件取得
 				if ( $selected_progress == 3 ) {
-					// 受注の場合は納期が迫っている順でソート
+					// 受注の場合は約束納期（未設定時は希望納期）が迫っている順でソート
 					$query = $wpdb->prepare(
 						"SELECT *,
-                    CASE 
-                        WHEN expected_delivery_date IS NULL THEN 999999
-                        WHEN expected_delivery_date <= CURDATE() THEN 0
-                        ELSE DATEDIFF(expected_delivery_date, CURDATE())
+                    CASE
+                        WHEN {$effective_due_sql} IS NULL THEN 999999
+                        WHEN {$effective_due_sql} <= CURDATE() THEN 0
+                        ELSE DATEDIFF({$effective_due_sql}, CURDATE())
                     END as days_until_delivery
                 FROM {$table_name}
                 WHERE progress = %d{$list_search_where}{$list_type_where}
@@ -294,17 +307,17 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 			} else {
 				// ページネーションあり（従来通り LIMIT/OFFSET）
 				if ( $selected_progress == 3 ) {
-					// 受注の場合は納期が迫っている順でソート
+					// 受注の場合は約束納期（未設定時は希望納期）が迫っている順でソート
 					$query = $wpdb->prepare(
-                        "SELECT *, 
-                    CASE 
-                        WHEN expected_delivery_date IS NULL THEN 999999
-                        WHEN expected_delivery_date <= CURDATE() THEN 0
-                        ELSE DATEDIFF(expected_delivery_date, CURDATE())
+                        "SELECT *,
+                    CASE
+                        WHEN {$effective_due_sql} IS NULL THEN 999999
+                        WHEN {$effective_due_sql} <= CURDATE() THEN 0
+                        ELSE DATEDIFF({$effective_due_sql}, CURDATE())
                     END as days_until_delivery
-                FROM {$table_name} 
+                FROM {$table_name}
                 WHERE progress = %d{$list_search_where}{$list_type_where}
-                ORDER BY days_until_delivery ASC, time DESC 
+                ORDER BY days_until_delivery ASC, time DESC
                 LIMIT %d, %d",
 						array_merge( array( $selected_progress ), $list_search_args, array( $page_start, $query_limit ) )
 					);
@@ -340,8 +353,8 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 
 			// 受注の場合はソート順を説明
 			if ( $selected_progress == 3 ) {
-				$content .= '<div style="background: #e3f2fd; border-left: 4px solid #1976d2; padding: 10px 15px; margin-bottom: 15px; border-radius: 4px; font-size: 13px; color: #1565c0;">';
-				$content .= '<strong>' . esc_html__( '📅 ソート順:', 'ktpwp' ) . '</strong> ' . esc_html__( '納期が迫っている順 → 受注日時順（新しい順）で表示されています。', 'ktpwp' );
+				$content .= '<div class="ktp-list-sort-notice">';
+				$content .= '<strong>' . esc_html__( '📅 ソート順:', 'ktpwp' ) . '</strong> ' . esc_html__( '約束納期（未設定時は希望納期）が迫っている順 → 受注日時順（新しい順）で表示されています。', 'ktpwp' );
 				$content .= '</div>';
 			}
 
@@ -373,17 +386,33 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 
 					$client_id = isset( $order->client_id ) ? (int) $order->client_id : 0;
 
-					// 納期フィールドの値を取得（希望納期は削除、納品予定日のみ）
-					$expected_delivery_date = isset( $order->expected_delivery_date ) ? $order->expected_delivery_date : '';
+					$promised_stored = isset( $order->promised_delivery_date ) ? trim( (string) $order->promised_delivery_date ) : '';
+					if ( $promised_stored === '0000-00-00' ) {
+						$promised_stored = '';
+					}
+					$promised_delivery_date = $promised_stored;
+					$desired_fallback       = isset( $order->desired_delivery_date ) ? trim( (string) $order->desired_delivery_date ) : '';
+					if ( $desired_fallback === '0000-00-00' ) {
+						$desired_fallback = '';
+					}
+					$promised_input_title = __( '約束納期', 'ktpwp' );
+					if ( $promised_stored === '' && $desired_fallback !== '' ) {
+						$promised_input_title .= ' (' . sprintf(
+							/* translators: %s: desired delivery date (Y-m-d) */
+							__( '希望納期: %s', 'ktpwp' ),
+							$desired_fallback
+						) . ')';
+					}
+					$effective_due_date = $this->resolve_effective_due_date( $order );
 
 					// 完了日フィールドの値を取得
 					$completion_date = isset( $order->completion_date ) ? $order->completion_date : '';
 
-					// 納期警告の判定（納期が迫っている + 納期過ぎも対象）
+					// 納期警告の判定（約束納期・希望納期のいずれかが迫っている／過ぎている）
 					$show_warning = false;
 					$is_urgent = false; // 緊急案件フラグ
 					$delivery_warning_title = ''; // 行のツールチップ用
-					if ( ! empty( $expected_delivery_date ) && $selected_progress == 3 ) {
+					if ( $effective_due_date !== '' && $selected_progress == 3 ) {
 						// 一般設定から警告日数を取得
 						$warning_days = 3; // デフォルト値
 						if ( class_exists( 'KTPWP_Settings' ) ) {
@@ -391,7 +420,7 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 						}
 
 						// 納期が迫っているか／過ぎているかチェック（不正な日付の場合はスキップ）
-						$delivery_date = DateTime::createFromFormat( 'Y-m-d', $expected_delivery_date );
+						$delivery_date = DateTime::createFromFormat( 'Y-m-d', $effective_due_date );
 						if ( $delivery_date !== false ) {
 							$delivery_date->setTime( 0, 0, 0 ); // 時間を00:00:00に設定
 							$today = new DateTime();
@@ -642,8 +671,8 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 					// 納期フィールドと進捗プルダウンを1つのコンテナにまとめる
 					$content .= "<div class='delivery-dates-container'>";
 					$content .= "<div class='delivery-input-wrapper'>";
-					$content .= "<span class='delivery-label'>" . esc_html__( '納期', 'ktpwp' ) . "</span>";
-					$content .= "<input type='date' name='expected_delivery_date_{$order_id}' value='{$expected_delivery_date}' class='delivery-date-input' data-order-id='{$order_id}' data-field='expected_delivery_date' placeholder='" . esc_attr__( '納品予定日', 'ktpwp' ) . "' title='" . esc_attr__( '納品予定日', 'ktpwp' ) . "'{$date_input_lang_attr}>";
+					$content .= "<span class='delivery-label'>" . esc_html__( '約束納期', 'ktpwp' ) . "</span>";
+					$content .= "<input type='date' name='promised_delivery_date_{$order_id}' value='" . esc_attr( $promised_delivery_date ) . "' class='delivery-date-input' data-order-id='{$order_id}' data-field='promised_delivery_date' data-last-saved='" . esc_attr( $promised_stored ) . "' placeholder='" . esc_attr__( '約束納期', 'ktpwp' ) . "' title='" . esc_attr( $promised_input_title ) . "'{$date_input_lang_attr}>";
 
 					// 納期警告マークを追加
 					if ( $show_warning && $delivery_warning_title !== '' ) {
@@ -734,9 +763,9 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 
 			$content .= '</div>'; // #ktp_list_print_area 終了
 
-			// 納期フィールドのJavaScriptファイルを読み込み
-			wp_enqueue_script( 'ktp-delivery-dates' );
-			wp_enqueue_script( 'ktp-list-print', plugins_url( 'js/ktp-list-print.js', dirname( __FILE__ ) ) . '?v=' . ( defined( 'KANTANPRO_PLUGIN_VERSION' ) ? KANTANPRO_PLUGIN_VERSION : '1.0' ), array( 'jquery' ), ( defined( 'KANTANPRO_PLUGIN_VERSION' ) ? KANTANPRO_PLUGIN_VERSION : '1.0' ), true );
+			if ( 3 === $selected_progress && ! $recurring_billing_view && class_exists( 'KTPWP_Work_List_Schedule' ) ) {
+				$content .= KTPWP_Work_List_Schedule::render_modal();
+			}
 
 			return $content;
 		}
@@ -1060,6 +1089,26 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 			$pagination_html .= '</div>';
 
 			return $pagination_html;
+		}
+
+		/**
+		 * 仕事リストの警告・ソート用に、約束納期 → 希望納期の順で有効な納期を返す。
+		 *
+		 * @param object $order 受注書行。
+		 * @return string Y-m-d または空文字。
+		 */
+		private function resolve_effective_due_date( $order ) {
+			$promised = isset( $order->promised_delivery_date ) ? trim( (string) $order->promised_delivery_date ) : '';
+			if ( $promised !== '' && $promised !== '0000-00-00' ) {
+				return $promised;
+			}
+
+			$desired = isset( $order->desired_delivery_date ) ? trim( (string) $order->desired_delivery_date ) : '';
+			if ( $desired !== '' && $desired !== '0000-00-00' ) {
+				return $desired;
+			}
+
+			return '';
 		}
 	}
 } // class_exists

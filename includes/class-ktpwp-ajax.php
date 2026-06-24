@@ -4382,11 +4382,20 @@ class KTPWP_Ajax {
 					? KTPWP_Schema_Cache::column_exists( $table_name, $field )
 					: $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM `{$table_name}` LIKE %s", $field ) );
 				if ( ! $column_exists ) {
-					$wpdb->query( "ALTER TABLE `{$table_name}` ADD COLUMN `{$field}` DATE NULL" );
+					$comment = 'promised_delivery_date' === $field ? '約束納期' : '';
+					$alter   = "ALTER TABLE `{$table_name}` ADD COLUMN `{$field}` DATE NULL DEFAULT NULL";
+					if ( $comment !== '' ) {
+						$alter .= " COMMENT '{$comment}'";
+					}
+					$wpdb->query( $alter );
 					if ( class_exists( 'KTPWP_Schema_Cache' ) ) {
 						KTPWP_Schema_Cache::invalidate( $table_name );
 					}
 				}
+			}
+
+			if ( in_array( $field, $auto_add_date_fields, true ) && $value === '' ) {
+				$value = null;
 			}
 
 			$column_exists = class_exists( 'KTPWP_Schema_Cache' )
@@ -4396,12 +4405,20 @@ class KTPWP_Ajax {
 				error_log( 'KTPWP Ajax: Column exists: ' . ( $column_exists ? 'YES' : 'NO' ) );
 			}
 
+			if ( ! $column_exists ) {
+				wp_send_json_error( array( 'message' => __( '日付カラムが見つかりません。プラグインを再有効化してから再度お試しください。', 'ktpwp' ) ) );
+				return;
+			}
+
+			$update_data   = array( $field => $value );
+			$update_format = array( null === $value ? null : '%s' );
+
 			// データベース更新
 			$result = $wpdb->update(
 				$table_name,
-				array( $field => $value ),
+				$update_data,
 				array( 'id' => $order_id ),
-				array( '%s' ),
+				$update_format,
 				array( '%d' )
 			);
 
@@ -4410,6 +4427,15 @@ class KTPWP_Ajax {
 				if ( $result === false ) {
 					error_log( 'KTPWP Ajax: Last error: ' . $wpdb->last_error );
 				}
+			}
+
+			if ( $result === false ) {
+				wp_send_json_error(
+					array(
+						'message' => __( 'データベースの更新に失敗しました。', 'ktpwp' ) . ( $wpdb->last_error ? ' ' . $wpdb->last_error : '' ),
+					)
+				);
+				return;
 			}
 
 			$ok_message = ( $field === 'memo' ) ? __( 'メモを更新しました', 'ktpwp' ) : __( '納期を更新しました', 'ktpwp' );

@@ -439,7 +439,7 @@ class KTPWP_Assets {
             'ktp-delivery-dates' => array(
                 'src'       => 'js/ktp-delivery-dates.js',
                 'deps'      => array( 'jquery' ),
-                'ver'       => KTPWP_PLUGIN_VERSION,
+                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-delivery-dates.js' ),
                 'in_footer' => true,
                 'admin'     => false,
                 'localize'  => array(
@@ -561,6 +561,20 @@ class KTPWP_Assets {
                         'nonce'    => wp_create_nonce( 'ktp_contract_billing_nonce' ),
                     ),
                 ),
+            ),
+            'ktp-list-print' => array(
+                'src'       => 'js/ktp-list-print.js',
+                'deps'      => array( 'jquery' ),
+                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-list-print.js' ),
+                'in_footer' => true,
+                'admin'     => false,
+            ),
+            'ktp-list-schedule' => array(
+                'src'       => 'js/ktp-list-schedule.js',
+                'deps'      => array(),
+                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-list-schedule.js' ),
+                'in_footer' => true,
+                'admin'     => false,
             ),
             'ktp-order-delete-confirm' => array(
                 'src'       => 'js/ktp-order-delete-confirm.js',
@@ -754,9 +768,14 @@ class KTPWP_Assets {
         // 現在のタブ名を取得（フロントエンドのみ）
         // サービス／協力会社／顧客タブでは受注書関連の重いJSを読み込まない
         // （メモ欄クリック時のフリーズ・ページ読み込み遅延の主原因対策）
-        $current_tab_name = '';
-        if ( ! $is_admin && isset( $_GET['tab_name'] ) ) {
-            $current_tab_name = sanitize_text_field( wp_unslash( $_GET['tab_name'] ) );
+        // Shortcodes::get_current_tab() と同様に POST を優先し、未指定時は list
+        $current_tab_name = 'list';
+        if ( ! $is_admin ) {
+            if ( isset( $_POST['tab_name'] ) && is_string( $_POST['tab_name'] ) ) {
+                $current_tab_name = sanitize_text_field( wp_unslash( $_POST['tab_name'] ) );
+            } elseif ( isset( $_GET['tab_name'] ) ) {
+                $current_tab_name = sanitize_text_field( wp_unslash( $_GET['tab_name'] ) );
+            }
         }
 
         $non_order_tabs = array( 'service', 'supplier', 'client', 'report', 'list' );
@@ -777,7 +796,6 @@ class KTPWP_Assets {
             'ktp-calculation-debug',
             'ktp-calculation-test',
             'ktp-calculation-monitor',
-            'ktp-delivery-dates',
             'ktp-order-preview',
             'ktp-order-inline-projectname',
             'ktp-order-contract',
@@ -788,8 +806,8 @@ class KTPWP_Assets {
         // 顧客タブ専用（顧客以外のタブでは不要な MutationObserver を避ける）
         $client_only_scripts = array( 'ktp-client-delete-popup', 'ktp-client-invoice', 'ktp-client-contract' );
 
-        // 仕事リストタブ専用
-        $list_only_scripts = array( 'ktp-contract-billing' );
+        // 仕事リストタブ専用（受注書タブでは読み込まない）
+        $list_only_scripts = array( 'ktp-contract-billing', 'ktp-list-print', 'ktp-list-schedule' );
 
         // 宛名印刷（顧客・協力会社タブ）
         $atena_print_tabs         = array( 'client', 'supplier' );

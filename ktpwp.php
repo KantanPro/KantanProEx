@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.3.97
+ * Version: 1.3.98
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -4564,6 +4564,28 @@ function ktpwp_ensure_shortcodes_registered() {
         }
     }
 
+    if ( ! get_option( 'ktp_order_promised_delivery_date_migration_completed' ) ) {
+        $migration_file = plugin_dir_path( __FILE__ ) . 'includes/migrations/20260624_add_promised_delivery_date_to_order.php';
+        if ( file_exists( $migration_file ) ) {
+            require_once $migration_file;
+        }
+    } else {
+        global $wpdb;
+        $order_table_name = $wpdb->prefix . 'ktp_order';
+        $production_table = 'top_ktp_order';
+        if ( $wpdb->get_var( "SHOW TABLES LIKE '{$production_table}'" ) === $production_table ) {
+            $order_table_name = $production_table;
+        }
+        $order_columns = $wpdb->get_col( "SHOW COLUMNS FROM `{$order_table_name}`", 0 );
+        if ( is_array( $order_columns ) && ! in_array( 'promised_delivery_date', $order_columns, true ) ) {
+            delete_option( 'ktp_order_promised_delivery_date_migration_completed' );
+            $migration_file = plugin_dir_path( __FILE__ ) . 'includes/migrations/20260624_add_promised_delivery_date_to_order.php';
+            if ( file_exists( $migration_file ) ) {
+                require_once $migration_file;
+            }
+        }
+    }
+
     if ( ! class_exists( 'KTPWP_Shortcodes' ) ) {
         $shortcodes_file = plugin_dir_path( __FILE__ ) . 'includes/class-ktpwp-shortcodes.php';
         if ( file_exists( $shortcodes_file ) ) {
@@ -5529,6 +5551,9 @@ add_action(
 // includes/class-ktpwp-tab-list.php, class-ktpwp-view-tab.php を明示的に読み込む（自動読み込みされていない場合のみ）
 if ( ! class_exists( 'KTPWP_Tab_Search_UI' ) ) {
 	include_once MY_PLUGIN_PATH . 'includes/class-ktpwp-tab-search-ui.php';
+}
+if ( ! class_exists( 'KTPWP_Work_List_Schedule' ) ) {
+	include_once MY_PLUGIN_PATH . 'includes/class-ktpwp-work-list-schedule.php';
 }
 if ( ! class_exists( 'KTPWP_List_Class' ) ) {
     include_once MY_PLUGIN_PATH . 'includes/class-ktpwp-tab-list.php';

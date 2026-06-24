@@ -2369,6 +2369,301 @@ form > .create-order-btn {
   color: #fff;
 }
 
+/* 仕事リスト: 受注タブのソート順説明（進捗フィルタとは別） */
+.ktp-list-sort-notice {
+  background: #e3f2fd;
+  border-left: 4px solid #1976d2;
+  border-radius: 4px;
+  box-sizing: border-box;
+  color: #1565c0;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 15px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 10px 15px;
+  word-break: break-word;
+}
+
+.ktp-list-schedule-btn {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  color: #333;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+.ktp-list-schedule-btn:hover {
+  background: #f5f5f5;
+}
+
+.ktp-list-schedule-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.work-list-schedule-modal {
+  display: none;
+  inset: 0;
+  isolation: isolate;
+  position: fixed;
+  z-index: 2147483646;
+}
+
+.work-list-schedule-modal.is-open {
+  display: block;
+}
+
+.work-list-schedule-overlay {
+  background: rgba(17, 24, 39, 0.5);
+  inset: 0;
+  position: fixed;
+  z-index: 0;
+}
+
+.work-list-schedule-modal__panel {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  left: 50%;
+  max-height: 90vh;
+  max-width: 960px;
+  position: fixed;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% - 32px);
+  z-index: 1;
+}
+
+.work-list-schedule-modal__header {
+  align-items: center;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 16px 20px;
+}
+
+.work-list-schedule-modal__title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.work-list-schedule-modal__actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.work-list-schedule-close {
+  background: transparent;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.work-list-schedule-close:hover {
+  color: #374151;
+}
+
+.work-list-schedule-modal__body {
+  color: #1f2937;
+  font-size: 13px;
+  max-height: 75vh;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.work-list-schedule-loading,
+.work-list-schedule-error {
+  color: #6b7280;
+  margin: 0;
+}
+
+.work-list-schedule-error {
+  color: #b91c1c;
+}
+
+body.work-list-schedule-modal-open {
+  overflow: hidden;
+}
+
+body.work-list-schedule-modal-open .ktp_header {
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.work-list-schedule-chart {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.work-list-schedule-count {
+  color: #374151;
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+.work-list-schedule-count-note {
+  color: #6b7280;
+  font-weight: 400;
+}
+
+.work-list-schedule-empty {
+  color: #4b5563;
+  font-size: 14px;
+}
+
+.work-list-schedule-scroll {
+  overflow-x: auto;
+}
+
+.work-list-schedule-layout {
+  min-width: 640px;
+  position: relative;
+}
+
+.work-list-schedule-gridlines {
+  bottom: 0;
+  left: calc(14rem + 12px);
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 40px;
+  z-index: 0;
+}
+
+.work-list-schedule-gridline {
+  border-left: 1px solid #9ca3af;
+  bottom: 0;
+  position: absolute;
+  top: 0;
+}
+
+.work-list-schedule-grid {
+  column-gap: 12px;
+  display: grid;
+  grid-template-columns: 14rem 1fr;
+  position: relative;
+  row-gap: 0;
+  z-index: 1;
+}
+
+.work-list-schedule-row-divider {
+  border-top: 1px solid #d1d5db;
+  grid-column: 1 / -1;
+  height: 0;
+}
+
+.work-list-schedule-case-header {
+  align-items: flex-end;
+  border-bottom: 1px solid #d1d5db;
+  color: #6b7280;
+  display: flex;
+  font-size: 12px;
+  font-weight: 600;
+  height: 32px;
+}
+
+.work-list-schedule-timeline-header {
+  background: transparent;
+  border-bottom: 1px solid #d1d5db;
+  height: 32px;
+  overflow: visible;
+  position: relative;
+}
+
+.work-list-schedule-tick {
+  bottom: 2px;
+  color: #374151;
+  font-size: 11px;
+  line-height: 1;
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.work-list-schedule-label-cell {
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 28px;
+  padding: 6px 0;
+}
+
+.work-list-schedule-label {
+  color: #075985;
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-list-schedule-sublabel {
+  color: #6b7280;
+  font-size: 11px;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-list-schedule-track {
+  align-self: center;
+  background: transparent;
+  border: none;
+  height: 28px;
+  position: relative;
+}
+
+.work-list-schedule-no-bar {
+  align-items: center;
+  color: #9ca3af;
+  display: flex;
+  font-size: 11px;
+  inset: 0;
+  position: absolute;
+  white-space: nowrap;
+}
+
+.work-list-schedule-footnotes {
+  margin-top: 12px;
+}
+
+.work-list-schedule-footnotes > * + * {
+  margin-top: 4px;
+}
+
+.work-list-schedule-legend {
+  color: #4b5563;
+  font-size: 12px;
+  margin: 0;
+}
+
+.work-list-schedule-bar {
+  background: #d1d5db;
+  border: 1px solid #9ca3af;
+  border-radius: 4px;
+  bottom: 4px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1);
+  box-sizing: border-box;
+  position: absolute;
+  top: 4px;
+  z-index: 2;
+}
+
 @media (max-width: 767px) {
   .ktp_plugin_container .controller > div:first-of-type {
     flex: 1 1 100% !important;
@@ -2410,6 +2705,57 @@ form > .create-order-btn {
   .ktp-list-type-filter__label {
     flex-shrink: 0;
     white-space: nowrap;
+  }
+
+  /* 仕事リストコントローラー（進捗フィルタ .progress-filter は対象外） */
+  #list_content {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  #list_content #ktp_list_print_area,
+  #list_content .ktp_work_list_box {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+
+  #list_content .controller.ktp-list-controller .ktp-list-controller__bar {
+    align-items: flex-start;
+    flex-wrap: wrap !important;
+    row-gap: 10px;
+  }
+
+  #list_content .controller.ktp-list-controller .ktp-list-controller-actions {
+    flex: 1 1 100%;
+    flex-wrap: wrap !important;
+    gap: 8px;
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
+  }
+
+  #list_content .controller.ktp-list-controller .ktp-list-view-switcher,
+  #list_content .controller.ktp-list-controller .ktp-list-type-filter {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  #list_content .controller.ktp-list-controller .ktp-list-schedule-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  #list_content .controller.ktp-list-controller .ktp-list-controller__tools {
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  #list_content .ktp-list-sort-notice {
+    font-size: 12px;
+    margin-bottom: 12px;
+    padding: 8px 10px;
   }
 }
 
@@ -4075,7 +4421,6 @@ div.ktp-report-print-area {
   }
 
   .ktp_plugin_container .ktp-supplier-controller__bar,
-  .ktp_plugin_container .ktp-list-controller__bar,
   .ktp_plugin_container .ktp-order-controller__bar,
   .ktp_plugin_container .ktp-service-controller__bar,
   .ktp_plugin_container .ktp-report-controller__bar {
@@ -4086,8 +4431,15 @@ div.ktp-report-print-area {
     margin-bottom: 12px;
   }
 
+  .ktp_plugin_container .ktp-list-controller__bar {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 100%;
+    margin-bottom: 12px;
+  }
+
   .ktp_plugin_container .ktp-supplier-controller-actions,
-  .ktp_plugin_container .ktp-list-controller-actions,
   .ktp_plugin_container .ktp-order-controller-actions,
   .ktp_plugin_container .ktp-service-controller-actions {
     flex-wrap: nowrap !important;
@@ -6423,6 +6775,7 @@ body.ktpwp-modal-open {
 
 .ktp_plugin_container .controller.ktp-list-controller .ktp-list-view-switcher,
 .ktp_plugin_container .controller.ktp-list-controller .ktp-list-type-filter,
+.ktp_plugin_container .controller.ktp-list-controller .ktp-list-schedule-btn,
 .ktp_plugin_container .controller.ktp-order-controller .ktp-order-title-actions {
   margin-bottom: 0;
 }

@@ -81,9 +81,10 @@ class KTPWP_List_Warning_Counts {
 			}
 		}
 
+		$effective_due_sql = "COALESCE(NULLIF(promised_delivery_date, '0000-00-00'), NULLIF(desired_delivery_date, '0000-00-00'))";
 		$delivery_warning = $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM `{$table_name}` WHERE progress = %d AND expected_delivery_date IS NOT NULL AND expected_delivery_date <= DATE_ADD(CURDATE(), INTERVAL %d DAY)",
+				"SELECT COUNT(*) FROM `{$table_name}` WHERE progress = %d AND {$effective_due_sql} IS NOT NULL AND {$effective_due_sql} <= DATE_ADD(CURDATE(), INTERVAL %d DAY)",
 				3,
 				$warning_days
 			)
