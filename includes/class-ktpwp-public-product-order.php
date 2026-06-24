@@ -151,7 +151,11 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				}
 			}
 
-			$resolved = $this->find_or_create_client(
+			if ( ! class_exists( 'KTPWP_Inquiry_Client_Resolver' ) ) {
+				require_once dirname( __FILE__ ) . '/class-ktpwp-inquiry-client-resolver.php';
+			}
+
+			$resolved = KTPWP_Inquiry_Client_Resolver::resolve(
 				array(
 					'company_name' => $company_name,
 					'name'         => $contact_name,
@@ -174,7 +178,7 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 			}
 
 			// 受注の会社名は顧客マスタの登録会社名。担当者名はフォームのお名前。
-			$customer_name = $this->resolve_order_customer_name( $client_id, $company_name, $contact_name );
+			$customer_name = KTPWP_Inquiry_Client_Resolver::resolve_order_customer_name( $client_id, $company_name, $contact_name );
 
 			$service_name = isset( $service->service_name ) ? sanitize_text_field( (string) $service->service_name ) : '';
 			$project_name = $service_name;
@@ -546,37 +550,6 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 		}
 
 		/**
-		 * 会社名未入力の新規顧客用プレースホルダー（未設定#1, 未設定#2 …）。
-		 *
-		 * @return string
-		 */
-		private function allocate_unset_company_name() {
-			global $wpdb;
-
-			$table  = $wpdb->prefix . 'ktp_client';
-			$prefix = '未設定#';
-			$max    = 0;
-
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$names = $wpdb->get_col(
-				$wpdb->prepare(
-					"SELECT company_name FROM {$table} WHERE company_name LIKE %s",
-					$wpdb->esc_like( $prefix ) . '%'
-				)
-			);
-
-			if ( is_array( $names ) ) {
-				foreach ( $names as $name ) {
-					if ( preg_match( '/^未設定#(\d+)$/', (string) $name, $matches ) === 1 ) {
-						$max = max( $max, (int) $matches[1] );
-					}
-				}
-			}
-
-			return $prefix . (string) ( $max + 1 );
-		}
-
-		/**
 		 * 公開中のサービスを取得する。
 		 *
 		 * @param int $service_id サービス ID。
@@ -588,217 +561,6 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 			}
 
 			return KTPWP_Service_DB::get_instance()->get_public_service_by_id( $service_id );
-		}
-
-		/**
-		 * 顧客を検索または新規作成する。
-		 *
-		 * @param array $data 顧客データ。
-		 * @return array{client_id: int, department_id: int|null}|false
-		 */
-		private function find_or_create_client( array $data ) {
-			global $wpdb;
-
-			$table_name = $wpdb->prefix . 'ktp_client';
-			$email      = isset( $data['email'] ) ? sanitize_email( $data['email'] ) : '';
-			$company_name = isset( $data['company_name'] ) ? sanitize_text_field( $data['company_name'] ) : '';
-			$contact_name = isset( $data['name'] ) ? sanitize_text_field( $data['name'] ) : '';
-			$department_id = null;
-
-			if ( $email !== '' ) {
-				$existing = $wpdb->get_row(
-					$wpdb->prepare(
-						"SELECT * FROM {$table_name} WHERE email = %s ORDER BY id DESC LIMIT 1",
-						$email
-					)
-				);
-				if ( $existing ) {
-					$client_id = (int) $existing->id;
-
-					if ( $this->should_use_inquiry_department( $existing, $company_name ) ) {
-						$department_id = $this->find_or_create_department_for_client( $client_id, $company_name, $contact_name, $email );
-						$department_id = $department_id ? (int) $department_id : null;
-					}
-
-					return array(
-						'client_id'     => $client_id,
-						'department_id' => $department_id,
-					);
-				}
-			}
-
-			$memo_parts = array();
-			if ( ! empty( $data['message'] ) ) {
-				$memo_parts[] = __( 'ご要望:', 'ktpwp' ) . ' ' . sanitize_textarea_field( $data['message'] );
-			}
-			if ( ! empty( $data['phone'] ) ) {
-				$memo_parts[] = __( '電話:', 'ktpwp' ) . ' ' . sanitize_text_field( $data['phone'] );
-			}
-			if ( ! empty( $data['service_name'] ) ) {
-				$memo_parts[] = __( '初回お申込商品:', 'ktpwp' ) . ' ' . sanitize_text_field( $data['service_name'] );
-			}
-
-			$client_data = array(
-				'company_name'  => $company_name !== '' ? $company_name : $this->allocate_unset_company_name(),
-				'name'          => isset( $data['name'] ) ? sanitize_text_field( $data['name'] ) : '',
-				'email'         => $email,
-				'memo'          => implode( "\n", $memo_parts ),
-				'time'          => current_time( 'mysql' ),
-				'client_status' => __( '対象', 'ktpwp' ),
-			);
-
-			$result = $wpdb->insert(
-				$table_name,
-				$client_data,
-				array( '%s', '%s', '%s', '%s', '%s', '%s' )
-			);
-
-			if ( $result === false ) {
-				error_log( 'KTPWP Public Product: Failed to insert client - ' . $wpdb->last_error );
-				return false;
-			}
-
-			return array(
-				'client_id'     => (int) $wpdb->insert_id,
-				'department_id' => null,
-			);
-		}
-
-		/**
-		 * 受注に保存する会社名（顧客マスタの登録会社名を優先）。
-		 *
-		 * @param int    $client_id    顧客 ID。
-		 * @param string $form_company フォームの会社名。
-		 * @param string $form_contact フォームの担当者名。
-		 * @return string
-		 */
-		private function resolve_order_customer_name( $client_id, $form_company, $form_contact ) {
-			global $wpdb;
-
-			$client_id = (int) $client_id;
-			if ( $client_id > 0 ) {
-				$table_name = $wpdb->prefix . 'ktp_client';
-				$registered_company = $wpdb->get_var(
-					$wpdb->prepare(
-						"SELECT company_name FROM {$table_name} WHERE id = %d",
-						$client_id
-					)
-				);
-				if ( is_string( $registered_company ) && trim( $registered_company ) !== '' ) {
-					return sanitize_text_field( trim( $registered_company ) );
-				}
-			}
-
-			$form_company = trim( sanitize_text_field( (string) $form_company ) );
-			if ( $form_company !== '' ) {
-				return $form_company;
-			}
-
-			return sanitize_text_field( (string) $form_contact );
-		}
-
-		/**
-		 * フォーム会社名を部署として使うか（登録会社名と異なる場合のみ）。
-		 *
-		 * @param object $client       ktp_client 行。
-		 * @param string $form_company フォームの会社名。
-		 * @return bool
-		 */
-		private function should_use_inquiry_department( $client, $form_company ) {
-			$form_company = trim( sanitize_text_field( (string) $form_company ) );
-			if ( $form_company === '' ) {
-				return false;
-			}
-
-			$registered_company = trim( (string) ( $client->company_name ?? '' ) );
-			if ( $registered_company === '' ) {
-				return false;
-			}
-
-			return ! $this->normalized_equal( $form_company, $registered_company );
-		}
-
-		/**
-		 * @param string $a 比較文字列 A。
-		 * @param string $b 比較文字列 B。
-		 * @return bool
-		 */
-		private function normalized_equal( $a, $b ) {
-			return mb_strtolower( trim( (string) $a ) ) === mb_strtolower( trim( (string) $b ) );
-		}
-
-		/**
-		 * 同一メール・別名義の問い合わせ用に部署を登録し、受注の宛先部署として選択する。
-		 *
-		 * @param int    $client_id    顧客 ID。
-		 * @param string $company_name フォームの会社名。
-		 * @param string $contact_name 担当者名。
-		 * @param string $email        メールアドレス。
-		 * @return int|false 部署 ID。失敗時 false。
-		 */
-		private function find_or_create_department_for_client( $client_id, $company_name, $contact_name, $email ) {
-			$client_id    = (int) $client_id;
-			$company_name = sanitize_text_field( (string) $company_name );
-			$contact_name = sanitize_text_field( (string) $contact_name );
-			$email        = sanitize_email( (string) $email );
-
-			if ( $client_id <= 0 || $contact_name === '' || $email === '' ) {
-				return false;
-			}
-
-			if ( trim( $company_name ) === '' ) {
-				return false;
-			}
-
-			global $wpdb;
-			$client_table = $wpdb->prefix . 'ktp_client';
-			$registered_company = $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT company_name FROM {$client_table} WHERE id = %d",
-					$client_id
-				)
-			);
-			if (
-				is_string( $registered_company )
-				&& trim( $registered_company ) !== ''
-				&& $this->normalized_equal( $company_name, $registered_company )
-			) {
-				return false;
-			}
-
-			if ( ! class_exists( 'KTPWP_Department_Manager' ) ) {
-				require_once dirname( __FILE__ ) . '/class-ktpwp-department-manager.php';
-			}
-
-			if ( ! KTPWP_Department_Manager::table_exists() && function_exists( 'ktpwp_create_department_table' ) ) {
-				ktpwp_create_department_table();
-			}
-
-			$department_name = KTPWP_Department_Manager::build_inquiry_department_name( $company_name, $contact_name );
-
-			$departments = KTPWP_Department_Manager::get_departments_by_client( $client_id );
-			foreach ( $departments as $department ) {
-				if (
-					$this->normalized_equal( (string) ( $department->department_name ?? '' ), $department_name )
-					&& $this->normalized_equal( (string) ( $department->contact_person ?? '' ), $contact_name )
-				) {
-					return (int) $department->id;
-				}
-			}
-
-			$department_id = KTPWP_Department_Manager::add_department(
-				$client_id,
-				$department_name,
-				$contact_name,
-				$email
-			);
-
-			if ( ! $department_id ) {
-				error_log( 'KTPWP Public Product: Failed to create department for client ' . $client_id );
-				return false;
-			}
-
-			return (int) $department_id;
 		}
 
 		/**

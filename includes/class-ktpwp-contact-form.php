@@ -158,16 +158,27 @@ class KTPWP_Contact_Form {
 
         // 顧客データの準備と保存
         $client_data = $this->prepare_client_data( $posted_data );
-        
 
+        if ( ! class_exists( 'KTPWP_Inquiry_Client_Resolver' ) ) {
+            require_once dirname( __FILE__ ) . '/class-ktpwp-inquiry-client-resolver.php';
+        }
 
-        $client_id = $this->save_client_data( $client_data );
+        $resolved = KTPWP_Inquiry_Client_Resolver::resolve(
+            array(
+                'email'        => $client_data['email'] ?? '',
+                'company_name' => $client_data['company_name'] ?? '',
+                'name'         => $client_data['name'] ?? '',
+                'memo'         => $client_data['memo'] ?? '',
+            )
+        );
+
+        $client_id     = is_array( $resolved ) ? (int) ( $resolved['client_id'] ?? 0 ) : 0;
+        $department_id = is_array( $resolved ) ? ( $resolved['department_id'] ?? null ) : null;
+        $department_id = $department_id ? (int) $department_id : null;
 
         if ( $client_id ) {
             // 受注データも作成
-            $order_data = $this->prepare_order_data( $posted_data, $client_id );
-
-
+            $order_data = $this->prepare_order_data( $posted_data, $client_id, $department_id );
 
             $this->save_order_data( $order_data );
 
@@ -300,9 +311,10 @@ class KTPWP_Contact_Form {
      *
      * @param array $posted_data 送信されたデータ
      * @param int   $client_id 顧客ID
+     * @param int|null $department_id 部署ID
      * @return array 準備された受注データ
      */
-    private function prepare_order_data( $posted_data, $client_id ) {
+    private function prepare_order_data( $posted_data, $client_id, $department_id = null ) {
         $customer_name = $this->get_field_value( $posted_data, $this->field_mapping['name'] );
         $company_name = $this->get_field_value( $posted_data, $this->field_mapping['company_name'] );
         $subject      = $this->get_field_value( $posted_data, $this->field_mapping['subject'] );
@@ -318,43 +330,26 @@ class KTPWP_Contact_Form {
             error_log( '  - field_mapping[subject]: ' . print_r( $this->field_mapping['subject'], true ) );
         }
 
-        // 会社名が空の場合は、データベースから取得または個人名を使用
-        if ( empty( $company_name ) ) {
-            // 顧客IDから会社名を取得
-            global $wpdb;
-            $client_table = $wpdb->prefix . 'ktp_client';
-            $client_data = $wpdb->get_row(
-                $wpdb->prepare(
-                    "SELECT company_name FROM `{$client_table}` WHERE id = %d",
-                    $client_id
-                )
-            );
-            
-            if ( $client_data && ! empty( $client_data->company_name ) ) {
-                $company_name = $client_data->company_name;
-                
-                if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                    error_log( 'KTPWP CF7: 会社名をデータベースから取得しました: ' . $company_name );
-                }
-            } else {
-                // それでも会社名が取得できない場合は、個人名を使用
-                $company_name = $customer_name;
-                
-                if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                    error_log( 'KTPWP CF7: 会社名が見つからないため、個人名を使用: ' . $company_name );
-                }
-            }
+        if ( ! class_exists( 'KTPWP_Inquiry_Client_Resolver' ) ) {
+            require_once dirname( __FILE__ ) . '/class-ktpwp-inquiry-client-resolver.php';
         }
 
+        $order_customer_name = KTPWP_Inquiry_Client_Resolver::resolve_order_customer_name(
+            (int) $client_id,
+            $company_name,
+            $customer_name
+        );
+
         return array(
-            'client_id' => $client_id,
-            'customer_name' => sanitize_text_field( $company_name ),  // 会社名を設定
-            'user_name' => sanitize_text_field( $customer_name ),     // 担当者名を設定
-            'project_name' => ! empty( $subject ) ? sanitize_text_field( $subject ) : $this->default_values['project_name'],
-            'progress' => $this->default_values['progress'],
-            'time' => time(),
-            'created_at' => current_time( 'mysql' ),
-            'updated_at' => current_time( 'mysql' ),
+            'client_id'            => $client_id,
+            'client_department_id' => $department_id,
+            'customer_name'        => sanitize_text_field( $order_customer_name ),
+            'user_name'            => sanitize_text_field( $customer_name ),
+            'project_name'         => ! empty( $subject ) ? sanitize_text_field( $subject ) : $this->default_values['project_name'],
+            'progress'             => $this->default_values['progress'],
+            'time'                 => time(),
+            'created_at'           => current_time( 'mysql' ),
+            'updated_at'           => current_time( 'mysql' ),
         );
     }
 
@@ -399,58 +394,6 @@ class KTPWP_Contact_Form {
     }
 
     /**
-     * 顧客データの保存
-     *
-     * @param array $client_data 顧客データ
-     * @return int|false 挿入された顧客ID、失敗時はfalse
-     */
-    private function save_client_data( $client_data ) {
-        global $wpdb;
-
-        $table_name = $wpdb->prefix . 'ktp_client';
-
-        // データが完全に0の場合、AUTO_INCREMENTカウンターを1にリセット
-        $row_count = $wpdb->get_var( "SELECT COUNT(*) FROM {$table_name}" );
-        if ( $row_count == 0 ) {
-            $wpdb->query( "ALTER TABLE {$table_name} AUTO_INCREMENT = 1" );
-            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( 'KTPWP CF7: Client table AUTO_INCREMENT reset to 1' );
-            }
-        }
-
-        $format = array(
-            '%s', // company_name
-            '%s', // name
-            '%s', // email
-            '%s', // memo
-            '%s', // time
-            '%s', // client_status
-        );
-
-        $result = $wpdb->insert( $table_name, $client_data, $format );
-
-        if ( $result === false ) {
-            $this->log_error(
-                'Failed to insert client data',
-                array(
-					'query' => $wpdb->last_query,
-					'error' => $wpdb->last_error,
-					'data' => $client_data,
-                )
-            );
-            return false;
-        }
-
-        $client_id = $wpdb->insert_id;
-
-        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'KTPWP Contact Form: Client data saved with ID ' . $client_id );
-        }
-
-        return $client_id;
-    }
-
-    /**
      * 受注データの保存
      *
      * @param array $order_data 受注データ
@@ -486,23 +429,35 @@ class KTPWP_Contact_Form {
             $order_data['order_number'] = $order_number_prefix . str_pad( intval( $today_count ) + 1, 3, '0', STR_PAD_LEFT );
         }
 
-        // IDはAUTO_INCREMENTで自動生成されるため明示的に設定しない
-
-        // wpdb->insert() はキーによるマッピングを使用するため、
-        // formatの順序はorder_dataのキーの順序と一致させる
-        $format = array(
-            '%s', // order_number
-            '%d', // client_id
-            '%s', // customer_name
-            '%s', // user_name
-            '%s', // project_name
-            '%d', // progress
-            '%d', // time
-            '%s', // created_at
-            '%s', // updated_at
+        $insert_data = array(
+            'order_number'  => $order_data['order_number'],
+            'client_id'     => (int) $order_data['client_id'],
+            'customer_name' => $order_data['customer_name'],
+            'user_name'     => $order_data['user_name'],
+            'project_name'  => $order_data['project_name'],
+            'progress'      => (int) $order_data['progress'],
+            'time'          => (int) $order_data['time'],
+            'created_at'    => $order_data['created_at'],
+            'updated_at'    => $order_data['updated_at'],
         );
 
-        $result = $wpdb->insert( $table_name, $order_data, $format );
+        if ( ! empty( $order_data['client_department_id'] ) ) {
+            $cols = $wpdb->get_col( "SHOW COLUMNS FROM `{$table_name}`", 0 );
+            if ( is_array( $cols ) && in_array( 'client_department_id', $cols, true ) ) {
+                $insert_data['client_department_id'] = (int) $order_data['client_department_id'];
+            }
+        }
+
+        $format = array();
+        foreach ( array_keys( $insert_data ) as $key ) {
+            if ( in_array( $key, array( 'client_id', 'client_department_id', 'progress', 'time' ), true ) ) {
+                $format[] = '%d';
+            } else {
+                $format[] = '%s';
+            }
+        }
+
+        $result = $wpdb->insert( $table_name, $insert_data, $format );
 
         if ( $result === false ) {
             $this->log_error(
@@ -724,13 +679,27 @@ class KTPWP_Contact_Form {
 
         // フィルターなので、データを変更せずに処理
         if ( ! empty( $posted_data ) ) {
-            // データを処理してデータベースに保存
+            if ( ! class_exists( 'KTPWP_Inquiry_Client_Resolver' ) ) {
+                require_once dirname( __FILE__ ) . '/class-ktpwp-inquiry-client-resolver.php';
+            }
+
             $client_data = $this->prepare_client_data( $posted_data );
-            $client_id = $this->save_client_data( $client_data );
+            $resolved    = KTPWP_Inquiry_Client_Resolver::resolve(
+                array(
+                    'email'        => $client_data['email'] ?? '',
+                    'company_name' => $client_data['company_name'] ?? '',
+                    'name'         => $client_data['name'] ?? '',
+                    'memo'         => $client_data['memo'] ?? '',
+                )
+            );
+
+            $client_id     = is_array( $resolved ) ? (int) ( $resolved['client_id'] ?? 0 ) : 0;
+            $department_id = is_array( $resolved ) ? ( $resolved['department_id'] ?? null ) : null;
+            $department_id = $department_id ? (int) $department_id : null;
 
             if ( $client_id ) {
                 // 受注データも作成
-                $order_data = $this->prepare_order_data( $posted_data, $client_id );
+                $order_data = $this->prepare_order_data( $posted_data, $client_id, $department_id );
 
                 // デバッグログ: 受注データを記録
                 if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {

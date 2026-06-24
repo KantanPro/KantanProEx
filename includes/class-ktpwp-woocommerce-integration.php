@@ -132,21 +132,27 @@ class KTPWP_WooCommerce_Integration {
 			return;
 		}
 
-		$customer_name = $this->get_customer_display_name( $order );
-		$user_name     = $this->get_billing_full_name( $order );
-		$order_number  = $order->get_order_number();
-		$project_name  = 'WC #' . $order_number;
-		$created       = $order->get_date_created();
-		$time          = $created ? $created->getTimestamp() : time();
-		$memo          = sprintf(
+		$order_number = $order->get_order_number();
+		$project_name = 'WC #' . $order_number;
+		$created      = $order->get_date_created();
+		$time         = $created ? $created->getTimestamp() : time();
+		$memo         = sprintf(
 			/* translators: 1: WooCommerce order number, 2: order ID */
 			__( 'WooCommerce 注文 #%1$s (ID: %2$d)', 'ktpwp' ),
 			$order_number,
 			$order_id
 		);
 
-		// 注文から顧客を取得または作成し、client_id を設定
-		$client_id = $this->get_or_create_client_id_from_order( $order );
+		$resolved = $this->resolve_client_from_wc_order( $order );
+		if ( ! $resolved ) {
+			error_log( 'KTPWP WooCommerce: Failed to resolve client for WC order ' . $order_id );
+			return;
+		}
+
+		$client_id     = (int) $resolved['client_id'];
+		$department_id = isset( $resolved['department_id'] ) ? (int) $resolved['department_id'] : 0;
+		$customer_name = $resolved['customer_name'];
+		$user_name     = $resolved['user_name'];
 
 		$search_parts = array_filter( array( $customer_name, $project_name, $memo ) );
 		$search_field = implode( ', ', $search_parts );
@@ -178,12 +184,23 @@ class KTPWP_WooCommerce_Integration {
 
 		// 外部連携情報と支払いタイミング（WC受注）を保存（カラムが存在する場合のみ）
 		if ( $this->order_table_has_external_columns() ) {
+			$external_update = array(
+				'external_source'   => 'woocommerce',
+				'external_order_id' => (string) $order_id,
+				'payment_timing'    => 'prepay',
+			);
+			if ( $department_id > 0 ) {
+				$external_update['client_department_id'] = $department_id;
+			}
+			$order_manager->update_order(
+				$ktp_order_id,
+				$external_update
+			);
+		} elseif ( $department_id > 0 ) {
 			$order_manager->update_order(
 				$ktp_order_id,
 				array(
-					'external_source'   => 'woocommerce',
-					'external_order_id' => (string) $order_id,
-					'payment_timing'    => 'prepay',
+					'client_department_id' => $department_id,
 				)
 			);
 		}
@@ -226,144 +243,60 @@ class KTPWP_WooCommerce_Integration {
 	}
 
 	/**
-	 * メインのメールアドレスで既存顧客を取得
+	 * WooCommerce 注文から顧客・部署を解決する（公開商品お問い合わせと同一ロジック）。
 	 *
-	 * @param string $email メールアドレス
-	 * @return object|null 顧客行（id, company_name, name 等）。見つからなければ null
+	 * @param WC_Order $order WooCommerce 注文。
+	 * @return array{client_id: int, department_id: int|null, customer_name: string, user_name: string}|null
 	 */
-	private function get_client_by_email( string $email ): ?object {
-		$email = sanitize_email( $email );
-		if ( $email === '' || ! is_email( $email ) ) {
-			return null;
-		}
-		global $wpdb;
-		$table = $wpdb->prefix . 'ktp_client';
-		$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
-		if ( $exists !== $table ) {
-			return null;
-		}
-		$client = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT id, company_name, name FROM `{$table}` WHERE email = %s AND (client_status IS NULL OR client_status != '対象外') ORDER BY id ASC LIMIT 1",
-				$email
-			)
-		);
-		return $client ?: null;
-	}
-
-	/**
-	 * WooCommerce の請求先氏名を KantanPro の姓名順に整形
-	 *
-	 * @param WC_Order $order
-	 * @return string
-	 */
-	private function get_billing_full_name( WC_Order $order ): string {
-		$first = trim( (string) $order->get_billing_first_name() );
-		$last  = trim( (string) $order->get_billing_last_name() );
-		return trim( $last . ' ' . $first );
-	}
-
-	/**
-	 * 過去の WooCommerce 取り込みで使っていた名姓順の氏名
-	 *
-	 * @param WC_Order $order
-	 * @return string
-	 */
-	private function get_legacy_billing_full_name( WC_Order $order ): string {
-		$first = trim( (string) $order->get_billing_first_name() );
-		$last  = trim( (string) $order->get_billing_last_name() );
-		return trim( $first . ' ' . $last );
-	}
-
-	/**
-	 * WooCommerce から受信した郵便番号を KantanPro の保存形式に整形
-	 *
-	 * @param string $postal_code 郵便番号
-	 * @return string
-	 */
-	private function normalize_postal_code( string $postal_code ): string {
-		return str_replace( '-', '', trim( $postal_code ) );
-	}
-
-	/**
-	 * 既存の WooCommerce 取り込み顧客に残っている郵便番号・姓名の形式を補正
-	 *
-	 * @param int      $client_id 顧客ID
-	 * @param WC_Order $order     WooCommerce 注文
-	 */
-	private function normalize_existing_client_from_order( int $client_id, WC_Order $order ): void {
-		if ( $client_id <= 0 ) {
-			return;
+	private function resolve_client_from_wc_order( WC_Order $order ): ?array {
+		if ( ! class_exists( 'KTPWP_Inquiry_Client_Resolver' ) ) {
+			require_once dirname( __FILE__ ) . '/class-ktpwp-inquiry-client-resolver.php';
 		}
 
-		global $wpdb;
-		$table = $wpdb->prefix . 'ktp_client';
-		$cols  = $wpdb->get_col( "SHOW COLUMNS FROM `{$table}`", 0 );
-		$cols  = is_array( $cols ) ? $cols : array();
-
-		$client = $wpdb->get_row(
-			$wpdb->prepare( "SELECT * FROM `{$table}` WHERE id = %d LIMIT 1", $client_id )
-		);
-		if ( ! $client ) {
-			return;
-		}
-
-		$updates     = array();
-		$formats     = array();
-		$name        = $this->get_billing_full_name( $order );
-		$legacy_name = $this->get_legacy_billing_full_name( $order );
-
-		if ( in_array( 'postal_code', $cols, true ) ) {
-			$postal = $this->normalize_postal_code( (string) ( $client->postal_code ?? '' ) );
-			if ( $postal !== trim( (string) ( $client->postal_code ?? '' ) ) ) {
-				$updates['postal_code'] = $postal;
-				$formats[]              = '%s';
-			}
-		}
-
-		if ( $legacy_name !== '' && $name !== '' && $legacy_name !== $name ) {
-			foreach ( array( 'company_name', 'name', 'representative_name' ) as $name_column ) {
-				if ( in_array( $name_column, $cols, true ) && trim( (string) ( $client->{$name_column} ?? '' ) ) === $legacy_name ) {
-					$updates[ $name_column ] = $name;
-					$formats[]               = '%s';
-				}
-			}
-		}
-
-		if ( ! empty( $updates ) ) {
-			$wpdb->update( $table, $updates, array( 'id' => $client_id ), $formats, array( '%d' ) );
-		}
-	}
-
-	/**
-	 * 注文から表示用顧客名を取得
-	 * 注文に会社名があれば会社名、なければ注文者名（姓・名）を返す。
-	 *
-	 * @param WC_Order $order
-	 * @return string
-	 */
-	private function get_customer_display_name( WC_Order $order ): string {
 		$company = trim( (string) $order->get_billing_company() );
-		if ( $company !== '' ) {
-			return $company;
+		$name    = $this->get_billing_full_name( $order );
+		$email   = sanitize_email( $order->get_billing_email() );
+
+		$resolved = KTPWP_Inquiry_Client_Resolver::resolve(
+			array(
+				'email'        => $email,
+				'company_name' => $company,
+				'name'         => $name,
+			),
+			function ( array $data ) use ( $order ) {
+				return $this->create_new_client_from_wc_order( $order );
+			}
+		);
+
+		if ( ! is_array( $resolved ) || empty( $resolved['client_id'] ) ) {
+			return null;
 		}
-		$name = $this->get_billing_full_name( $order );
-		return $name !== '' ? $name : __( 'ゲスト', 'ktpwp' );
+
+		$client_id     = (int) $resolved['client_id'];
+		$department_id = ! empty( $resolved['department_id'] ) ? (int) $resolved['department_id'] : null;
+		$customer_name = KTPWP_Inquiry_Client_Resolver::resolve_order_customer_name( $client_id, $company, $name );
+		$user_name     = $name !== '' ? $name : $customer_name;
+
+		return array(
+			'client_id'     => $client_id,
+			'department_id' => $department_id,
+			'customer_name' => $customer_name,
+			'user_name'     => $user_name,
+		);
 	}
 
 	/**
-	 * WooCommerce 注文の請求先から KantanPro 顧客を取得または作成し、client_id を返す
-	 * 既存顧客はメインのメールアドレス（ktp_client.email）でのみ判定し、一致しなければ新規顧客を作成する。
+	 * WooCommerce 注文の請求先から KantanPro 顧客を新規作成する。
 	 *
-	 * @param WC_Order $order
-	 * @return int|null 顧客ID。取得・作成に失敗した場合は null
+	 * @param WC_Order $order WooCommerce 注文。
+	 * @return int|false 顧客 ID。失敗時 false。
 	 */
-	private function get_or_create_client_id_from_order( WC_Order $order ): ?int {
+	public function create_new_client_from_wc_order( WC_Order $order ) {
 		global $wpdb;
 		$table = $wpdb->prefix . 'ktp_client';
 		$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
 		if ( $exists !== $table ) {
-			return null;
+			return false;
 		}
 
 		$company = trim( (string) $order->get_billing_company() );
@@ -377,24 +310,8 @@ class KTPWP_WooCommerce_Integration {
 		$addr2   = trim( (string) $order->get_billing_address_2() );
 		$address = trim( $addr1 . ( $addr2 !== '' ? ' ' . $addr2 : '' ) );
 
-		// 既存顧客はメインのメールアドレスのみで判定（会社名・名前では検索しない）。同一メールが複数いる場合は id が最小の顧客を採用
-		if ( $email !== '' && is_email( $email ) ) {
-			$client_id = (int) $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT id FROM `{$table}` WHERE email = %s AND (client_status IS NULL OR client_status != '対象外') ORDER BY id ASC LIMIT 1",
-					$email
-				)
-			);
-			if ( $client_id > 0 ) {
-				$this->normalize_existing_client_from_order( $client_id, $order );
-				return $client_id;
-			}
-		}
-
-		// メールで見つからない、またはメール未入力の場合は新規顧客を作成
 		$company_name = $company !== '' ? $company : ( $name !== '' ? $name : __( 'WooCommerce顧客', 'ktpwp' ) );
 
-		// 新規顧客を作成
 		$search_parts = array_filter( array( $company_name, $name, $email, $phone, $state, $city, $address ) );
 		$search_field = implode( ' ', $search_parts );
 		$cols         = $wpdb->get_col( "SHOW COLUMNS FROM `{$table}`", 0 );
@@ -459,9 +376,32 @@ class KTPWP_WooCommerce_Integration {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 				error_log( 'KTPWP WooCommerce: Failed to create client. ' . $wpdb->last_error );
 			}
-			return null;
+			return false;
 		}
+
 		return (int) $wpdb->insert_id;
+	}
+
+	/**
+	 * WooCommerce の請求先氏名を KantanPro の姓名順に整形
+	 *
+	 * @param WC_Order $order
+	 * @return string
+	 */
+	private function get_billing_full_name( WC_Order $order ): string {
+		$first = trim( (string) $order->get_billing_first_name() );
+		$last  = trim( (string) $order->get_billing_last_name() );
+		return trim( $last . ' ' . $first );
+	}
+
+	/**
+	 * WooCommerce から受信した郵便番号を KantanPro の保存形式に整形
+	 *
+	 * @param string $postal_code 郵便番号
+	 * @return string
+	 */
+	private function normalize_postal_code( string $postal_code ): string {
+		return str_replace( '-', '', trim( $postal_code ) );
 	}
 
 	/**
@@ -853,42 +793,33 @@ class KTPWP_WooCommerce_Integration {
 			if ( ! $order || ! $order instanceof WC_Order ) {
 				continue;
 			}
-			$email = sanitize_email( $order->get_billing_email() );
-			$existing_client = ( $email !== '' && is_email( $email ) ) ? $this->get_client_by_email( $email ) : null;
-			if ( $existing_client ) {
-				$client_id     = (int) $existing_client->id;
-				$this->normalize_existing_client_from_order( $client_id, $order );
-				$customer_name = isset( $existing_client->company_name ) && trim( (string) $existing_client->company_name ) !== ''
-					? trim( (string) $existing_client->company_name )
-					: $this->get_customer_display_name( $order );
-				$user_name = isset( $existing_client->name ) && trim( (string) $existing_client->name ) !== ''
-					? trim( (string) $existing_client->name )
-					: $this->get_billing_full_name( $order );
-				$legacy_name = $this->get_legacy_billing_full_name( $order );
-				$fixed_name  = $this->get_billing_full_name( $order );
-				if ( $legacy_name !== '' && $fixed_name !== '' && $legacy_name !== $fixed_name ) {
-					$customer_name = $customer_name === $legacy_name ? $fixed_name : $customer_name;
-					$user_name     = $user_name === $legacy_name ? $fixed_name : $user_name;
-				}
-			} else {
-				$client_id     = $this->get_or_create_client_id_from_order( $order );
-				$customer_name = $this->get_customer_display_name( $order );
-				$user_name     = $this->get_billing_full_name( $order );
-			}
-			if ( $client_id === null || $client_id <= 0 ) {
+
+			$resolved = $this->resolve_client_from_wc_order( $order );
+			if ( ! $resolved ) {
 				continue;
 			}
-			$user_name    = $user_name !== '' ? $user_name : $customer_name;
-			$order_number = $order->get_order_number();
-			$project_name = 'WC #' . $order_number;
-			$ok = $order_manager->update_order( $ktp_id, array(
+
+			$client_id     = (int) $resolved['client_id'];
+			$department_id = ! empty( $resolved['department_id'] ) ? (int) $resolved['department_id'] : 0;
+			$customer_name = $resolved['customer_name'];
+			$user_name     = $resolved['user_name'];
+			$user_name     = $user_name !== '' ? $user_name : $customer_name;
+			$order_number  = $order->get_order_number();
+			$project_name  = 'WC #' . $order_number;
+
+			$update_data = array(
 				'client_id'      => $client_id,
 				'customer_name'  => $customer_name,
 				'user_name'      => $user_name,
 				'project_name'   => $project_name,
 				'progress'       => 3,
 				'payment_timing' => 'prepay',
-			) );
+			);
+			if ( $department_id > 0 ) {
+				$update_data['client_department_id'] = $department_id;
+			}
+
+			$ok = $order_manager->update_order( $ktp_id, $update_data );
 			if ( $ok ) {
 				$linked++;
 				$this->replace_invoice_items_from_wc_order( $ktp_id, $order );
@@ -930,42 +861,33 @@ class KTPWP_WooCommerce_Integration {
 			if ( ! $order || ! $order instanceof WC_Order ) {
 				continue;
 			}
-			$email = sanitize_email( $order->get_billing_email() );
-			$existing_client = ( $email !== '' && is_email( $email ) ) ? $this->get_client_by_email( $email ) : null;
-			if ( $existing_client ) {
-				$client_id     = (int) $existing_client->id;
-				$this->normalize_existing_client_from_order( $client_id, $order );
-				$customer_name = isset( $existing_client->company_name ) && trim( (string) $existing_client->company_name ) !== ''
-					? trim( (string) $existing_client->company_name )
-					: $this->get_customer_display_name( $order );
-				$user_name = isset( $existing_client->name ) && trim( (string) $existing_client->name ) !== ''
-					? trim( (string) $existing_client->name )
-					: $this->get_billing_full_name( $order );
-				$legacy_name = $this->get_legacy_billing_full_name( $order );
-				$fixed_name  = $this->get_billing_full_name( $order );
-				if ( $legacy_name !== '' && $fixed_name !== '' && $legacy_name !== $fixed_name ) {
-					$customer_name = $customer_name === $legacy_name ? $fixed_name : $customer_name;
-					$user_name     = $user_name === $legacy_name ? $fixed_name : $user_name;
-				}
-			} else {
-				$client_id     = $this->get_or_create_client_id_from_order( $order );
-				$customer_name = $this->get_customer_display_name( $order );
-				$user_name     = $this->get_billing_full_name( $order );
-			}
-			if ( $client_id === null || $client_id <= 0 ) {
+
+			$resolved = $this->resolve_client_from_wc_order( $order );
+			if ( ! $resolved ) {
 				continue;
 			}
-			$user_name    = $user_name !== '' ? $user_name : $customer_name;
-			$order_number = $order->get_order_number();
-			$project_name = 'WC #' . $order_number;
-			$ok = $order_manager->update_order( $ktp_id, array(
+
+			$client_id     = (int) $resolved['client_id'];
+			$department_id = ! empty( $resolved['department_id'] ) ? (int) $resolved['department_id'] : 0;
+			$customer_name = $resolved['customer_name'];
+			$user_name     = $resolved['user_name'];
+			$user_name     = $user_name !== '' ? $user_name : $customer_name;
+			$order_number  = $order->get_order_number();
+			$project_name  = 'WC #' . $order_number;
+
+			$update_data = array(
 				'client_id'      => $client_id,
 				'customer_name'  => $customer_name,
 				'user_name'      => $user_name,
 				'project_name'   => $project_name,
 				'progress'       => 3,
 				'payment_timing' => 'prepay',
-			) );
+			);
+			if ( $department_id > 0 ) {
+				$update_data['client_department_id'] = $department_id;
+			}
+
+			$ok = $order_manager->update_order( $ktp_id, $update_data );
 			if ( $ok ) {
 				$linked++;
 				$this->replace_invoice_items_from_wc_order( $ktp_id, $order );
