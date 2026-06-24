@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.3.99
+Stable tag: 1.3.100
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,12 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.3.100 - 2026年06月25日 =
+* メール添付送信を安定化（addStringAttachment・サーバー側件数検証・ZIP/RAR/7z 添付時の注意表示）
+* SMTP 送信時の PHPMailer HELO/Hostname を送信ドメインに統一
+* 案件名インライン編集を修正（初期値「※ 入力してください」・Ajax 保存・権限強化）
+* 受注書 ID の POST/GET/Cookie 解決を改善し、表示とデータの不一致を修正
 
 = 1.3.99 - 2026年06月24日 =
 * 各タブの印刷をKantanBiz準拠のテキストラベルボタンに統一（作業リスト・受注書・レポート・顧客・サービス・協力会社リスト）
