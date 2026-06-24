@@ -346,6 +346,30 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 		 * @param string $tab_name Tab name
 		 * @return void
 		 */
+		/**
+		 * リクエストから受注書 ID を解決する（POST 優先 → GET → Cookie）。
+		 */
+		private function resolve_current_order_id_from_request() {
+			$order_id = 0;
+
+			if ( isset( $_POST['order_id'] ) && '' !== (string) wp_unslash( $_POST['order_id'] ) ) {
+				$order_id = absint( $_POST['order_id'] );
+			}
+
+			if ( $order_id <= 0 && isset( $_GET['order_id'] ) && '' !== (string) wp_unslash( $_GET['order_id'] ) ) {
+				$order_id = absint( $_GET['order_id'] );
+			}
+
+			if ( $order_id <= 0 && function_exists( 'ktpwp_parse_tab_state_restore_cookie' ) ) {
+				$parsed = ktpwp_parse_tab_state_restore_cookie( 'order' );
+				if ( ! empty( $parsed['state']['order_id'] ) ) {
+					$order_id = absint( $parsed['state']['order_id'] );
+				}
+			}
+
+			return $order_id;
+		}
+
 		public function Order_Tab_View( $tab_name ) {
 			// デバッグログ追加
 
@@ -804,7 +828,9 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 
 								// 進捗ごとに件名・本文 - Sanitize input data
 								$progress = absint( $order->progress );
-								$project_name = $order->project_name ? sanitize_text_field( $order->project_name ) : '';
+								$project_name = class_exists( 'KTPWP_Order' )
+									? KTPWP_Order::project_name_for_content( $order->project_name )
+									: ( $order->project_name ? sanitize_text_field( $order->project_name ) : '案件' );
 								$customer_name = sanitize_text_field( $order->customer_name );
 								$user_name = sanitize_text_field( $order->user_name );
 
@@ -1153,7 +1179,8 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 			$customer_name = isset( $_GET['customer_name'] ) ? sanitize_text_field( $_GET['customer_name'] ) : '';
 			$user_name = isset( $_GET['user_name'] ) ? sanitize_text_field( $_GET['user_name'] ) : '';
 			$from_client = isset( $_GET['from_client'] ) ? absint( $_GET['from_client'] ) : 0; // 顧客タブからの遷移フラグ
-			$order_id = isset( $_GET['order_id'] ) ? absint( $_GET['order_id'] ) : 0; // 表示する受注書ID
+			$order_id = $this->resolve_current_order_id_from_request(); // 表示する受注書ID
+			$order_id_not_found = 0;
 
 			$content = ''; // 表示するHTMLコンテンツ
 
@@ -1357,7 +1384,7 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 						'client_id' => $client_id, // 顧客IDを保存
 						'customer_name' => sanitize_text_field( $customer_name ),
 						'user_name' => sanitize_text_field( $user_name ),
-						'project_name' => '※ 入力してください', // 案件名の初期値を設定
+						'project_name' => class_exists( 'KTPWP_Order' ) ? KTPWP_Order::PROJECT_NAME_PLACEHOLDER : '※ 入力してください',
 						'invoice_items' => '', // 初期値は空
 						'cost_items' => '', // 初期値は空
 						'memo' => '', // 初期値は空
@@ -1484,7 +1511,7 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 
 			// 受注書IDの決定ロジック（優先順位：GET > セッション記憶 > 最新）
 			if ( $order_id === 0 && ! $deletion_completed ) {
-				// 1. GETパラメータで指定された受注書IDを優先
+				// 1. リクエストで指定された受注書IDを優先（GET は resolve で未処理の場合のみ）
 				if ( isset( $_GET['order_id'] ) && ! empty( $_GET['order_id'] ) ) {
 					$get_order_id = absint( $_GET['order_id'] );
 					// 有効な受注書IDかチェック
@@ -1494,10 +1521,7 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 						// 有効な受注書IDの場合、セッションに記憶
 						$_SESSION['ktp_last_order_id'] = $order_id;
 					} else {
-						// 無効なIDの場合はGETパラメータをクリア
-						$current_url = remove_query_arg( 'order_id', $_SERVER['REQUEST_URI'] );
-						wp_redirect( $current_url );
-						exit;
+						$order_id_not_found = $get_order_id;
 					}
 				}
 				// 2. セッションに記憶された受注書IDを確認
@@ -1534,8 +1558,9 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					if ( $valid_order ) {
 						$_SESSION['ktp_last_order_id'] = $order_id;
 					} else {
-						// 無効なIDの場合はリセット
-						$order_id = 0;
+						// 無効なIDの場合はリセット（リダイレクトせず案内を表示）
+						$order_id_not_found = $order_id;
+						$order_id           = 0;
 						unset( $_SESSION['ktp_last_order_id'] );
 					}
 				}
@@ -1936,7 +1961,10 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					$content .= '</div>';
 					$content .= '<div class="ktp-order-summary-field ktp-order-summary-field--project">';
 					$content .= '<span class="ktp-order-summary-field-label">' . esc_html__( '案件名', 'ktpwp' ) . '：</span>';
-					$content .= '<input type="text" class="order_project_name_inline order-header-projectname ktp-order-summary-project-input" name="order_project_name_inline" value="' . esc_attr( isset( $order_data->project_name ) ? $order_data->project_name : '' ) . '" data-order-id="' . esc_attr( $order_data->id ) . '" placeholder="' . esc_attr__( '案件名', 'ktpwp' ) . '" autocomplete="off" />';
+					$summary_project_name = class_exists( 'KTPWP_Order' )
+						? KTPWP_Order::project_name_input_value( $order_data->project_name ?? '' )
+						: ( ( is_object( $order_data ) && isset( $order_data->project_name ) && $order_data->project_name !== null ) ? (string) $order_data->project_name : '※ 入力してください' );
+					$content .= '<input type="text" class="order_project_name_inline order-header-projectname ktp-order-summary-project-input" name="order_project_name_inline" value="' . esc_attr( $summary_project_name ) . '" data-order-id="' . esc_attr( $order_data->id ) . '" placeholder="' . esc_attr__( '案件名', 'ktpwp' ) . '" autocomplete="off" />';
 					$content .= '</div>';
 					$content .= '<div class="ktp-order-summary-field ktp-order-summary-field--client-source">';
 					$content .= '<div class="ktp-order-summary-field-value ktp-order-summary-contact-row" id="order_customer_name">';
@@ -2127,9 +2155,17 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				}
 
 				// 仕事リストタブと統一されたデータ0の時の案内表示
+				$no_order_message = esc_html__( '受注書データがありません。', 'ktpwp' );
+				if ( $order_id_not_found > 0 ) {
+					$no_order_message = sprintf(
+						/* translators: %d: order ID */
+						esc_html__( '受注書 ID %d が見つかりません。', 'ktpwp' ),
+						$order_id_not_found
+					);
+				}
 				$content .= '<div class="ktp_order_content ktp-no-order-data" style="padding: 15px 20px; background: linear-gradient(135deg, #e3f2fd 0%, #fce4ec 100%); border-radius: 8px; margin: 18px 0; color: #333; font-weight: 600; box-shadow: 0 3px 12px rgba(0,0,0,0.07); display: flex; align-items: center; font-size: 15px; gap: 10px;">'
                 . '<span class="material-symbols-outlined" aria-label="データなし">search_off</span>'
-                . '<span style="font-size: 1em; font-weight: 600;">' . esc_html__( '受注書データがありません。', 'ktpwp' ) . '</span>'
+                . '<span style="font-size: 1em; font-weight: 600;">' . $no_order_message . '</span>'
                 . '<span style="margin-left: 18px; font-size: 13px; color: #888;">' . esc_html__( '顧客タブで顧客情報を入力し受注書を作成してください', 'ktpwp' ) . '</span>'
                 . '</div>';
 			}
@@ -2551,8 +2587,10 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				? KTPWP_Pdf_Document_Kind::print_shows_cost_section( $order_data->progress )
 				: in_array( (int) $order_data->progress, array( 3, 7 ), true );
 
-			// 案件名の取得（空の場合はデフォルト値）
-			$project_name = ! empty( $order_data->project_name ) ? $order_data->project_name : '案件';
+			// 案件名の取得（未入力・プレースホルダーはデフォルト値）
+			$project_name = class_exists( 'KTPWP_Order' )
+				? KTPWP_Order::project_name_for_content( $order_data->project_name ?? '' )
+				: ( ! empty( $order_data->project_name ) ? $order_data->project_name : '案件' );
 
 			// 請求項目の取得
 			$invoice_result = $this->Generate_Invoice_Items_For_Preview( $order_data->id );
