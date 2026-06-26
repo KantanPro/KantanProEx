@@ -213,6 +213,8 @@ class KTPWP_Update_Checker {
             wp_schedule_event( time(), 'daily', 'ktpwp_daily_update_check' );
         }
         add_action( 'ktpwp_daily_update_check', array( $this, 'check_github_updates' ) );
+
+        $this->maybe_clear_stale_update_available();
     }
 
     /**
@@ -1100,7 +1102,7 @@ class KTPWP_Update_Checker {
             } else {
                 // 更新データがある場合は設定
                 $update_data = get_option( 'ktpwp_update_available', false );
-                if ( $update_data ) {
+                if ( $this->is_update_newer_than_installed( $update_data ) ) {
                     wp_localize_script( 'ktpwp-update-balloon', 'ktpwp_update_data', array(
                         'has_update' => true,
                         'message' => __( '新しいバージョンが利用可能です！', 'ktpwp' ),
@@ -1347,7 +1349,13 @@ class KTPWP_Update_Checker {
             error_log( 'KantanPro: 更新チェック間隔が短いため、保存済み情報を使用します' );
             $cached = get_option( 'ktpwp_update_available' );
             if ( is_array( $cached ) ) {
-                return ! empty( $cached['no_update'] ) ? false : $cached;
+                if ( ! empty( $cached['no_update'] ) ) {
+                    return false;
+                }
+                if ( $this->is_update_newer_than_installed( $cached ) ) {
+                    return $cached;
+                }
+                $this->maybe_clear_stale_update_available();
             }
             return false;
         }
@@ -1769,7 +1777,8 @@ class KTPWP_Update_Checker {
         }
         
         $update_data = get_option( 'ktpwp_update_available', false );
-        if ( ! $update_data ) {
+        if ( ! $this->is_update_newer_than_installed( $update_data ) ) {
+            $this->maybe_clear_stale_update_available();
             return;
         }
         
@@ -2173,6 +2182,60 @@ class KTPWP_Update_Checker {
     }
     
     /**
+     * 保存済み更新情報が、インストール版より新しいか
+     *
+     * @param mixed $update_data ktpwp_update_available の値。
+     * @return bool
+     */
+    private function is_update_newer_than_installed( $update_data ) {
+        if ( ! is_array( $update_data ) || ! empty( $update_data['no_update'] ) ) {
+            return false;
+        }
+
+        $latest_version = '';
+        if ( isset( $update_data['new_version'] ) ) {
+            $latest_version = $this->clean_version( $update_data['new_version'] );
+        } elseif ( isset( $update_data['version'] ) ) {
+            $latest_version = $this->clean_version( $update_data['version'] );
+        }
+
+        if ( $latest_version === '' ) {
+            return false;
+        }
+
+        return version_compare( $latest_version, $this->clean_version( $this->current_version ), '>' );
+    }
+
+    /**
+     * 手動更新後などで残った「更新あり」キャッシュを最新版として正規化する
+     */
+    private function maybe_clear_stale_update_available() {
+        $update_data = get_option( 'ktpwp_update_available', false );
+        if ( ! is_array( $update_data ) || ! empty( $update_data['no_update'] ) ) {
+            return;
+        }
+
+        if ( $this->is_update_newer_than_installed( $update_data ) ) {
+            return;
+        }
+
+        $current_clean = $this->clean_version( $this->current_version );
+        update_option(
+            'ktpwp_update_available',
+            array(
+                'no_update'   => true,
+                'version'     => $current_clean,
+                'new_version' => $this->current_version,
+                'checked_at'  => time(),
+            )
+        );
+        delete_option( 'ktpwp_header_update_notice_dismissed' );
+        delete_option( 'ktpwp_frontend_update_notice_dismissed' );
+        delete_option( 'ktpwp_header_dismissed_version' );
+        delete_option( 'ktpwp_frontend_dismissed_version' );
+    }
+
+    /**
      * バージョン文字列をクリーンにする
      * 
      * @param string $version バージョン文字列
@@ -2410,7 +2473,12 @@ class KTPWP_Update_Checker {
         
         // 更新情報を取得
         $update_data = get_option( 'ktpwp_update_available', false );
-        if ( ! $update_data ) {
+        if ( ! $update_data || ! is_array( $update_data ) ) {
+            return false;
+        }
+
+        if ( ! $this->is_update_newer_than_installed( $update_data ) ) {
+            $this->maybe_clear_stale_update_available();
             return false;
         }
         
@@ -2421,7 +2489,8 @@ class KTPWP_Update_Checker {
         
         // 過去に無視されたバージョンと同じ場合は表示しない
         $dismissed_version = get_option( 'ktpwp_header_dismissed_version', '' );
-        if ( $dismissed_version === $update_data['version'] ) { // 更新データからversionを取得
+        $stored_version    = isset( $update_data['new_version'] ) ? (string) $update_data['new_version'] : (string) ( $update_data['version'] ?? '' );
+        if ( $dismissed_version !== '' && $dismissed_version === $stored_version ) {
             return false;
         }
         
@@ -2441,22 +2510,12 @@ class KTPWP_Update_Checker {
         }
 
         $update_data = get_option( 'ktpwp_update_available', false );
-        if ( ! $update_data || ! is_array( $update_data ) || ! empty( $update_data['no_update'] ) ) {
+        if ( ! $this->is_update_newer_than_installed( $update_data ) ) {
+            $this->maybe_clear_stale_update_available();
             return false;
         }
 
-        $latest_version = '';
-        if ( isset( $update_data['new_version'] ) ) {
-            $latest_version = $this->clean_version( $update_data['new_version'] );
-        } elseif ( isset( $update_data['version'] ) ) {
-            $latest_version = $this->clean_version( $update_data['version'] );
-        }
-
-        if ( $latest_version === '' ) {
-            return false;
-        }
-
-        return version_compare( $latest_version, $this->clean_version( $this->current_version ), '>' );
+        return true;
     }
 
     /**
@@ -2664,6 +2723,7 @@ class KTPWP_Update_Checker {
         // バージョンが変更された場合
         if ( $old_version !== $new_version ) {
             $this->clear_plugin_cache();
+            $this->maybe_clear_stale_update_available();
             if ( is_admin() && $old_version !== '0' ) {
                 set_transient( $this->key( 'admin_reload' ), 1, 5 * MINUTE_IN_SECONDS );
             }
