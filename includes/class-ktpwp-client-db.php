@@ -665,10 +665,11 @@ if ( ! class_exists( 'KTPWP_Client_DB' ) ) {
 			}
 
 			$like_pattern = '%' . $wpdb->esc_like( $search_query ) . '%';
+			$list_exclude_sql = class_exists( 'KTPWP_Inquiry_Block' ) ? KTPWP_Inquiry_Block::sql_list_exclude_clause() : '';
 				// search_field が NULL のレコードも company_name / name でヒットするようにする
 				$results = $wpdb->get_results(
 					$wpdb->prepare(
-						"SELECT * FROM $table_name WHERE (COALESCE(search_field,'') LIKE %s OR company_name LIKE %s OR name LIKE %s) ORDER BY id DESC",
+						"SELECT * FROM $table_name WHERE (COALESCE(search_field,'') LIKE %s OR company_name LIKE %s OR name LIKE %s){$list_exclude_sql} ORDER BY id DESC",
 						$like_pattern,
 						$like_pattern,
 						$like_pattern

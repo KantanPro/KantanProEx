@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.4.0
+ * Version: 1.4.1
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -1023,6 +1023,8 @@ if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
         'KTPWP_Redirect'        => 'includes/class-ktpwp-redirect.php',
         'KTPWP_Contact_Form'    => 'includes/class-ktpwp-contact-form.php',
         'KTPWP_Inquiry_Client_Resolver' => 'includes/class-ktpwp-inquiry-client-resolver.php',
+        'KTPWP_Inquiry_Block'       => 'includes/class-ktpwp-inquiry-block.php',
+        'KTPWP_Inquiry_Block_Admin' => 'includes/class-ktpwp-inquiry-block-admin.php',
         'KTPWP_Public_Product_Order' => 'includes/class-ktpwp-public-product-order.php',
         'KTPWP_Public_Purchase_Thank_You' => 'includes/class-ktpwp-public-purchase-thank-you.php',
         'KTPWP_Database'        => 'includes/class-ktpwp-database.php',
@@ -1296,6 +1298,9 @@ add_action(
 	static function () {
 		if ( class_exists( 'KTPWP_Pdf_Branding_Admin' ) ) {
 			KTPWP_Pdf_Branding_Admin::init();
+		}
+		if ( class_exists( 'KTPWP_Inquiry_Block_Admin' ) ) {
+			KTPWP_Inquiry_Block_Admin::init();
 		}
 	},
 	15

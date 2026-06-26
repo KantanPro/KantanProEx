@@ -133,6 +133,16 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				);
 			}
 
+			if ( ! class_exists( 'KTPWP_Inquiry_Block' ) ) {
+				require_once dirname( __FILE__ ) . '/class-ktpwp-inquiry-block.php';
+			}
+			if ( KTPWP_Inquiry_Block::is_email_blocked( $email ) ) {
+				return array(
+					'success' => false,
+					'message' => __( '現在、お問い合わせを受け付けておりません。', 'ktpwp' ),
+				);
+			}
+
 			if ( class_exists( 'KTPWP_Contract_Service_Public_Availability' ) ) {
 				$availability = KTPWP_Contract_Service_Public_Availability::get_public_availability(
 					(int) $service->id,

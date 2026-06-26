@@ -248,6 +248,10 @@ class KTPWP_Ajax {
 		add_action( 'wp_ajax_nopriv_ktp_get_client_tax_category', array( $this, 'ajax_require_login' ) );
 		$this->registered_handlers[] = 'ktp_get_client_tax_category';
 
+		add_action( 'wp_ajax_ktp_toggle_client_inquiry_block', array( $this, 'ajax_toggle_client_inquiry_block' ) );
+		add_action( 'wp_ajax_nopriv_ktp_toggle_client_inquiry_block', array( $this, 'ajax_require_login' ) );
+		$this->registered_handlers[] = 'ktp_toggle_client_inquiry_block';
+
 		// 受注書IDから顧客税区分取得
 		add_action( 'wp_ajax_ktp_get_client_tax_category_by_order', array( $this, 'ajax_get_client_tax_category_by_order' ) );
 		add_action( 'wp_ajax_nopriv_ktp_get_client_tax_category_by_order', array( $this, 'ajax_require_login' ) );
@@ -4634,6 +4638,57 @@ class KTPWP_Ajax {
 			error_log( 'KTPWP Ajax ajax_get_client_tax_category Error: ' . $e->getMessage() );
 			wp_send_json_error( __( 'エラーが発生しました: ' . $e->getMessage(), 'ktpwp' ) );
 		}
+	}
+
+	/**
+	 * 公開商品問い合わせブロックの切り替え。
+	 */
+	public function ajax_toggle_client_inquiry_block() {
+		if ( ! current_user_can( 'edit_posts' ) && ! current_user_can( 'ktpwp_access' ) ) {
+			wp_send_json_error(
+				array(
+					'message' => __( 'この操作を行う権限がありません。', 'ktpwp' ),
+				)
+			);
+		}
+
+		if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'ktp_ajax_nonce' ) ) {
+			wp_send_json_error(
+				array(
+					'message' => __( 'セキュリティ検証に失敗しました', 'ktpwp' ),
+				)
+			);
+		}
+
+		$client_id = isset( $_POST['client_id'] ) ? absint( $_POST['client_id'] ) : 0;
+		if ( $client_id <= 0 ) {
+			wp_send_json_error(
+				array(
+					'message' => __( '顧客 ID が無効です。', 'ktpwp' ),
+				)
+			);
+		}
+
+		if ( ! class_exists( 'KTPWP_Inquiry_Block' ) ) {
+			require_once dirname( __FILE__ ) . '/class-ktpwp-inquiry-block.php';
+		}
+
+		$result = KTPWP_Inquiry_Block::toggle_for_client( $client_id );
+		if ( empty( $result['success'] ) ) {
+			wp_send_json_error(
+				array(
+					'message' => isset( $result['message'] ) ? $result['message'] : __( 'ブロック設定の更新に失敗しました。', 'ktpwp' ),
+					'blocked' => ! empty( $result['blocked'] ),
+				)
+			);
+		}
+
+		wp_send_json_success(
+			array(
+				'blocked' => ! empty( $result['blocked'] ),
+				'message' => isset( $result['message'] ) ? $result['message'] : '',
+			)
+		);
 	}
 
 	/**

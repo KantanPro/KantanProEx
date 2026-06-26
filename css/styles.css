@@ -7589,6 +7589,107 @@ body.ktpwp-modal-open {
     text-align: right;
 }
 
+.data_detail_title .button-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.data_detail_title .button-group form,
+.data_detail_title .button-group .ktp-inquiry-block-btn-wrap {
+  margin: 0;
+  display: inline-flex;
+}
+
+.data_detail_title .button-group .button-style {
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  max-width: 28px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #333;
+  line-height: 0;
+  vertical-align: middle;
+}
+
+.data_detail_title .button-group .button-style .ktp-svg-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.data_detail_title .button-group .button-style .ktp-svg-icon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.data_detail_title .button-group .ktp-inquiry-block-btn .ktp-svg-icon {
+  font-size: 14px;
+}
+
+.data_detail_title .button-group .ktp-inquiry-block-btn .ktp-svg-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.data_detail_title .button-group .delete-submit-btn {
+  border-color: #dc3545;
+  color: #dc3545;
+}
+
+.data_detail_title .button-group .delete-submit-btn:hover {
+  background: #dc3545;
+  color: #fff;
+}
+
+.data_detail_title .button-group .ktp-inquiry-block-btn {
+  border-color: #dc3545;
+  color: #dc3545;
+}
+
+.data_detail_title .button-group .ktp-inquiry-block-btn:hover {
+  background: #dc3545;
+  color: #fff;
+}
+
+.data_detail_title .button-group .ktp-inquiry-block-btn.is-blocked {
+  background: #dc3545;
+  color: #fff;
+}
+
+.data_detail_title .button-group .ktp-inquiry-block-btn.is-blocked:hover {
+  background: #fff;
+  color: #dc3545;
+}
+
+.ktp-inquiry-block-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 12px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: #ffebee;
+  color: #c62828;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ktp-inquiry-block-badge .material-symbols-outlined,
+.ktp-inquiry-block-badge .ktp-svg-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
 /* モバイル表示時のみ顧客詳細のボタンでMaterial Symbolsアイコンを表示 */
 @media (max-width: 767px) {
   .data_detail_title .button-style .material-symbols-outlined {
@@ -7600,7 +7701,7 @@ body.ktpwp-modal-open {
   
   /* 顧客詳細のボタンスタイル調整 */
   .data_detail_title .button-style {
-    padding: 8px 12px !important;
+    padding: 0 !important;
     font-size: 12px !important;
     border: 1px solid #ddd !important;
     background: #fff !important;
@@ -7609,9 +7710,20 @@ body.ktpwp-modal-open {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 4px !important;
+    gap: 0 !important;
+    width: 36px !important;
     min-width: 36px !important;
+    max-width: 36px !important;
     height: 36px !important;
+  }
+
+  .data_detail_title .button-group .button-style .ktp-svg-icon {
+    font-size: 18px !important;
+  }
+
+  .data_detail_title .button-group .button-style .ktp-svg-icon svg {
+    width: 18px !important;
+    height: 18px !important;
   }
   
   .data_detail_title .button-style:hover {
@@ -7629,6 +7741,39 @@ body.ktpwp-modal-open {
   .data_detail_title .delete-submit-btn:hover {
     background: #dc3545 !important;
     color: #fff !important;
+  }
+
+  .data_detail_title .button-group .ktp-inquiry-block-btn .ktp-svg-icon {
+    font-size: 14px !important;
+  }
+
+  .data_detail_title .button-group .ktp-inquiry-block-btn .ktp-svg-icon svg {
+    width: 14px !important;
+    height: 14px !important;
+  }
+
+  .data_detail_title .ktp-inquiry-block-btn {
+    background: #fff !important;
+    border-color: #dc3545 !important;
+    color: #dc3545 !important;
+  }
+
+  .data_detail_title .ktp-inquiry-block-btn:hover {
+    background: #dc3545 !important;
+    color: #fff !important;
+    border-color: #dc3545 !important;
+  }
+
+  .data_detail_title .ktp-inquiry-block-btn.is-blocked {
+    background: #dc3545 !important;
+    color: #fff !important;
+    border-color: #dc3545 !important;
+  }
+
+  .data_detail_title .ktp-inquiry-block-btn.is-blocked:hover {
+    background: #fff !important;
+    color: #dc3545 !important;
+    border-color: #dc3545 !important;
   }
   
   /* 追加ボタンの特別なスタイル */

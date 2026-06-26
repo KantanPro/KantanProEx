@@ -340,6 +340,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 
 			// テーブル名
 			$table_name = $wpdb->prefix . 'ktp_' . $name;
+			$list_exclude_sql = class_exists( 'KTPWP_Inquiry_Block' ) ? KTPWP_Inquiry_Block::sql_list_exclude_clause() : '';
 
 			// 表示モードの取得（デフォルトは顧客一覧）
 			$view_mode = isset( $_GET['view_mode'] ) ? sanitize_text_field( $_GET['view_mode'] ) : 'customer_list';
@@ -405,7 +406,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 				$like_pattern = '%' . $wpdb->esc_like( $search_query_multiple ) . '%';
 				$multi_results = $wpdb->get_results(
 					$wpdb->prepare(
-						"SELECT * FROM {$table_name} WHERE (COALESCE(search_field,'') LIKE %s OR company_name LIKE %s OR name LIKE %s) ORDER BY id DESC",
+						"SELECT * FROM {$table_name} WHERE (COALESCE(search_field,'') LIKE %s OR company_name LIKE %s OR name LIKE %s){$list_exclude_sql} ORDER BY id DESC",
 						$like_pattern,
 						$like_pattern,
 						$like_pattern
@@ -528,7 +529,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 					// 最後のIDを取得して表示
 					// $query = "SELECT id FROM {$table_name} ORDER BY id DESC LIMIT 1";
 					// $last_id_row = $wpdb->get_row($query);
-					$query_last_id = "SELECT id FROM {$table_name} ORDER BY id DESC LIMIT 1";
+					$query_last_id = "SELECT id FROM {$table_name} WHERE 1=1{$list_exclude_sql} ORDER BY id DESC LIMIT 1";
 					$last_id_row = $wpdb->get_row( $query_last_id );
 					$client_id = $last_id_row ? $last_id_row->id : 1;
 				}
@@ -696,7 +697,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 				}
 
 				// 全データ数を取得
-				$total_query_prepared = "SELECT COUNT(*) FROM {$table_name} WHERE 1=1{$list_search_where}";
+				$total_query_prepared = "SELECT COUNT(*) FROM {$table_name} WHERE 1=1{$list_search_where}{$list_exclude_sql}";
 				if ( $list_search_args !== array() ) {
 					$total_rows = $wpdb->get_var( $wpdb->prepare( $total_query_prepared, $list_search_args ) );
 				} else {
@@ -716,12 +717,12 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 					$current_page = 1;
 					$total_pages  = 1;
 					$query        = $wpdb->prepare(
-						"SELECT * FROM {$table_name} WHERE 1=1{$list_search_where} ORDER BY {$sort_column_prepared} {$sort_direction}",
+						"SELECT * FROM {$table_name} WHERE 1=1{$list_search_where}{$list_exclude_sql} ORDER BY {$sort_column_prepared} {$sort_direction}",
 						$list_search_args
 					);
 				} else {
 					$query = $wpdb->prepare(
-						"SELECT * FROM {$table_name} WHERE 1=1{$list_search_where} ORDER BY {$sort_column_prepared} {$sort_direction} LIMIT %d, %d",
+						"SELECT * FROM {$table_name} WHERE 1=1{$list_search_where}{$list_exclude_sql} ORDER BY {$sort_column_prepared} {$sort_direction} LIMIT %d, %d",
 						array_merge( $list_search_args, array( intval( $page_start ), intval( $query_limit ) ) )
 					);
 				}
@@ -861,7 +862,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 					$current_customer_id = filter_input( INPUT_COOKIE, $cookie_name, FILTER_SANITIZE_NUMBER_INT );
 				} else {
 					// data_id未指定時は最大IDを取得
-					$max_id_row = $wpdb->get_row( "SELECT id FROM {$table_name} ORDER BY id DESC LIMIT 1" );
+					$max_id_row = $wpdb->get_row( "SELECT id FROM {$table_name} WHERE 1=1{$list_exclude_sql} ORDER BY id DESC LIMIT 1" );
 					$current_customer_id = $max_id_row ? $max_id_row->id : '';
 				}
 
@@ -1092,20 +1093,16 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 				} elseif ( isset( $_COOKIE[ $cookie_name ] ) && $_COOKIE[ $cookie_name ] !== '' ) {
 					$cookie_id = filter_input( INPUT_COOKIE, $cookie_name, FILTER_SANITIZE_NUMBER_INT );
 					// クッキーIDがDBに存在するかチェック
-					$exists = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table_name} WHERE id = %d", $cookie_id ) );
+					$exists = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table_name} WHERE id = %d{$list_exclude_sql}", $cookie_id ) );
 					if ( $exists ) {
 						$query_id = $cookie_id;
 					} else {
-						// 存在しなければ最大ID
-						// $max_id_row = $wpdb->get_row("SELECT id FROM {$table_name} ORDER BY id DESC LIMIT 1");
-						$query_max_id_cookie_fallback = "SELECT id FROM {$table_name} ORDER BY id DESC LIMIT 1";
+						$query_max_id_cookie_fallback = "SELECT id FROM {$table_name} WHERE 1=1{$list_exclude_sql} ORDER BY id DESC LIMIT 1";
 						$max_id_row = $wpdb->get_row( $query_max_id_cookie_fallback );
 						$query_id = $max_id_row ? $max_id_row->id : '';
 					}
 				} else {
-					// data_id未指定時は必ずID最大の顧客を表示
-					// $max_id_row = $wpdb->get_row("SELECT id FROM {$table_name} ORDER BY id DESC LIMIT 1");
-					$query_max_id_no_get_cookie = "SELECT id FROM {$table_name} ORDER BY id DESC LIMIT 1";
+					$query_max_id_no_get_cookie = "SELECT id FROM {$table_name} WHERE 1=1{$list_exclude_sql} ORDER BY id DESC LIMIT 1";
 					$max_id_row = $wpdb->get_row( $query_max_id_no_get_cookie );
 					$query_id = $max_id_row ? $max_id_row->id : '';
 				}
@@ -1113,10 +1110,16 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 				// データを取得し変数に格納
 				$query = $wpdb->prepare( "SELECT * FROM {$table_name} WHERE id = %d", $query_id );
 				$post_row = $wpdb->get_results( $query );
+				if (
+					$post_row
+					&& count( $post_row ) > 0
+					&& class_exists( 'KTPWP_Inquiry_Block' )
+					&& KTPWP_Inquiry_Block::is_client_blocked( (int) $query_id )
+				) {
+					$post_row = array();
+				}
 				if ( ! $post_row || count( $post_row ) === 0 ) {
-					// 存在しないIDの場合は最大IDを取得して再表示
-					// $max_id_row = $wpdb->get_row("SELECT id FROM {$table_name} ORDER BY id DESC LIMIT 1");
-					$query_max_id_fetch_fail_fallback = "SELECT id FROM {$table_name} ORDER BY id DESC LIMIT 1";
+					$query_max_id_fetch_fail_fallback = "SELECT id FROM {$table_name} WHERE 1=1{$list_exclude_sql} ORDER BY id DESC LIMIT 1";
 					$max_id_row = $wpdb->get_row( $query_max_id_fetch_fail_fallback );
 					if ( $max_id_row && isset( $max_id_row->id ) ) {
 						$query_id = $max_id_row->id;
@@ -1146,6 +1149,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 						$tax_category = '';
 						$memo = '';
 						$client_status = '対象';
+						$inquiry_blocked = false;
 						$order_customer_name = '';
 						$order_user_name = '';
 						// $post_row を空配列にして以降のフォーム生成処理を通す
@@ -1184,6 +1188,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 					$payment_timing = isset( $row->payment_timing ) && in_array( $row->payment_timing, array( 'postpay', 'prepay', 'prepay_wc' ), true ) ? $row->payment_timing : 'postpay';
 					$memo = esc_html( $row->memo );
 					$client_status = esc_html( $row->client_status );
+					$inquiry_blocked = class_exists( 'KTPWP_Inquiry_Block' ) && KTPWP_Inquiry_Block::is_client_blocked( (int) $row->id );
 					$frequency = esc_html( $row->frequency );
 					$category = esc_html( $row->category ?? '' ); // カテゴリーフィールドを追加
 					// 受注書作成用のデータを保持
@@ -1215,6 +1220,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 				$payment_timing = 'postpay';
 				$memo = '';
 				$client_status = '対象'; // デフォルト値を設定
+				$inquiry_blocked = false;
 				$category = ''; // カテゴリーフィールドを追加
 				$order_customer_name = '';
 				$order_user_name = '';
@@ -1419,7 +1425,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 				// 最後のIDを取得
 				// $wpdb と $table_name がこのスコープで利用可能である必要がある
 				if ( isset( $wpdb, $table_name ) ) {
-							$query = "SELECT id FROM {$table_name} ORDER BY id DESC LIMIT 1";
+							$query = "SELECT id FROM {$table_name} WHERE 1=1{$list_exclude_sql} ORDER BY id DESC LIMIT 1";
 							$last_id_row = $wpdb->get_row( $query );
 							$current_client_id = $last_id_row ? $last_id_row->id : 0;
 				}
@@ -1774,7 +1780,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 					} elseif ( isset( $_COOKIE[ $cookie_name ] ) ) {
 						// クッキーIDがDBに存在する場合のみ適用
 						$cookie_id = filter_input( INPUT_COOKIE, $cookie_name, FILTER_SANITIZE_NUMBER_INT );
-						$exists = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table_name} WHERE id = %d", $cookie_id ) );
+						$exists = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table_name} WHERE id = %d{$list_exclude_sql}", $cookie_id ) );
 						$data_id = $exists ? $cookie_id : '';
 					} else {
 						$data_id = $last_id_row ? $last_id_row->id : null;
@@ -1795,6 +1801,28 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 				$button_group_html .= '<span class="material-symbols-outlined">delete</span>';
 				$button_group_html .= '</button>';
 				$button_group_html .= '</form>';
+
+				// 公開商品問い合わせブロックボタン（メールアドレス必須）
+				$client_email_for_block = isset( $email ) ? sanitize_email( (string) $email ) : '';
+				if ( ! empty( $data_id ) && $client_email_for_block !== '' && is_email( $client_email_for_block ) ) {
+					$is_inquiry_blocked   = ! empty( $inquiry_blocked );
+					$block_btn_class      = 'button-style ktp-inquiry-block-btn' . ( $is_inquiry_blocked ? ' is-blocked' : '' );
+					$block_icon           = 'block';
+					$block_title          = $is_inquiry_blocked
+						? esc_attr__( 'ブロックを解除', 'ktpwp' )
+						: esc_attr__( '公開商品からの問い合わせをブロック', 'ktpwp' );
+					$block_icon_html      = '<span class="material-symbols-outlined">' . esc_html( $block_icon ) . '</span>';
+					$button_group_html   .= '<span class="ktp-inquiry-block-btn-wrap" style="margin:0;display:inline-flex;">';
+					$button_group_html   .= '<button type="button"'
+						. ' class="' . esc_attr( $block_btn_class ) . '"'
+						. ' data-client-id="' . esc_attr( (string) $data_id ) . '"'
+						. ' data-blocked="' . ( $is_inquiry_blocked ? '1' : '0' ) . '"'
+						. ' title="' . $block_title . '"'
+						. ' aria-label="' . esc_attr( $block_title ) . '">'
+						. $block_icon_html
+						. '</button>';
+					$button_group_html   .= '</span>';
+				}
 
 				// 追加モードボタン
 				$add_action = 'istmode';
@@ -1851,6 +1879,13 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 				foreach ( $basic_fields as $field_name ) {
 					$field = $fields[ $basic_field_labels[ $field_name ] ];
 					$value = $action === 'update' ? ( isset( ${$field_name} ) ? ${$field_name} : '' ) : '';
+
+					if ( $field_name === 'company_name' && ! empty( $inquiry_blocked ) ) {
+						$data_forms .= '<p class="ktp-inquiry-block-badge" style="display:inline-flex;">'
+							. '<span class="material-symbols-outlined" aria-hidden="true">block</span>'
+							. esc_html__( '公開商品からの問い合わせをブロック中', 'ktpwp' )
+							. '</p>';
+					}
 
 					$pattern = isset( $field['pattern'] ) ? ' pattern="' . esc_attr( $field['pattern'] ) . '"' : '';
 					$required = isset( $field['required'] ) && $field['required'] ? ' required' : '';

@@ -473,6 +473,42 @@ class KTPWP_Assets {
                 'in_footer' => true,
                 'admin'     => false,
             ),
+            'ktp-client-inquiry-block' => array(
+                'src'       => 'js/ktp-client-inquiry-block.js',
+                'deps'      => array( 'jquery', 'ktp-svg-icons' ),
+                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-client-inquiry-block.js' ),
+                'in_footer' => true,
+                'admin'     => false,
+                'localize'  => array(
+                    'object' => 'ktpClientInquiryBlock',
+                    'data'   => function () {
+                        $client_id = 0;
+                        if ( isset( $_GET['data_id'] ) ) {
+                            $client_id = absint( $_GET['data_id'] );
+                        } elseif ( isset( $_COOKIE['ktp_client_id'] ) ) {
+                            $client_id = absint( $_COOKIE['ktp_client_id'] );
+                        }
+
+                        return array(
+                            'ajax_url'  => admin_url( 'admin-ajax.php' ),
+                            'nonce'     => wp_create_nonce( 'ktp_ajax_nonce' ),
+                            'client_id' => $client_id,
+                            'list_url'  => class_exists( 'KTPWP_Main' )
+                                ? remove_query_arg(
+                                    array( 'data_id' ),
+                                    add_query_arg(
+                                        array(
+                                            'tab_name'   => 'client',
+                                            'query_post' => 'update',
+                                        ),
+                                        KTPWP_Main::get_current_page_base_url()
+                                    )
+                                )
+                                : '',
+                        );
+                    },
+                ),
+            ),
             'ktp-svg-icons' => array(
                 'src'       => 'js/ktp-svg-icons.js',
                 'deps'      => array( 'jquery' ),
@@ -828,7 +864,7 @@ class KTPWP_Assets {
         $tab_list_print_only_scripts = array( 'ktp-tab-list-print' );
 
         // 顧客タブ専用（顧客以外のタブでは不要な MutationObserver を避ける）
-        $client_only_scripts = array( 'ktp-client-delete-popup', 'ktp-client-invoice', 'ktp-client-contract' );
+        $client_only_scripts = array( 'ktp-client-delete-popup', 'ktp-client-inquiry-block', 'ktp-client-invoice', 'ktp-client-contract' );
 
         // 仕事リストタブ専用（受注書タブでは読み込まない）
         $list_only_scripts = array( 'ktp-contract-billing', 'ktp-list-print', 'ktp-list-schedule' );
