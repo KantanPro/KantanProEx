@@ -55,6 +55,9 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 
 			global $wpdb;
 			$table_name = $wpdb->prefix . 'ktp_order';
+			$order_block_exclude_sql = class_exists( 'KTPWP_Inquiry_Block' )
+				? KTPWP_Inquiry_Block::sql_exclude_blocked_client_orders( "{$table_name}.client_id" )
+				: '';
 
 			$content = '';
 
@@ -312,7 +315,7 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 			}
 			// 総件数取得
 			$total_query = $wpdb->prepare(
-				"SELECT COUNT(*) FROM {$table_name} WHERE progress = %d{$list_search_where}{$list_type_where}",
+				"SELECT COUNT(*) FROM {$table_name} WHERE progress = %d{$list_search_where}{$list_type_where}{$order_block_exclude_sql}",
 				array_merge( array( $selected_progress ), $list_search_args )
 			);
 			$total_rows = $wpdb->get_var( $total_query );
@@ -333,7 +336,7 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
                         ELSE DATEDIFF({$effective_due_sql}, CURDATE())
                     END as days_until_delivery
                 FROM {$table_name}
-                WHERE progress = %d{$list_search_where}{$list_type_where}
+                WHERE progress = %d{$list_search_where}{$list_type_where}{$order_block_exclude_sql}
                 ORDER BY days_until_delivery ASC, time DESC",
 						array_merge( array( $selected_progress ), $list_search_args )
 					);
@@ -341,7 +344,7 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 					// その他の進捗は従来通り時間順でソート
 					$query = $wpdb->prepare(
 						"SELECT * FROM {$table_name}
-                WHERE progress = %d{$list_search_where}{$list_type_where}
+                WHERE progress = %d{$list_search_where}{$list_type_where}{$order_block_exclude_sql}
                 ORDER BY time DESC",
 						array_merge( array( $selected_progress ), $list_search_args )
 					);
@@ -358,7 +361,7 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
                         ELSE DATEDIFF({$effective_due_sql}, CURDATE())
                     END as days_until_delivery
                 FROM {$table_name}
-                WHERE progress = %d{$list_search_where}{$list_type_where}
+                WHERE progress = %d{$list_search_where}{$list_type_where}{$order_block_exclude_sql}
                 ORDER BY days_until_delivery ASC, time DESC
                 LIMIT %d, %d",
 						array_merge( array( $selected_progress ), $list_search_args, array( $page_start, $query_limit ) )
@@ -367,7 +370,7 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 					// その他の進捗は従来通り時間順でソート
 					$query = $wpdb->prepare(
                         "SELECT * FROM {$table_name} 
-                WHERE progress = %d{$list_search_where}{$list_type_where}
+                WHERE progress = %d{$list_search_where}{$list_type_where}{$order_block_exclude_sql}
                 ORDER BY time DESC 
                 LIMIT %d, %d",
 						array_merge( array( $selected_progress ), $list_search_args, array( $page_start, $query_limit ) )
@@ -839,7 +842,10 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 			}
 			$order_where .= ') ';
 			$order_args[] = 50;
-			$order_sql = "SELECT id, client_id, customer_name, user_name, project_name FROM `{$order_table}` WHERE " . $order_where . " ORDER BY time DESC LIMIT %d";
+			$order_block_exclude_sql = class_exists( 'KTPWP_Inquiry_Block' )
+				? KTPWP_Inquiry_Block::sql_exclude_blocked_client_orders( 'o.client_id' )
+				: '';
+			$order_sql = "SELECT id, client_id, customer_name, user_name, project_name FROM `{$order_table}` o WHERE " . $order_where . $order_block_exclude_sql . " ORDER BY time DESC LIMIT %d";
 			$orders = $wpdb->get_results( $wpdb->prepare( $order_sql, $order_args ) );
 			if ( $orders ) {
 				foreach ( $orders as $row ) {
@@ -877,7 +883,8 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 			}
 			$client_where .= ') ';
 			$client_args[] = 50;
-			$client_sql = "SELECT id, company_name, name FROM `{$client_table}` WHERE " . $client_where . " ORDER BY id DESC LIMIT %d";
+			$client_exclude_sql = class_exists( 'KTPWP_Inquiry_Block' ) ? KTPWP_Inquiry_Block::sql_list_exclude_clause() : '';
+			$client_sql = "SELECT id, company_name, name FROM `{$client_table}` WHERE " . $client_where . $client_exclude_sql . " ORDER BY id DESC LIMIT %d";
 			$clients = $wpdb->get_results( $wpdb->prepare( $client_sql, $client_args ) );
 			if ( $clients ) {
 				foreach ( $clients as $row ) {

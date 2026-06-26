@@ -58,6 +58,58 @@ if ( ! class_exists( 'KTPWP_Inquiry_Block' ) ) {
 		}
 
 		/**
+		 * ブロック中顧客に紐づく受注書を除外する SQL 断片（WHERE 内 AND 用）。
+		 *
+		 * @param string $client_id_expr client_id 列参照（例: o.client_id）。
+		 * @return string
+		 */
+		public static function sql_exclude_blocked_client_orders( $client_id_expr = 'client_id' ) {
+			if ( ! self::column_exists() ) {
+				return '';
+			}
+
+			global $wpdb;
+			$client_table = self::get_client_table();
+			$column       = self::COLUMN;
+
+			return " AND NOT EXISTS (
+				SELECT 1 FROM `{$client_table}` c
+				WHERE c.id = {$client_id_expr}
+				AND COALESCE(c.`{$column}`, 0) = 1
+			)";
+		}
+
+		/**
+		 * 受注書がブロック中顧客の案件かどうか。
+		 *
+		 * @param int $order_id 受注書 ID。
+		 * @return bool
+		 */
+		public static function is_order_from_blocked_client( $order_id ) {
+			$order_id = (int) $order_id;
+			if ( $order_id <= 0 || ! self::column_exists() ) {
+				return false;
+			}
+
+			global $wpdb;
+			$order_table  = $wpdb->prefix . 'ktp_order';
+			$client_table = self::get_client_table();
+			$column       = self::COLUMN;
+
+			$blocked = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT 1 FROM `{$order_table}` o
+					INNER JOIN `{$client_table}` c ON c.id = o.client_id
+					WHERE o.id = %d AND COALESCE(c.`{$column}`, 0) = 1
+					LIMIT 1",
+					$order_id
+				)
+			);
+
+			return $blocked !== null;
+		}
+
+		/**
 		 * 一覧に表示する最新の顧客 ID を取得する。
 		 *
 		 * @return int
@@ -202,6 +254,10 @@ if ( ! class_exists( 'KTPWP_Inquiry_Block' ) ) {
 					$email
 				)
 			);
+
+			if ( $result !== false && class_exists( 'KTPWP_List_Warning_Counts' ) ) {
+				KTPWP_List_Warning_Counts::invalidate();
+			}
 
 			return $result !== false;
 		}

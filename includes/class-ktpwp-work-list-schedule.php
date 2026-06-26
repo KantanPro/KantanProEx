@@ -27,11 +27,14 @@ if ( ! class_exists( 'KTPWP_Work_List_Schedule' ) ) {
 		 */
 		public static function fetch_orders( $wpdb, $list_type_where = '' ) {
 			$table_name = $wpdb->prefix . 'ktp_order';
+			$order_block_exclude_sql = class_exists( 'KTPWP_Inquiry_Block' )
+				? KTPWP_Inquiry_Block::sql_exclude_blocked_client_orders( "{$table_name}.client_id" )
+				: '';
 
 			$query = $wpdb->prepare(
 				"SELECT *
 				FROM {$table_name}
-				WHERE progress = %d{$list_type_where}
+				WHERE progress = %d{$list_type_where}{$order_block_exclude_sql}
 				ORDER BY
 					CASE
 						WHEN COALESCE(NULLIF(promised_delivery_date, '0000-00-00'), NULLIF(desired_delivery_date, '0000-00-00')) IS NULL THEN 999999

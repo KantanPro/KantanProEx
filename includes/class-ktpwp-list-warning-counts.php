@@ -65,11 +65,15 @@ class KTPWP_List_Warning_Counts {
 			$warning_days = (int) KTPWP_Settings::get_delivery_warning_days();
 		}
 
+		$order_block_exclude_sql = class_exists( 'KTPWP_Inquiry_Block' )
+			? KTPWP_Inquiry_Block::sql_exclude_blocked_client_orders( 'o.client_id' )
+			: '';
+
 		$progress_counts   = array_fill( 1, 7, 0 );
 		$progress_warnings = array_fill( 1, 7, 0 );
 
 		$count_rows = $wpdb->get_results(
-			"SELECT progress, COUNT(*) AS cnt FROM `{$table_name}` GROUP BY progress",
+			"SELECT o.progress, COUNT(*) AS cnt FROM `{$table_name}` o WHERE 1=1{$order_block_exclude_sql} GROUP BY o.progress",
 			ARRAY_A
 		);
 		if ( is_array( $count_rows ) ) {
@@ -84,7 +88,7 @@ class KTPWP_List_Warning_Counts {
 		$effective_due_sql = "COALESCE(NULLIF(promised_delivery_date, '0000-00-00'), NULLIF(desired_delivery_date, '0000-00-00'))";
 		$delivery_warning = $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM `{$table_name}` WHERE progress = %d AND {$effective_due_sql} IS NOT NULL AND {$effective_due_sql} <= DATE_ADD(CURDATE(), INTERVAL %d DAY)",
+				"SELECT COUNT(*) FROM `{$table_name}` o WHERE o.progress = %d AND {$effective_due_sql} IS NOT NULL AND {$effective_due_sql} <= DATE_ADD(CURDATE(), INTERVAL %d DAY){$order_block_exclude_sql}",
 				3,
 				$warning_days
 			)
@@ -108,7 +112,10 @@ class KTPWP_List_Warning_Counts {
 		global $wpdb;
 
 		$client_table = $wpdb->prefix . 'ktp_client';
-		$query        = "SELECT o.id, o.client_id, o.completion_date, c.closing_day FROM {$table_name} o LEFT JOIN {$client_table} c ON o.client_id = c.id WHERE o.progress = 4 AND o.completion_date IS NOT NULL AND c.closing_day IS NOT NULL AND c.closing_day != 'なし'";
+		$order_block_exclude_sql = class_exists( 'KTPWP_Inquiry_Block' )
+			? KTPWP_Inquiry_Block::sql_exclude_blocked_client_orders( 'o.client_id' )
+			: '';
+		$query        = "SELECT o.id, o.client_id, o.completion_date, c.closing_day FROM {$table_name} o LEFT JOIN {$client_table} c ON o.client_id = c.id WHERE o.progress = 4 AND o.completion_date IS NOT NULL AND c.closing_day IS NOT NULL AND c.closing_day != 'なし'{$order_block_exclude_sql}";
 		$orders       = $wpdb->get_results( $query );
 		if ( ! is_array( $orders ) || empty( $orders ) ) {
 			return 0;
@@ -147,7 +154,10 @@ class KTPWP_List_Warning_Counts {
 		global $wpdb;
 
 		$client_table = $wpdb->prefix . 'ktp_client';
-		$query        = "SELECT o.id, o.client_id, o.completion_date, o.payment_timing AS order_payment_timing, c.closing_day, c.payment_month, c.payment_day, c.payment_timing AS client_payment_timing FROM {$table_name} o LEFT JOIN {$client_table} c ON o.client_id = c.id WHERE o.progress = 5 AND o.completion_date IS NOT NULL AND c.payment_month IS NOT NULL AND c.payment_day IS NOT NULL";
+		$order_block_exclude_sql = class_exists( 'KTPWP_Inquiry_Block' )
+			? KTPWP_Inquiry_Block::sql_exclude_blocked_client_orders( 'o.client_id' )
+			: '';
+		$query        = "SELECT o.id, o.client_id, o.completion_date, o.payment_timing AS order_payment_timing, c.closing_day, c.payment_month, c.payment_day, c.payment_timing AS client_payment_timing FROM {$table_name} o LEFT JOIN {$client_table} c ON o.client_id = c.id WHERE o.progress = 5 AND o.completion_date IS NOT NULL AND c.payment_month IS NOT NULL AND c.payment_day IS NOT NULL{$order_block_exclude_sql}";
 		$orders       = $wpdb->get_results( $query );
 		if ( ! is_array( $orders ) || empty( $orders ) ) {
 			return 0;

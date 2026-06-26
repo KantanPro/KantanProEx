@@ -102,6 +102,7 @@ class KTPWP_Contact_Form {
         error_log( 'KTPWP DEBUG: init_hooks called' );
         // Contact Form 7が有効な場合のみフックを追加
         if ( class_exists( 'WPCF7_ContactForm' ) ) {
+            add_filter( 'wpcf7_validate', array( $this, 'validate_inquiry_block' ), 20, 2 );
             add_action( 'wpcf7_mail_sent', array( $this, 'capture_contact_form_data' ) );
             error_log( 'KTPWP DEBUG: wpcf7_mail_sent hook registered' );
         } else {
@@ -134,6 +135,50 @@ class KTPWP_Contact_Form {
     }
 
     /**
+     * ブロック中メールアドレスからの CF7 送信を拒否する。
+     *
+     * @param WPCF7_Validation $result バリデーション結果。
+     * @param array            $tags     フォームタグ。
+     * @return WPCF7_Validation
+     */
+    public function validate_inquiry_block( $result, $tags ) {
+        if ( ! class_exists( 'WPCF7_Submission' ) || ! is_object( $result ) || ! method_exists( $result, 'invalidate' ) ) {
+            return $result;
+        }
+
+        $submission = WPCF7_Submission::get_instance();
+        if ( ! $submission ) {
+            return $result;
+        }
+
+        $posted_data = $submission->get_posted_data();
+        if ( empty( $posted_data ) || ! is_array( $posted_data ) ) {
+            return $result;
+        }
+
+        $email_info = $this->get_submission_email_info( $posted_data );
+        $email      = $email_info['email'];
+        if ( $email === '' ) {
+            return $result;
+        }
+
+        if ( ! class_exists( 'KTPWP_Inquiry_Block' ) ) {
+            require_once dirname( __FILE__ ) . '/class-ktpwp-inquiry-block.php';
+        }
+
+        if ( ! KTPWP_Inquiry_Block::is_email_blocked( $email ) ) {
+            return $result;
+        }
+
+        $result->invalidate(
+            $email_info['field_name'],
+            __( '現在、お問い合わせを受け付けておりません。', 'ktpwp' )
+        );
+
+        return $result;
+    }
+
+    /**
      * Contact Form 7送信データをキャプチャ
      *
      * @param WPCF7_ContactForm $contact_form Contact Form 7のフォームオブジェクト
@@ -158,6 +203,13 @@ class KTPWP_Contact_Form {
 
         // 顧客データの準備と保存
         $client_data = $this->prepare_client_data( $posted_data );
+
+        if ( ! class_exists( 'KTPWP_Inquiry_Block' ) ) {
+            require_once dirname( __FILE__ ) . '/class-ktpwp-inquiry-block.php';
+        }
+        if ( ! empty( $client_data['email'] ) && KTPWP_Inquiry_Block::is_email_blocked( $client_data['email'] ) ) {
+            return;
+        }
 
         if ( ! class_exists( 'KTPWP_Inquiry_Client_Resolver' ) ) {
             require_once dirname( __FILE__ ) . '/class-ktpwp-inquiry-client-resolver.php';
@@ -185,6 +237,31 @@ class KTPWP_Contact_Form {
             // クッキー設定
             $this->set_client_cookie( $client_id );
         }
+    }
+
+    /**
+     * 送信データからメールアドレスとフィールド名を取得する。
+     *
+     * @param array $posted_data 送信されたデータ。
+     * @return array{email:string,field_name:string}
+     */
+    private function get_submission_email_info( $posted_data ) {
+        $this->adjust_field_mapping( $posted_data );
+        $client_data = $this->prepare_client_data( $posted_data );
+        $email       = isset( $client_data['email'] ) ? sanitize_email( (string) $client_data['email'] ) : '';
+        $field_name  = 'your-email';
+
+        foreach ( $this->field_mapping['email'] as $candidate ) {
+            if ( isset( $posted_data[ $candidate ] ) && $posted_data[ $candidate ] !== '' ) {
+                $field_name = $candidate;
+                break;
+            }
+        }
+
+        return array(
+            'email'      => $email,
+            'field_name' => $field_name,
+        );
     }
 
     /**

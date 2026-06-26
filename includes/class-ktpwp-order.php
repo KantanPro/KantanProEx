@@ -164,6 +164,9 @@ if ( ! class_exists( 'KTPWP_Order' ) ) {
 
 			$where_clauses = array();
 			$where_values = array();
+			$order_block_exclude_sql = class_exists( 'KTPWP_Inquiry_Block' )
+				? KTPWP_Inquiry_Block::sql_exclude_blocked_client_orders( 'client_id' )
+				: '';
 
 			// Progress filter
 			if ( ! is_null( $args['progress'] ) ) {
@@ -189,7 +192,9 @@ if ( ! class_exists( 'KTPWP_Order' ) ) {
 
 			$where_sql = '';
 			if ( ! empty( $where_clauses ) ) {
-				$where_sql = 'WHERE ' . implode( ' AND ', $where_clauses );
+				$where_sql = 'WHERE ' . implode( ' AND ', $where_clauses ) . $order_block_exclude_sql;
+			} elseif ( $order_block_exclude_sql !== '' ) {
+				$where_sql = 'WHERE 1=1' . $order_block_exclude_sql;
 			}
 
 			// Sanitize order by and order
@@ -237,6 +242,9 @@ if ( ! class_exists( 'KTPWP_Order' ) ) {
 
 			$where_clauses = array();
 			$where_values = array();
+			$order_block_exclude_sql = class_exists( 'KTPWP_Inquiry_Block' )
+				? KTPWP_Inquiry_Block::sql_exclude_blocked_client_orders( 'client_id' )
+				: '';
 
 			// Progress filter
 			if ( ! is_null( $args['progress'] ) ) {
@@ -262,7 +270,9 @@ if ( ! class_exists( 'KTPWP_Order' ) ) {
 
 			$where_sql = '';
 			if ( ! empty( $where_clauses ) ) {
-				$where_sql = 'WHERE ' . implode( ' AND ', $where_clauses );
+				$where_sql = 'WHERE ' . implode( ' AND ', $where_clauses ) . $order_block_exclude_sql;
+			} elseif ( $order_block_exclude_sql !== '' ) {
+				$where_sql = 'WHERE 1=1' . $order_block_exclude_sql;
 			}
 
 			$sql = "SELECT COUNT(*) FROM `{$table_name}` {$where_sql}";

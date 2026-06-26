@@ -386,6 +386,9 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 			global $wpdb;
 			$table_name = $wpdb->prefix . 'ktp_order';
 			$client_table = $wpdb->prefix . 'ktp_client';
+			$order_block_exclude_sql = class_exists( 'KTPWP_Inquiry_Block' )
+				? KTPWP_Inquiry_Block::sql_exclude_blocked_client_orders( 'client_id' )
+				: '';
 
 			// Initialize invoice items table (with migration)
 			$this->Create_Invoice_Items_Table();
@@ -1515,7 +1518,7 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				if ( isset( $_GET['order_id'] ) && ! empty( $_GET['order_id'] ) ) {
 					$get_order_id = absint( $_GET['order_id'] );
 					// 有効な受注書IDかチェック
-					$valid_order = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `{$table_name}` WHERE id = %d", $get_order_id ) );
+					$valid_order = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `{$table_name}` WHERE id = %d{$order_block_exclude_sql}", $get_order_id ) );
 					if ( $valid_order ) {
 						$order_id = $get_order_id;
 						// 有効な受注書IDの場合、セッションに記憶
@@ -1528,7 +1531,7 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				elseif ( isset( $_SESSION['ktp_last_order_id'] ) && ! empty( $_SESSION['ktp_last_order_id'] ) ) {
 					$session_order_id = absint( $_SESSION['ktp_last_order_id'] );
 					// 記憶されたIDが有効な受注書かチェック
-					$valid_order = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `{$table_name}` WHERE id = %d", $session_order_id ) );
+					$valid_order = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `{$table_name}` WHERE id = %d{$order_block_exclude_sql}", $session_order_id ) );
 					if ( $valid_order ) {
 						$order_id = $session_order_id;
 					} else {
@@ -1540,7 +1543,7 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				if ( $order_id === 0 ) {
 					$latest_order = $wpdb->get_row(
 						$wpdb->prepare(
-							"SELECT id FROM `{$table_name}` ORDER BY time DESC LIMIT %d",
+							"SELECT id FROM `{$table_name}` WHERE 1=1{$order_block_exclude_sql} ORDER BY time DESC LIMIT %d",
 							1
 						)
 					);
@@ -1554,7 +1557,7 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				// order_idが既に設定されている場合（GETパラメータなど）、セッションに記憶
 				if ( $order_id > 0 ) {
 					// 有効な受注書IDかチェック
-					$valid_order = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `{$table_name}` WHERE id = %d", $order_id ) );
+					$valid_order = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `{$table_name}` WHERE id = %d{$order_block_exclude_sql}", $order_id ) );
 					if ( $valid_order ) {
 						$_SESSION['ktp_last_order_id'] = $order_id;
 					} else {
@@ -1577,6 +1580,13 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					if ( $stripe_billing->sync_order_payment_from_stripe( (int) $order_data->id ) ) {
 						$order_data = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `{$table_name}` WHERE id = %d", $order_id ) );
 					}
+				}
+
+				if ( $order_data && class_exists( 'KTPWP_Inquiry_Block' ) && KTPWP_Inquiry_Block::is_order_from_blocked_client( (int) $order_id ) ) {
+					$order_id_not_found = $order_id;
+					$order_data         = null;
+					$order_id           = 0;
+					unset( $_SESSION['ktp_last_order_id'] );
 				}
 
 				if ( $order_data ) {
