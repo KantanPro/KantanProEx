@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.1
+Stable tag: 1.4.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,10 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.2 - 2026年06月26日 =
+* ブロック中顧客の案件を仕事リスト・受注書タブから非表示に変更
+* Contact Form 7 からの問い合わせもブロック対象に追加
 
 = 1.4.1 - 2026年06月26日 =
 * 公開商品からの問い合わせスパムブロック機能を追加（顧客タブのブロックボタン・メール単位で拒否）
