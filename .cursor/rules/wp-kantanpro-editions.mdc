@@ -1,0 +1,24 @@
+---
+description: WordPress 版 KantanPro（無料）と KantanProEX（有料）の名称・リポジトリを混同しない
+alwaysApply: true
+---
+
+# WordPress 版：無料版と有料版の区別（必須）
+
+**KantanPro（WP）** と **KantanProEX（WP）** は別プロダクト。会話・コミット・リリース・修正対象の説明で**絶対に混同しない**。
+
+| 呼称 | 版 | ローカルパス | GitHub |
+|------|-----|-------------|--------|
+| **KantanPro（WP）** | **無料版** | `wordpress/wp-content/plugins/KantanPro` | `KantanPro/KantanPro` |
+| **KantanProEX（WP）** | **有料版**（このリポジトリ） | `wordpress/wp-content/plugins/KantanProEX` | `KantanPro/KantanProEx` |
+
+## このリポジトリ（有料版）で守ること
+
+- 定期契約・公開商品・Stripe 請求など、有料機能の実装・修正は**原則こちら**（または無料版への移植時はエディションガードを維持）。
+- リリースは `KantanPro/KantanProEx` + エディション別 ZIP（pro/solo/team/business）。手順は `release-workflow-bundle.mdc`。
+- 無料版のバグ修正・リリースは **KantanPro リポジトリ**側。混同しない。
+
+## 記述例
+
+- ✅ 「KantanProEX（WP）有料版 v1.3.x」
+- ❌ 「KantanPro 無料版をリリース」（無料版は KantanPro リポジトリ）
