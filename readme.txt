@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.9
+Stable tag: 1.4.10
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,10 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.10 - 2026年06月28日 =
+* 一括請求プレビューのスタイルを改善（ダイアログ幅・明細テーブル幅の表示を修正）
+* 一括請求プレビューポップアップを wp_footer で出力し、親要素の幅制限の影響を回避
 
 = 1.4.9 - 2026年06月28日 =
 * 一括請求の封筒窓レイアウト・印刷の案件区切り・請求書在中の文字サイズ・印影位置を改善
