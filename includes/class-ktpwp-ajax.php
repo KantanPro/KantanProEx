@@ -536,9 +536,13 @@ class KTPWP_Ajax {
 					require_once KTPWP_PLUGIN_DIR . 'includes/class-ktpwp-nonce-manager.php';
 				}
 				$ajax_data['nonces'][ $action ] = KTPWP_Nonce_Manager::get_instance()->get_staff_chat_nonce();
-			} elseif ( $action === 'project_name' && current_user_can( 'manage_options' ) ) {
-				$ajax_data['nonces'][ $action ] = wp_create_nonce( $nonce_name );
-			} elseif ( $action !== 'project_name' ) {
+			} elseif ( $action === 'project_name' ) {
+				if ( current_user_can( 'manage_options' )
+					|| current_user_can( 'ktpwp_access' )
+					|| current_user_can( 'edit_posts' ) ) {
+					$ajax_data['nonces'][ $action ] = wp_create_nonce( $nonce_name );
+				}
+			} else {
 				$ajax_data['nonces'][ $action ] = wp_create_nonce( $nonce_name );
 			}
 		}
@@ -586,21 +590,17 @@ class KTPWP_Ajax {
 			);
 		}
 
-		if ( isset( $wp_scripts->registered['ktp-order-inline-projectname'] ) ) {
-			$can_edit = current_user_can( 'manage_options' )
-				|| current_user_can( 'ktpwp_access' )
-				|| current_user_can( 'edit_posts' );
-			if ( $can_edit ) {
-				wp_add_inline_script(
-					'ktp-order-inline-projectname',
-					'var ktpwp_inline_edit_nonce = ' . json_encode(
-						array(
-							'ajax_url' => $ajax_data['ajax_url'],
-							'nonce'    => $ajax_data['nonces']['project_name'],
-						)
-					) . ';'
-				);
-			}
+		if ( isset( $wp_scripts->registered['ktp-order-inline-projectname'] )
+			&& ! empty( $ajax_data['nonces']['project_name'] ) ) {
+			wp_add_inline_script(
+				'ktp-order-inline-projectname',
+				'var ktpwp_inline_edit_nonce = ' . json_encode(
+					array(
+						'ajax_url' => $ajax_data['ajax_url'],
+						'nonce'    => $ajax_data['nonces']['project_name'],
+					)
+				) . ';'
+			);
 		}
 
 		// 納期フィールド用のAjax設定
