@@ -768,6 +768,14 @@ document.addEventListener('DOMContentLoaded', function () {
     }, 2000);
 
     // スタッフチャット（<details> パネル）
+    function getStaffChatToggleCookieName() {
+        var oid = (typeof getCurrentOrderId === 'function' && getCurrentOrderId())
+            || (document.querySelector('input[name="staff_chat_order_id"]') ? document.querySelector('input[name="staff_chat_order_id"]').value : '')
+            || (document.querySelector('input[name="order_id"]') ? document.querySelector('input[name="order_id"]').value : '')
+            || 'global';
+        return 'ktp_staff_chat_toggle_' + oid;
+    }
+
     function setupStaffChatPanel(detailsEl, content) {
         if (window.ktpDebugMode) console.log('KTPWP: Setting up staff chat panel');
         if (!detailsEl || !content) return;
@@ -777,15 +785,20 @@ document.addEventListener('DOMContentLoaded', function () {
         content.style.display = 'block';
         window.updateStaffChatButtonText = function () {};
 
-        var currentOrderIdForChatCookie = (typeof getCurrentOrderId === 'function' && getCurrentOrderId())
-            || (document.querySelector('input[name="staff_chat_order_id"]') ? document.querySelector('input[name="staff_chat_order_id"]').value : '')
-            || (document.querySelector('input[name="order_id"]') ? document.querySelector('input[name="order_id"]').value : '')
-            || 'global';
-        var staffChatCookieName = 'ktp_staff_chat_toggle_' + currentOrderIdForChatCookie;
+        var staffChatCookieName = getStaffChatToggleCookieName();
 
         var urlParams = new URLSearchParams(window.location.search);
         var messageSent = urlParams.get('message_sent') === '1';
-        if (messageSent) {
+        var chatOpenParam = urlParams.get('chat_open') === '1';
+        var refreshToChat = false;
+        try {
+            refreshToChat = localStorage.getItem('ktp_scroll_to_chat') === 'true';
+            if (refreshToChat) {
+                localStorage.removeItem('ktp_scroll_to_chat');
+            }
+        } catch (e) {}
+
+        if (messageSent || chatOpenParam || refreshToChat) {
             detailsEl.open = true;
             setCookie(staffChatCookieName, '1', 365);
         } else {
@@ -832,15 +845,17 @@ document.addEventListener('DOMContentLoaded', function () {
             setCookie(staffChatCookieName, detailsEl.open ? '1' : '0', 365);
         });
 
-        if (messageSent) {
+        if (messageSent || chatOpenParam || refreshToChat) {
             window.addEventListener('load', function () {
                 setTimeout(function () {
                     scrollToBottom();
-                    var newUrl = new URL(window.location);
-                    newUrl.searchParams.delete('message_sent');
-                    newUrl.searchParams.delete('chat_open');
-                    window.history.replaceState({}, '', newUrl);
-                }, 1000);
+                    if (messageSent || chatOpenParam) {
+                        var newUrl = new URL(window.location);
+                        newUrl.searchParams.delete('message_sent');
+                        newUrl.searchParams.delete('chat_open');
+                        window.history.replaceState({}, '', newUrl);
+                    }
+                }, refreshToChat ? 500 : 1000);
             });
         }
 
@@ -850,10 +865,14 @@ document.addEventListener('DOMContentLoaded', function () {
             var refreshButton = document.getElementById('staff-chat-refresh');
             if (refreshButton) {
                 refreshButton.addEventListener('click', function () {
+                    setCookie(staffChatCookieName, '1', 365);
                     try {
                         localStorage.setItem('ktp_scroll_to_chat', 'true');
                     } catch (e) {}
-                    window.location.reload();
+                    var url = new URL(window.location.href);
+                    url.searchParams.set('chat_open', '1');
+                    url.searchParams.delete('message_sent');
+                    window.location.href = url.toString();
                 });
             }
 
@@ -1222,32 +1241,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 setupStaffChatPanel(d, c);
             }
         }, 2000);
-    }
-
-    // フォールバック再読込後：クッキー復元の後に開く（記憶と矛盾しないよう cookie も更新）
-    if (localStorage.getItem('ktp_scroll_to_chat') === 'true') {
-        localStorage.removeItem('ktp_scroll_to_chat');
-        var staffD2 = document.getElementById('staff-chat-details');
-        if (staffD2) {
-            staffD2.open = true;
-        }
-        var oidChat = (document.querySelector('input[name="staff_chat_order_id"]') && document.querySelector('input[name="staff_chat_order_id"]').value)
-            || (document.querySelector('input[name="order_id"]') && document.querySelector('input[name="order_id"]').value)
-            || 'global';
-        setCookie('ktp_staff_chat_toggle_' + oidChat, '1', 365);
-        var staffC2 = document.getElementById('staff-chat-content');
-        setTimeout(function () {
-            var chatSection = document.querySelector('.staff-chat-title') || document.getElementById('staff-chat-details');
-            if (chatSection) {
-                chatSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-            var messagesContainer = document.getElementById('staff-chat-messages');
-            if (messagesContainer) {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            } else if (staffC2) {
-                staffC2.scrollTop = staffC2.scrollHeight;
-            }
-        }, 500);
     }
 
     // 受注書イベントリスナーを設定する関数
