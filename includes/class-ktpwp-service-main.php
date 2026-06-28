@@ -488,7 +488,10 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					$default_thumb_url = $this->db_helper->get_default_image_url();
 					$row_url = esc_url( add_query_arg( $item_link_args, $base_page_url ) );
 					$price_unit_cell = '<td class="col-price-unit">' . $this->render_service_price_unit_display( $price, $unit ) . '</td>';
-					$results[] = '<tr class="ktp-service-list-data-row" data-href="' . $row_url . '" onclick="window.location.href=this.dataset.href">' .
+					$row_attrs = class_exists( 'KTPWP_List_Table' )
+						? KTPWP_List_Table::row_nav_attrs( $row_url, 'ktp_' . $name . '_id', (int) $row->id )
+						: ' class="ktp-service-list-data-row" data-href="' . esc_url( $row_url ) . '" onclick="window.location.href=this.dataset.href"';
+					$results[] = '<tr' . $row_attrs . '>' .
 					'<td class="col-id">' . $id . '</td>' .
 					'<td class="col-image"><span class="ktp-service-list-thumb-wrap"><img src="' . esc_url( $thumb_url ) . '" alt="' . esc_attr( $service_name_raw ) . '" class="ktp-service-list-thumb" loading="lazy" decoding="async" onerror="this.src=\'' . esc_url( $default_thumb_url ) . '\'" /></span></td>' .
 					'<td class="col-name" title="' . esc_attr( $service_name_raw ) . '">' . $service_name . '</td>' .
