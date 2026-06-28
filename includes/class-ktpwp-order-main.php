@@ -1636,9 +1636,23 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					$content .= '</div>';
 					$content .= '</div>';
 
-					// 右側：プレビューボタン、メールボタン（軽量な共通クラスで描画）
+					// 右側：複製・プレビュー・メールボタン
 					$content .= '<div class="ktp-order-controller__tools">';
 					$content .= '<div class="ktp-order-title-actions">';
+					if ( ! class_exists( 'KTPWP_Order_Duplicate' ) && defined( 'KTPWP_PLUGIN_DIR' ) ) {
+						$duplicate_file = KTPWP_PLUGIN_DIR . 'includes/class-ktpwp-order-duplicate.php';
+						if ( is_readable( $duplicate_file ) ) {
+							require_once $duplicate_file;
+						}
+					}
+					if ( class_exists( 'KTPWP_Order_Duplicate' ) ) {
+						$content .= KTPWP_Order_Duplicate::get_instance()->render_button(
+							array(
+								'order_id'  => (int) $order_data->id,
+								'client_id' => (int) ( $order_data->client_id ?? 0 ),
+							)
+						);
+					}
 					// プレビューボタン（受注書IDのみ保持、最新データはAjaxで取得）
 					if ( class_exists( 'KTPWP_Ui_Generator' ) ) {
 						$content .= KTPWP_Ui_Generator::render_tab_print_button(
@@ -1747,6 +1761,10 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 
 					if ( class_exists( 'KTPWP_Tab_Search_UI' ) ) {
 						$content .= KTPWP_Tab_Search_UI::get_instance()->maybe_render_cross_search_panel( 'order', array( 'order_id' ) );
+					}
+
+					if ( class_exists( 'KTPWP_Order_Duplicate' ) ) {
+						$content .= KTPWP_Order_Duplicate::get_instance()->render_modal( $order_data );
 					}
 
 					if ( class_exists( 'KTPWP_Order_Contract_UI' ) ) {
@@ -2097,6 +2115,9 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					// 右側：プレビューボタンとメールボタン（無効化）
 					$content .= '<div class="ktp-order-controller__tools">';
 					$content .= '<div class="ktp-order-title-actions">';
+					if ( class_exists( 'KTPWP_Order_Duplicate' ) ) {
+						$content .= KTPWP_Order_Duplicate::get_instance()->render_button( array( 'disabled' => true ) );
+					}
 					if ( class_exists( 'KTPWP_Ui_Generator' ) ) {
 						$content .= KTPWP_Ui_Generator::render_tab_print_button(
 							array(
@@ -2142,6 +2163,9 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				// 右側：プレビューボタンとメールボタン（無効化）
 				$content .= '<div class="ktp-order-controller__tools">';
 				$content .= '<div class="ktp-order-title-actions">';
+				if ( class_exists( 'KTPWP_Order_Duplicate' ) ) {
+					$content .= KTPWP_Order_Duplicate::get_instance()->render_button( array( 'disabled' => true ) );
+				}
 				if ( class_exists( 'KTPWP_Ui_Generator' ) ) {
 					$content .= KTPWP_Ui_Generator::render_tab_print_button(
 						array(

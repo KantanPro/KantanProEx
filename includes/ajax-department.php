@@ -49,6 +49,11 @@ function ktp_add_department_ajax() {
     $result = KTPWP_Department_Manager::add_department( $client_id, $department_name, $contact_person, $email );
 
     if ( $result ) {
+        // 選択中の部署がなければ、追加した部署を自動選択（請求書宛名の部署表示に必要）
+        $existing_selection = KTPWP_Department_Manager::get_selected_department_by_client( $client_id );
+        if ( ! $existing_selection ) {
+            KTPWP_Department_Manager::update_department_selection( (int) $result, true );
+        }
         wp_send_json_success( __( '部署を追加しました。', 'ktpwp' ) );
     } else {
         wp_send_json_error( __( '部署の追加に失敗しました。', 'ktpwp' ) );
@@ -151,7 +156,8 @@ function ktp_update_department_selection_ajax() {
 
     // パラメータの取得とバリデーション
     $department_id = intval( $_POST['department_id'] );
-    $is_selected = isset( $_POST['is_selected'] ) ? (bool) $_POST['is_selected'] : false;
+    $is_selected_raw = isset( $_POST['is_selected'] ) ? wp_unslash( $_POST['is_selected'] ) : '0';
+    $is_selected     = in_array( strtolower( (string) $is_selected_raw ), array( '1', 'true', 'yes', 'on' ), true );
 
     if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
         error_log( "KTPWP AJAX: update_department_selection called - department_id: {$department_id}, is_selected: " . ( $is_selected ? 'true' : 'false' ) );

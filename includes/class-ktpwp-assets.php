@@ -449,6 +449,22 @@ class KTPWP_Assets {
                 'in_footer' => true,
                 'admin'     => false,
             ),
+            'ktp-order-duplicate' => array(
+                'src'       => 'js/ktp-order-duplicate.js',
+                'deps'      => array( 'jquery' ),
+                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-order-duplicate.js' ),
+                'in_footer' => true,
+                'admin'     => false,
+                'localize'  => array(
+                    'object' => 'ktpOrderDuplicate',
+                    'data'   => function () {
+                        return array(
+                            'ajax_url' => admin_url( 'admin-ajax.php' ),
+                            'nonce'    => wp_create_nonce( 'ktp_ajax_nonce' ),
+                        );
+                    },
+                ),
+            ),
             'ktp-delivery-dates' => array(
                 'src'       => 'js/ktp-delivery-dates.js',
                 'deps'      => array( 'jquery' ),
@@ -853,6 +869,7 @@ class KTPWP_Assets {
             'ktp-calculation-test',
             'ktp-calculation-monitor',
             'ktp-order-preview',
+            'ktp-order-duplicate',
             'ktp-order-inline-projectname',
             'ktp-order-contract',
             'ktp-email-popup',

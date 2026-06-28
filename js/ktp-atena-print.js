@@ -37,6 +37,8 @@
         gridLineCount: LAYOUT.gridLineCount,
     };
 
+    var ATENA_CONTACT_INPUT = 'addressee-contact-mode-atena';
+
     var PREVIEW_PANEL_MAX_PX = 720;
 
     function t(msg) {
@@ -199,6 +201,67 @@
         return css;
     }
 
+    function buildAtenaContactFieldsetHtml(res, inputName) {
+        inputName = inputName || ATENA_CONTACT_INPUT;
+        var hasRepresentative = !!(res.has_representative_contact || (res.representative_name || '').trim());
+        var hasDepartment = !!(res.has_department_contact || (res.bulk_department_contact_line || '').trim());
+        if (!hasRepresentative && !hasDepartment) {
+            return '';
+        }
+        var html = '<fieldset class="ktp-bulk-invoice-addressee-mode" style="margin:0;text-align:center;font-size:13px;color:#374151;">';
+        html += '<legend style="margin-bottom:4px;font-size:12px;color:#6b7280;">' + esc(t('宛名のご担当')) + '</legend>';
+        html += '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px 20px;">';
+        html += '<label style="display:inline-flex;align-items:center;gap:6px;"><input type="radio" name="' + esc(inputName) + '" value="company" checked> ' + esc(t('会社名のみ')) + '</label>';
+        if (hasRepresentative) {
+            html += '<label style="display:inline-flex;align-items:center;gap:6px;"><input type="radio" name="' + esc(inputName) + '" value="representative"> ' + esc(t('代表者名を表示')) + '</label>';
+        }
+        if (hasDepartment) {
+            html += '<label style="display:inline-flex;align-items:center;gap:6px;"><input type="radio" name="' + esc(inputName) + '" value="department"> ' + esc(t('部署・ご担当を表示')) + '</label>';
+        }
+        html += '</div></fieldset>';
+        return html;
+    }
+
+    function applyAddresseeContactToLabel(labelRoot, inputName, forcedMode) {
+        if (!labelRoot || !labelRoot.querySelector) {
+            return;
+        }
+        inputName = inputName || ATENA_CONTACT_INPUT;
+        var mode = forcedMode || 'company';
+        if (!forcedMode) {
+            var checked = document.querySelector('input[name="' + inputName + '"]:checked');
+            mode = checked && checked.value ? checked.value : 'company';
+        }
+        var showContact = mode === 'representative' || mode === 'department';
+        labelRoot.querySelectorAll('.ktp-bulk-invoice-company-honorific').forEach(function (el) {
+            el.style.display = showContact ? 'none' : '';
+        });
+        labelRoot.querySelectorAll('.ktp-bulk-invoice-representative-row').forEach(function (el) {
+            el.style.display = mode === 'representative' ? 'block' : 'none';
+        });
+        labelRoot.querySelectorAll('.ktp-bulk-invoice-department-contact-row').forEach(function (el) {
+            el.style.display = mode === 'department' ? 'block' : 'none';
+        });
+    }
+
+    function wireAddresseeContactMode(modal, inputName) {
+        inputName = inputName || ATENA_CONTACT_INPUT;
+        var radios = modal.querySelectorAll('input[name="' + inputName + '"]');
+        if (!radios.length) {
+            return;
+        }
+        function update() {
+            var label = modal.querySelector('.ktp-atena-label');
+            if (label) {
+                applyAddresseeContactToLabel(label, inputName);
+            }
+        }
+        radios.forEach(function (radio) {
+            radio.addEventListener('change', update);
+        });
+        update();
+    }
+
     function applyPreviewScale(modal) {
         var wrap = modal.querySelector('.ktp-atena-sheet-wrap');
         var page = wrap && wrap.querySelector('.ktp-atena-page');
@@ -246,6 +309,19 @@
             '.ktp-atena-panel-close{background:none;border:none;font-size:24px;line-height:1;cursor:pointer;color:#374151;padding:0 4px;}' +
             '.ktp-atena-panel-body{overflow:auto;padding:8px 10px;flex:1;min-height:0;}' +
             '.ktp-atena-panel-note{margin:0 0 8px;font-size:11px;color:#6b7280;line-height:1.45;}' +
+            '.ktp-atena-contact-mode-wrap{margin:0 0 8px;}' +
+            '#ktp-atena-preview-modal .ktp-atena-panel-body:has(input[name="' +
+            ATENA_CONTACT_INPUT +
+            '"][value="representative"]:checked) .ktp-bulk-invoice-representative-row{display:block!important;}' +
+            '#ktp-atena-preview-modal .ktp-atena-panel-body:has(input[name="' +
+            ATENA_CONTACT_INPUT +
+            '"][value="department"]:checked) .ktp-bulk-invoice-department-contact-row{display:block!important;}' +
+            '#ktp-atena-preview-modal .ktp-atena-panel-body:has(input[name="' +
+            ATENA_CONTACT_INPUT +
+            '"][value="representative"]:checked) .ktp-bulk-invoice-company-honorific,' +
+            '#ktp-atena-preview-modal .ktp-atena-panel-body:has(input[name="' +
+            ATENA_CONTACT_INPUT +
+            '"][value="department"]:checked) .ktp-bulk-invoice-company-honorific{display:none!important;}' +
             '.ktp-atena-sheet-wrap{width:100%;display:flex;justify-content:center;overflow:hidden;}' +
             '.ktp-atena-page{box-shadow:0 0 0 1px #e5e7eb;}' +
             buildLayoutCss({ pageHeightMm: pageHeightMm() }) +
@@ -281,6 +357,7 @@
             '</div>' +
             '<div class="ktp-atena-panel-body">' +
             '<p class="ktp-atena-panel-note"></p>' +
+            '<div class="ktp-atena-contact-mode-wrap"></div>' +
             '<div class="ktp-atena-sheet-wrap"></div>' +
             '</div>' +
             '<div class="ktp-atena-panel-footer">' +
@@ -484,10 +561,33 @@
             t(
                 '用紙余白10mm・宛名（上16mm左33mm）・罫線（左右20mm・上115mmから）でレイアウトします。罫線メモは次に開くまで保存されます。'
             );
+        var contactWrap = modal.querySelector('.ktp-atena-contact-mode-wrap');
+        var ac = config.addresseeContact;
+        var contactInputName = ATENA_CONTACT_INPUT;
+        if (contactWrap) {
+            contactWrap.innerHTML = '';
+            if (ac && (ac.hasRepresentative || ac.hasDepartment)) {
+                contactInputName = ac.inputName || ATENA_CONTACT_INPUT;
+                var contactRes = {
+                    representative_name: ac.representativeName || '',
+                    bulk_department_contact_line: ac.departmentContactLine || '',
+                    has_representative_contact: !!ac.hasRepresentative,
+                    has_department_contact: !!ac.hasDepartment,
+                };
+                if (typeof global.ktpBuildAddresseeContactModeFieldset === 'function') {
+                    contactWrap.innerHTML = global.ktpBuildAddresseeContactModeFieldset(contactRes, t, contactInputName);
+                } else {
+                    contactWrap.innerHTML = buildAtenaContactFieldsetHtml(contactRes, contactInputName);
+                }
+            }
+        }
         var wrap = modal.querySelector('.ktp-atena-sheet-wrap');
         wrap.innerHTML = buildPageHtml(config);
         var page = wrap.querySelector('.ktp-atena-page');
         wireMemo(page);
+        if (ac && (ac.hasRepresentative || ac.hasDepartment)) {
+            wireAddresseeContactMode(modal, contactInputName);
+        }
 
         var printBtn = modal.querySelector('.ktp-atena-print');
         var newPrintBtn = printBtn.cloneNode(true);
@@ -498,9 +598,17 @@
             if (key) {
                 saveMemoBody(key, memoBody);
             }
+            var printConfig = Object.assign({}, config);
+            if (ac && (ac.hasRepresentative || ac.hasDepartment)) {
+                var labelEl = page.querySelector('.ktp-atena-label');
+                if (labelEl) {
+                    applyAddresseeContactToLabel(labelEl, contactInputName);
+                    printConfig.labelInnerHtml = labelEl.innerHTML;
+                }
+            }
             closeModal();
             try {
-                printHtml(buildPrintDocument(config, memoBody));
+                printHtml(buildPrintDocument(printConfig, memoBody));
             } catch (e) {
                 console.error('[宛名印刷] 印刷に失敗:', e);
             }

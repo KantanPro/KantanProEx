@@ -1494,7 +1494,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 			$controller_html .= '<p class="ktp-invoice-envelope-hint" style="margin:0 0 12px 0;padding:10px 12px;font-size:12px;line-height:1.55;color:#444;background:#f6f7f7;border-radius:4px;border-left:3px solid #2271b1;">' . esc_html__( '長形３号窓明封筒を利用するには印刷の余白を上下左右10mmにしてください（参考値）', 'ktpwp' ) . '</p>';
 
 			// コンテンツ部分（スクロール可能）
-			$controller_html .= '<div id="invoiceList" style="flex:1;overflow-y:scroll;padding-right:10px;padding:50px;">';
+			$controller_html .= '<div id="invoiceList" style="flex:1;overflow-y:auto;padding:12px;">';
 			$controller_html .= '<div style="text-align:center;color:#888;">' . esc_html__( '読み込み中...', 'ktpwp' ) . '</div>';
 			$controller_html .= '</div>';
 
@@ -2212,7 +2212,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
             var formData = new FormData();
             formData.append("action", "ktp_update_department_selection");
             formData.append("department_id", departmentId);
-            formData.append("is_selected", isSelected);
+            formData.append("is_selected", isSelected ? "1" : "0");
             formData.append("nonce", "' . wp_create_nonce( 'ktp_department_nonce' ) . '");
             
             console.log("Sending AJAX request for department selection update");
@@ -2540,26 +2540,49 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
                     if (d.length > 0) { return '\u3012' + d; }
                     return '';
                 }
+                function selectedDepartmentContactLine() {
+                    var checked = document.querySelector('input.department-checkbox:checked');
+                    if (!checked) { return ''; }
+                    var row = checked.closest('tr');
+                    if (!row || !row.cells || row.cells.length < 3) { return ''; }
+                    var deptName = (row.cells[1].textContent || '').trim();
+                    var contact = (row.cells[2].textContent || '').trim();
+                    if (!deptName && !contact) { return ''; }
+                    if (!deptName) { return contact; }
+                    if (!contact) { return deptName; }
+                    return deptName + ' ' + contact;
+                }
                 var postal = formatPostal(field('postal_code'));
                 var pref = field('prefecture');
                 var city = field('city');
                 var street = field('address');
                 var building = field('building');
                 var company = field('company_name');
-                var person = field('user_name');
+                var representativeName = field('representative_name') || field('user_name');
+                var departmentContactLine = selectedDepartmentContactLine();
                 var line2 = (pref + city).trim();
                 var line3 = (street + building).trim();
                 var honor = (/^ja/i.test(document.documentElement.lang || '') || (window.ktpwpI18n && /^ja/i.test(String(window.ktpwpI18n.locale || '')))) ? ' \u69d8' : '';
-                if (!postal && !line2 && !line3 && !company && !person) {
+                if (!postal && !line2 && !line3 && !company && !representativeName && !departmentContactLine) {
                     alert(t('宛先情報がありません。顧客詳細を表示して住所などを入力してください。'));
                     return;
                 }
-                var inner = '';
+                var inner = '<div class="ktp-bulk-invoice-addressee">';
                 if (postal) { inner += '<div>' + esc(postal) + '</div>'; }
                 if (line2) { inner += '<div>' + esc(line2) + '</div>'; }
                 if (line3) { inner += '<div>' + esc(line3) + '</div>'; }
-                if (company) { inner += '<div style="font-weight:bold;margin-top:0.35em;">' + esc(company) + '</div>'; }
-                if (person) { inner += '<div style="margin-top:0.25em;">' + esc(person) + esc(honor) + '</div>'; }
+                if (company) {
+                    inner += '<div>' + esc(company) + '<span class="ktp-bulk-invoice-company-honorific">' + esc(honor) + '</span></div>';
+                }
+                if (representativeName) {
+                    inner += '<div class="ktp-bulk-invoice-representative-row ktp-bulk-invoice-addressee-contact-row" style="display:none;">'
+                        + esc(representativeName) + esc(honor) + '</div>';
+                }
+                if (departmentContactLine) {
+                    inner += '<div class="ktp-bulk-invoice-department-contact-row ktp-bulk-invoice-addressee-contact-row" style="display:none;">'
+                        + esc(departmentContactLine) + esc(honor) + '</div>';
+                }
+                inner += '</div>';
                 if (!window.KtpAtenaPrint || typeof window.KtpAtenaPrint.openPreview !== 'function') {
                     alert(t('宛名印刷の準備ができていません。ページを再読み込みしてください。'));
                     return;
@@ -2569,14 +2592,24 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
                     var params = new URLSearchParams(window.location.search);
                     recordId = params.get('data_id') || '0';
                 }
-                window.KtpAtenaPrint.openPreview({
+                var previewConfig = {
                     entityType: 'client',
                     recordId: recordId,
                     labelInnerHtml: inner,
                     title: t('宛名印刷'),
                     gridStartMm: 105,
-                    maxMemoLines: 18
-                });
+                    maxMemoLines: 18,
+                    memoNote: t('※ 本画面の印刷位置は、プリンタの印刷余白が上下左右いずれも10mmのときに長形３号窓明封筒の窓と揃うようレイアウトしています。')
+                };
+                if (representativeName || departmentContactLine) {
+                    previewConfig.addresseeContact = {
+                        hasRepresentative: !!representativeName,
+                        hasDepartment: !!departmentContactLine,
+                        representativeName: representativeName,
+                        departmentContactLine: departmentContactLine
+                    };
+                }
+                window.KtpAtenaPrint.openPreview(previewConfig);
             }
 
             // プレビュー機能（廃止）

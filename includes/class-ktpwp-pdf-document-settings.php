@@ -47,6 +47,25 @@ final class KTPWP_Pdf_Document_Settings {
 
 	public const COMPACT_BRANDING_SCALE = 0.75;
 
+	public const BULK_ISSUER_SEAL_OVERLAY_SCALE = 6.0;
+
+	public const BULK_ISSUER_SEAL_OVERLAY_MAX = 336;
+
+	public const BULK_ISSUER_BLOCK_SCALE = 0.7;
+
+	public const BULK_ISSUER_INNER_SCALE = 0.9;
+
+	public const BULK_INVOICE_BODY_FLOW_TOP_EXTRA_MM = 20;
+
+	public const BULK_ISSUER_FONT_SIZE_MAX = 28;
+
+	public const BULK_INVOICE_DEFAULT_LEAD = 'この度はご用命いただき誠にありがとうございました。 以下の通りご請求させていただきますので、よろしくお願い申し上げます。';
+
+	/** @var list<string> */
+	private static $legacy_bulk_invoice_leads = array(
+		'平素より大変お世話になっております。下記の通りご請求申し上げます。',
+	);
+
 	public const ISSUER_LINE_HEIGHT_MIN = 1.0;
 
 	public const ISSUER_LINE_HEIGHT_MAX = 2.5;
@@ -127,7 +146,7 @@ final class KTPWP_Pdf_Document_Settings {
 		),
 		KTPWP_Pdf_Document_Kind::BULK_INVOICE => array(
 			'title' => '請求書',
-			'lead' => '平素より大変お世話になっております。下記の通りご請求申し上げます。',
+			'lead' => self::BULK_INVOICE_DEFAULT_LEAD,
 			'show_bank_transfer' => true,
 			'show_tax_column' => null,
 			'show_tax_amount_column' => false,
@@ -216,21 +235,34 @@ final class KTPWP_Pdf_Document_Settings {
 				'show_tax_amount_column',
 				(bool) ( $defaults['show_tax_amount_column'] ?? false )
 			);
+			$resolved['lead'] = self::normalize_bulk_invoice_lead( $resolved['lead'] );
 		}
 
 		return $resolved;
 	}
 
-	public static function resolve_title( $kind, $fallback ) {
-		$title = self::resolve( $kind )['title'];
+	private static function normalize_bulk_invoice_lead( $lead ) {
+		if ( $lead === null || $lead === '' ) {
+			return $lead;
+		}
+		$lead = (string) $lead;
+		if ( in_array( $lead, self::$legacy_bulk_invoice_leads, true ) ) {
+			return self::BULK_INVOICE_DEFAULT_LEAD;
+		}
 
-		return ( $title !== null && $title !== '' ) ? $title : $fallback;
+		return $lead;
 	}
 
 	public static function resolve_lead( $kind, $fallback ) {
 		$lead = self::resolve( $kind )['lead'];
 
 		return ( $lead !== null && $lead !== '' ) ? $lead : $fallback;
+	}
+
+	public static function resolve_title( $kind, $fallback ) {
+		$title = self::resolve( $kind )['title'];
+
+		return ( $title !== null && $title !== '' ) ? $title : $fallback;
 	}
 
 	/**
@@ -265,6 +297,99 @@ final class KTPWP_Pdf_Document_Settings {
 			'logo_keep_aspect_ratio' => (bool) ( $resolved['logo_keep_aspect_ratio'] ?? true ),
 			'seal_keep_aspect_ratio' => (bool) ( $resolved['seal_keep_aspect_ratio'] ?? true ),
 		);
+	}
+
+	/**
+	 * @param array<string, mixed> $resolved
+	 */
+	public static function scaled_font_size_px( $base_px, array $resolved ) {
+		$base = self::clamp_int( $base_px, 8, 16 );
+		if ( ( $resolved['layout'] ?? '' ) === self::LAYOUT_COMPACT ) {
+			return max( 8, (int) round( $base * self::COMPACT_BRANDING_SCALE ) );
+		}
+
+		return $base;
+	}
+
+	/**
+	 * 一括請求書右上の自社ブロック用フォントサイズ（px）。
+	 *
+	 * @param array<string, mixed> $resolved
+	 */
+	public static function scaled_bulk_issuer_font_size_px( $base_px, array $resolved ) {
+		$scaled = self::scaled_font_size_px( $base_px, $resolved );
+
+		return self::clamp_int(
+			(int) round( $scaled * self::BULK_ISSUER_BLOCK_SCALE ),
+			8,
+			self::BULK_ISSUER_FONT_SIZE_MAX
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $branding
+	 * @return array<string, mixed>
+	 */
+	public static function scaled_bulk_issuer_seal_branding( array $branding ) {
+		$scale = self::BULK_ISSUER_SEAL_OVERLAY_SCALE * self::BULK_ISSUER_BLOCK_SCALE * self::BULK_ISSUER_INNER_SCALE;
+
+		return array_merge(
+			$branding,
+			array(
+				'seal_max_height_px' => self::scale_branding_px(
+					(int) $branding['seal_max_height_px'],
+					$scale,
+					self::SEAL_MAX_SIZE_MIN,
+					self::BULK_ISSUER_SEAL_OVERLAY_MAX
+				),
+				'seal_max_width_px' => self::scale_branding_px(
+					(int) $branding['seal_max_width_px'],
+					$scale,
+					self::SEAL_MAX_SIZE_MIN,
+					self::BULK_ISSUER_SEAL_OVERLAY_MAX
+				),
+			)
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $branding
+	 * @return list<string>
+	 */
+	public static function seal_overlay_css_rules( array $branding ) {
+		$height = (int) $branding['seal_max_height_px'];
+		$width  = (int) $branding['seal_max_width_px'];
+
+		if ( ! empty( $branding['seal_keep_aspect_ratio'] ) ) {
+			return array(
+				'display:block',
+				"width:{$width}px",
+				"height:{$height}px",
+				'object-fit:contain',
+				'object-position:center center',
+			);
+		}
+
+		return array(
+			'display:block',
+			"width:{$width}px",
+			"height:{$height}px",
+			'object-fit:fill',
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $branding
+	 */
+	public static function seal_overlay_css_declaration( array $branding ) {
+		return implode( ';', self::seal_overlay_css_rules( $branding ) ) . ';';
+	}
+
+	/**
+	 * @param array<string, mixed> $branding
+	 */
+	public static function bulk_issuer_seal_overlay_css_declaration( array $branding ) {
+		return self::seal_overlay_css_declaration( self::scaled_bulk_issuer_seal_branding( $branding ) );
 	}
 
 	/**
