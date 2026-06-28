@@ -588,7 +588,10 @@ if ( ! class_exists( 'KTPWP_Staff_Chat' ) ) {
 				$html .= wp_nonce_field( 'staff_chat_action', 'staff_chat_nonce', true, false );
 				$html .= '<div class="staff-chat-input-wrapper">';
 				$html .= '<textarea name="staff_chat_message" id="staff-chat-input" class="staff-chat-input" placeholder="' . esc_attr__( 'メッセージを入力してください...', 'ktpwp' ) . '" required></textarea>';
+				$html .= '<div class="staff-chat-form-actions">';
+				$html .= '<button type="button" id="staff-chat-refresh" class="staff-chat-refresh">' . esc_html__( '更新', 'ktpwp' ) . '</button>';
 				$html .= '<button type="submit" id="staff-chat-submit" class="staff-chat-submit">' . esc_html__( '送信', 'ktpwp' ) . '</button>';
+				$html .= '</div>';
 				$html .= '</div>';
 				$html .= '</form>';
 			}

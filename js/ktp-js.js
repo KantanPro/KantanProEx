@@ -847,6 +847,16 @@ document.addEventListener('DOMContentLoaded', function () {
         // スタッフチャットフォームの送信処理を追加
         var chatForm = document.getElementById('staff-chat-form');
         if (chatForm) {
+            var refreshButton = document.getElementById('staff-chat-refresh');
+            if (refreshButton) {
+                refreshButton.addEventListener('click', function () {
+                    try {
+                        localStorage.setItem('ktp_scroll_to_chat', 'true');
+                    } catch (e) {}
+                    window.location.reload();
+                });
+            }
+
             chatForm.addEventListener('submit', function (e) {
                 e.preventDefault(); // デフォルトのフォーム送信を防ぐ
 

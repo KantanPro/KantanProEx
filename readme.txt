@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.6
+Stable tag: 1.4.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.7 - 2026年06月28日 =
+* スタッフチャットに「更新」ボタンを追加（送信ボタン横・ページ再読み込みで最新メッセージを表示）
 
 = 1.4.6 - 2026年06月28日 =
 * 案件名インライン編集で project_name nonce 未定義の Warning が出る不具合を修正
