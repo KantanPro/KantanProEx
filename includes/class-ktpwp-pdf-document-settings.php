@@ -155,7 +155,7 @@ final class KTPWP_Pdf_Document_Settings {
 			'show_output_at' => false,
 			'show_qualified_invoice_number' => true,
 			'show_logo' => true,
-			'show_seal' => false,
+			'show_seal' => true,
 			'logo_position' => self::LOGO_POSITION_FOOTER,
 			'logo_max_height_px' => 32,
 			'logo_max_width_px' => 180,
@@ -236,6 +236,7 @@ final class KTPWP_Pdf_Document_Settings {
 				(bool) ( $defaults['show_tax_amount_column'] ?? false )
 			);
 			$resolved['lead'] = self::normalize_bulk_invoice_lead( $resolved['lead'] );
+			$resolved['show_seal'] = self::resolve_bulk_invoice_show_seal( $resolved, $stored );
 		}
 
 		return $resolved;
@@ -263,6 +264,31 @@ final class KTPWP_Pdf_Document_Settings {
 		$title = self::resolve( $kind )['title'];
 
 		return ( $title !== null && $title !== '' ) ? $title : $fallback;
+	}
+
+	/**
+	 * 一括請求書の印影表示（印影ファイル未設定なら常に false）
+	 *
+	 * @param array<string, mixed> $resolved
+	 * @param array<string, mixed> $stored
+	 */
+	public static function resolve_bulk_invoice_show_seal( array $resolved, array $stored ) {
+		if ( ! class_exists( 'KTPWP_Pdf_Branding' ) ) {
+			return ! empty( $resolved['show_seal'] );
+		}
+		$branding = KTPWP_Pdf_Branding::for_documents();
+		if ( empty( $branding['seal_data_uri'] ) ) {
+			return false;
+		}
+		if ( array_key_exists( 'show_seal', $stored ) && filter_var( $stored['show_seal'], FILTER_VALIDATE_BOOLEAN ) ) {
+			return true;
+		}
+		if ( array_key_exists( 'show_seal', $stored ) && ! filter_var( $stored['show_seal'], FILTER_VALIDATE_BOOLEAN ) ) {
+			// 旧デフォルト off のまま保存された環境：ロゴ表示時は印影もセットで出す
+			return ! empty( $resolved['show_logo'] );
+		}
+
+		return true;
 	}
 
 	/**

@@ -20,6 +20,45 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 		public function __construct() {
 		}
 
+		/** @var bool */
+		private static $invoice_preview_popup_footer_hooked = false;
+
+		/**
+		 * 請求書プレビューポップアップを wp_footer で body 直下に出力する（ページ幅制限の影響を受けない）
+		 */
+		public static function ensure_invoice_preview_popup_footer() {
+			if ( self::$invoice_preview_popup_footer_hooked ) {
+				return;
+			}
+			self::$invoice_preview_popup_footer_hooked = true;
+			add_action( 'wp_footer', array( __CLASS__, 'render_invoice_preview_popup' ), 99 );
+		}
+
+		/**
+		 * 請求書プレビューポップアップ HTML
+		 */
+		public static function render_invoice_preview_popup() {
+			static $rendered = false;
+			if ( $rendered ) {
+				return;
+			}
+			$rendered = true;
+			?>
+<div id="ktp-invoice-preview-popup" class="ktp-invoice-preview-popup" style="display:none;background:rgba(0,0,0,0.5);">
+<div class="ktp-invoice-preview-dialog">
+<div class="ktp-invoice-preview-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;border-bottom:1px solid #ddd;padding-bottom:10px;">
+<h3 style="margin:0;color:#333;"><?php echo esc_html__( '請求書プレビュー', 'ktpwp' ); ?></h3>
+<button type="button" id="ktp-invoice-preview-close" style="background:none;color:#333;border:none;cursor:pointer;font-size:28px;padding:0;line-height:1;">×</button>
+</div>
+<p class="ktp-invoice-envelope-hint" style="margin:0 0 12px 0;padding:10px 12px;font-size:12px;line-height:1.55;color:#444;background:#f6f7f7;border-radius:4px;border-left:3px solid #2271b1;"><?php echo esc_html__( '長形３号窓明封筒を利用するには印刷の余白を上下左右10mmにしてください（参考値）', 'ktpwp' ); ?></p>
+<div id="invoiceList">
+<div style="text-align:center;color:#888;"><?php echo esc_html__( '読み込み中...', 'ktpwp' ); ?></div>
+</div>
+</div>
+</div>
+			<?php
+		}
+
 		/**
 		 * ソートプルダウンを生成するメソッド
 		 *
@@ -1481,25 +1520,8 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 				: '<span class="material-symbols-outlined" aria-label="' . esc_attr__( '宛名', 'ktpwp' ) . '">contact_mail</span>';
 			$controller_html .= '<button type="button" id="addressLabelPrintButton" class="ktp-client-address-label-btn" onclick="printClientAddressLabel(); return false;" title="' . esc_attr__( '宛名印刷', 'ktpwp' ) . '">' . $address_label_icon . '<span class="btn-label">' . esc_html__( '宛名印刷', 'ktpwp' ) . '</span></button>';
 
-			// 請求書発行ポップアップ
-			$controller_html .= '<div id="ktp-invoice-preview-popup" style="display:none;background:rgba(0,0,0,0.5);">';
-			$controller_html .= '<div class="ktp-invoice-preview-dialog" style="background:white;padding:20px;border-radius:8px;width:90%;max-width:800px;">';
-
-			// ヘッダー部分（固定）
-			$controller_html .= '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;border-bottom:1px solid #ddd;padding-bottom:10px;">';
-			$controller_html .= '<h3 style="margin:0;color:#333;">' . esc_html__( '請求書プレビュー', 'ktpwp' ) . '</h3>';
-			$controller_html .= '<button type="button" id="ktp-invoice-preview-close" style="background: none; color: #333; border: none; cursor: pointer; font-size: 28px; padding: 0; line-height: 1;">×</button>';
-			$controller_html .= '</div>';
-
-			$controller_html .= '<p class="ktp-invoice-envelope-hint" style="margin:0 0 12px 0;padding:10px 12px;font-size:12px;line-height:1.55;color:#444;background:#f6f7f7;border-radius:4px;border-left:3px solid #2271b1;">' . esc_html__( '長形３号窓明封筒を利用するには印刷の余白を上下左右10mmにしてください（参考値）', 'ktpwp' ) . '</p>';
-
-			// コンテンツ部分（スクロール可能）
-			$controller_html .= '<div id="invoiceList" style="flex:1;overflow-y:auto;padding:12px;">';
-			$controller_html .= '<div style="text-align:center;color:#888;">' . esc_html__( '読み込み中...', 'ktpwp' ) . '</div>';
-			$controller_html .= '</div>';
-
-			$controller_html .= '</div>';
-			$controller_html .= '</div>';
+			// 請求書発行ポップアップ（body 直下に wp_footer で出力）
+			self::ensure_invoice_preview_popup_footer();
 
 			// デザイン設定から奇数偶数カラーを取得
 			$design_options = get_option( 'ktp_design_settings', array() );
