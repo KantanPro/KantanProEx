@@ -546,6 +546,13 @@ class KTPWP_Assets {
                 'in_footer' => true,
                 'admin'     => false,
             ),
+            'ktp-print-iframe' => array(
+                'src'       => 'js/ktp-print-iframe.js',
+                'deps'      => array(),
+                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-print-iframe.js' ),
+                'in_footer' => true,
+                'admin'     => false,
+            ),
             'ktp-client-invoice' => array(
                 'src'       => 'js/ktp-client-invoice.js',
                 'deps'      => array( 'jquery', 'ktp-svg-icons' ),
@@ -570,6 +577,13 @@ class KTPWP_Assets {
                         );
                     },
                 ),
+            ),
+            'ktp-bulk-invoice-print' => array(
+                'src'       => 'js/ktp-bulk-invoice-print.js',
+                'deps'      => array( 'ktp-print-iframe', 'ktp-client-invoice' ),
+                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-bulk-invoice-print.js' ),
+                'in_footer' => true,
+                'admin'     => false,
             ),
             'ktp-service-contract-fields' => array(
                 'src'       => 'js/ktp-service-contract-fields.js',
@@ -890,7 +904,7 @@ class KTPWP_Assets {
         $master_detail_only_scripts  = array( 'ktp-list-table-mobile' );
 
         // 顧客タブ専用（顧客以外のタブでは不要な MutationObserver を避ける）
-        $client_only_scripts = array( 'ktp-client-delete-popup', 'ktp-client-inquiry-block', 'ktp-client-invoice', 'ktp-client-contract' );
+        $client_only_scripts = array( 'ktp-client-delete-popup', 'ktp-client-inquiry-block', 'ktp-client-invoice', 'ktp-bulk-invoice-print', 'ktp-client-contract' );
 
         // 仕事リストタブ専用（受注書タブでは読み込まない）
         $list_only_scripts = array( 'ktp-contract-billing', 'ktp-list-print', 'ktp-list-schedule' );
