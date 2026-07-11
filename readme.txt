@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.13
+Stable tag: 1.4.14
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,10 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.14 - 2026年07月11日 =
+* 受注書・一括請求書で説明行（品名のみ・単価0・数量0）の数値を空表示するよう改善
+* 一括請求プレビューでロゴ・印影をドラッグしてサイズ調整できる機能を追加（管理者のみ・保存対応）
 
 = 1.4.13 - 2026年07月01日 =
 * 一括請求プレビューに印刷・PDF保存ボタンを追加（KantanBiz方式・Safari対応）
