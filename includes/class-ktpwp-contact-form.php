@@ -374,7 +374,7 @@ class KTPWP_Contact_Form {
         $memo = $this->create_memo( $data['subject'] ?? '', $data['message'] ?? '' );
 
         return array(
-            'company_name' => $data['company_name'] ?? '',
+            'company_name' => $this->normalize_company_name( $data['company_name'] ?? '' ),
             'name' => $data['name'] ?? '',
             'email' => $data['email'] ?? '',
             'memo' => $memo,
@@ -444,6 +444,20 @@ class KTPWP_Contact_Form {
             }
         }
         return '';
+    }
+
+    /**
+     * 会社名フィールドを正規化する。
+     *
+     * @param mixed $value フォーム値。
+     * @return string
+     */
+    private function normalize_company_name( $value ) {
+        if ( ! class_exists( 'KTPWP_Inquiry_Field' ) ) {
+            require_once dirname( __FILE__ ) . '/class-ktpwp-inquiry-field.php';
+        }
+
+        return KTPWP_Inquiry_Field::normalize_company_name( $value );
     }
 
     /**

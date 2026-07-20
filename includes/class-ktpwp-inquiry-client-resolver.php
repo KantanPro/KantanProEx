@@ -38,7 +38,7 @@ if ( ! class_exists( 'KTPWP_Inquiry_Client_Resolver' ) ) {
 
 			$table_name   = $wpdb->prefix . 'ktp_client';
 			$email        = isset( $data['email'] ) ? sanitize_email( $data['email'] ) : '';
-			$company_name = isset( $data['company_name'] ) ? sanitize_text_field( $data['company_name'] ) : '';
+			$company_name = self::normalize_company_name( $data['company_name'] ?? '' );
 			$contact_name = isset( $data['name'] ) ? sanitize_text_field( $data['name'] ) : '';
 			$department_id = null;
 
@@ -88,28 +88,9 @@ if ( ! class_exists( 'KTPWP_Inquiry_Client_Resolver' ) ) {
 		 * @return string
 		 */
 		public static function resolve_order_customer_name( $client_id, $form_company, $form_contact ) {
-			global $wpdb;
+			self::ensure_inquiry_field_class();
 
-			$client_id = (int) $client_id;
-			if ( $client_id > 0 ) {
-				$table_name = $wpdb->prefix . 'ktp_client';
-				$registered_company = $wpdb->get_var(
-					$wpdb->prepare(
-						"SELECT company_name FROM {$table_name} WHERE id = %d",
-						$client_id
-					)
-				);
-				if ( is_string( $registered_company ) && trim( $registered_company ) !== '' ) {
-					return sanitize_text_field( trim( $registered_company ) );
-				}
-			}
-
-			$form_company = trim( sanitize_text_field( (string) $form_company ) );
-			if ( $form_company !== '' ) {
-				return $form_company;
-			}
-
-			return sanitize_text_field( (string) $form_contact );
+			return KTPWP_Inquiry_Field::resolve_order_customer_name( $client_id, $form_company, $form_contact );
 		}
 
 		/**
@@ -123,7 +104,7 @@ if ( ! class_exists( 'KTPWP_Inquiry_Client_Resolver' ) ) {
 
 			$table_name   = $wpdb->prefix . 'ktp_client';
 			$email        = isset( $data['email'] ) ? sanitize_email( $data['email'] ) : '';
-			$company_name = isset( $data['company_name'] ) ? sanitize_text_field( $data['company_name'] ) : '';
+			$company_name = self::normalize_company_name( $data['company_name'] ?? '' );
 
 			$memo = '';
 			if ( ! empty( $data['memo'] ) ) {
@@ -143,7 +124,7 @@ if ( ! class_exists( 'KTPWP_Inquiry_Client_Resolver' ) ) {
 			}
 
 			$client_data = array(
-				'company_name'  => $company_name !== '' ? $company_name : self::allocate_unset_company_name(),
+				'company_name'  => self::is_meaningful_company_name( $company_name ) ? $company_name : self::allocate_unset_company_name(),
 				'name'          => isset( $data['name'] ) ? sanitize_text_field( $data['name'] ) : '',
 				'email'         => $email,
 				'memo'          => $memo,
@@ -207,17 +188,46 @@ if ( ! class_exists( 'KTPWP_Inquiry_Client_Resolver' ) ) {
 		 * @return bool
 		 */
 		private static function should_use_inquiry_department( $client, $form_company ) {
-			$form_company = trim( sanitize_text_field( (string) $form_company ) );
+			$form_company = self::normalize_company_name( $form_company );
 			if ( $form_company === '' ) {
 				return false;
 			}
 
-			$registered_company = trim( (string) ( $client->company_name ?? '' ) );
+			$registered_company = self::normalize_company_name( $client->company_name ?? '' );
 			if ( $registered_company === '' ) {
 				return false;
 			}
 
 			return ! self::normalized_equal( $form_company, $registered_company );
+		}
+
+		/**
+		 * @param mixed $value 会社名候補。
+		 * @return string
+		 */
+		private static function normalize_company_name( $value ) {
+			self::ensure_inquiry_field_class();
+
+			return KTPWP_Inquiry_Field::normalize_company_name( $value );
+		}
+
+		/**
+		 * @param mixed $value 会社名候補。
+		 * @return bool
+		 */
+		private static function is_meaningful_company_name( $value ) {
+			self::ensure_inquiry_field_class();
+
+			return KTPWP_Inquiry_Field::is_meaningful_company_name( $value );
+		}
+
+		/**
+		 * @return void
+		 */
+		private static function ensure_inquiry_field_class() {
+			if ( ! class_exists( 'KTPWP_Inquiry_Field' ) ) {
+				require_once dirname( __FILE__ ) . '/class-ktpwp-inquiry-field.php';
+			}
 		}
 
 		/**
