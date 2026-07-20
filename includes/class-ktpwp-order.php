@@ -358,6 +358,10 @@ if ( ! class_exists( 'KTPWP_Order' ) ) {
 				return false;
 			}
 
+			if ( class_exists( 'KTPWP_List_Warning_Counts' ) ) {
+				KTPWP_List_Warning_Counts::invalidate();
+			}
+
 			return $wpdb->insert_id;
 		}
 

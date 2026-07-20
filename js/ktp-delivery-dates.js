@@ -837,14 +837,27 @@ jQuery(document).ready(function($) {
         // 進捗タブバッジはPHPで表示済みのため、ここでは更新しない（消えないようにする）
     }, 100);
 
+    // 仕事リスト表示中は進捗タブの通知バッジを定期更新（CF7等の外部受注を画面開いたまま反映）
+    if ($('.ktp-list-progress-filter').length && typeof updateProgressButtonWarning === 'function') {
+        var listBadgePollMs = 30000;
+        setInterval(function() {
+            if (!document.hidden) {
+                updateProgressButtonWarning();
+            }
+        }, listBadgePollMs);
+    }
+
     // 進捗プルダウンの変更を監視（仕事リスト用）
     // 保存・件数更新・案件の移動はサーバー側（onchange のフォーム送信 → リダイレクト）で行う。
-    // ここでは見た目（ステータス色）だけ即時反映する。
+    // ここでは見た目（ステータス色）と進捗タブの通知バッジを即時反映する。
     $(document).on('change', '.progress-select', function() {
         var $select = $(this);
         var newProgress = parseInt($select.val(), 10);
         $select.removeClass('status-1 status-2 status-3 status-4 status-5 status-6 status-7');
         $select.addClass('progress-select status-' + newProgress);
+        if (typeof updateProgressButtonWarning === 'function') {
+            updateProgressButtonWarning();
+        }
         // フォームは onchange='this.form.submit()' で送信され、
         // サーバー側で進捗・完了日・件数（キャッシュ破棄）が更新され、案件が正しい進捗へ移動する。
     });

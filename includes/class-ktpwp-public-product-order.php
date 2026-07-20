@@ -649,6 +649,10 @@ if ( ! class_exists( 'KTPWP_Public_Product_Order' ) ) {
 				return false;
 			}
 
+			if ( class_exists( 'KTPWP_List_Warning_Counts' ) ) {
+				KTPWP_List_Warning_Counts::invalidate();
+			}
+
 			return (int) $wpdb->insert_id;
 		}
 

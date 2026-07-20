@@ -590,6 +590,10 @@ class KTPWP_Contact_Form {
 
         $new_id = $wpdb->insert_id;
 
+        if ( $new_id && class_exists( 'KTPWP_List_Warning_Counts' ) ) {
+            KTPWP_List_Warning_Counts::invalidate();
+        }
+
         if ( $new_id && class_exists( 'KTPWP_Order_Admin_Notification' ) ) {
             $client_email = '';
             if ( ! empty( $order_data['client_id'] ) ) {
