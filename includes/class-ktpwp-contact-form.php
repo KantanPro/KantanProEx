@@ -77,7 +77,12 @@ class KTPWP_Contact_Form {
                 'company_name', 
                 'your-company', 
                 'company',
-                'your-company-name'
+                'your-company-name',
+                'customer-name',
+                'customer_name',
+                'your-customer',
+                'your-customer-name',
+                'your_customer_name',
             ),
             'name' => array( 'your-name', 'name', 'your_name' ),
             'email' => array( 'your-email', 'email', 'your_email' ),
@@ -96,15 +101,27 @@ class KTPWP_Contact_Form {
     }
 
     /**
+     * CF7 フック登録済みフラグ。
+     *
+     * @var bool
+     */
+    private static $hooks_registered = false;
+
+    /**
      * フック初期化
      */
     private function init_hooks() {
+        if ( self::$hooks_registered ) {
+            return;
+        }
+
         error_log( 'KTPWP DEBUG: init_hooks called' );
         // Contact Form 7が有効な場合のみフックを追加
         if ( class_exists( 'WPCF7_ContactForm' ) ) {
             add_filter( 'wpcf7_validate', array( $this, 'validate_inquiry_block' ), 20, 2 );
             add_action( 'wpcf7_mail_sent', array( $this, 'capture_contact_form_data' ) );
             error_log( 'KTPWP DEBUG: wpcf7_mail_sent hook registered' );
+            self::$hooks_registered = true;
         } else {
             error_log( 'KTPWP DEBUG: WPCF7_ContactForm class not found' );
         }
@@ -215,6 +232,11 @@ class KTPWP_Contact_Form {
             require_once dirname( __FILE__ ) . '/class-ktpwp-inquiry-client-resolver.php';
         }
 
+        $form_id = method_exists( $contact_form, 'id' ) ? (int) $contact_form->id() : 0;
+        if ( KTPWP_Inquiry_Client_Resolver::should_skip_duplicate_inquiry( $client_data['email'] ?? '', $form_id ) ) {
+            return;
+        }
+
         $resolved = KTPWP_Inquiry_Client_Resolver::resolve(
             array(
                 'email'        => $client_data['email'] ?? '',
@@ -275,7 +297,7 @@ class KTPWP_Contact_Form {
         // 会社名フィールドの自動検出
         $company_name_candidates = array();
         foreach ( $field_keys as $key ) {
-            if ( preg_match( '/^(.*company.*|.*会社.*|.*法人.*)$/i', $key ) ) {
+            if ( preg_match( '/^(.*company.*|.*会社.*|.*法人.*|.*customer.*|.*顧客.*)$/iu', $key ) ) {
                 $company_name_candidates[] = $key;
             }
         }
@@ -283,7 +305,11 @@ class KTPWP_Contact_Form {
         // 担当者名フィールドの自動検出
         $name_candidates = array();
         foreach ( $field_keys as $key ) {
-            if ( preg_match( '/^(.*name.*|.*名前.*|.*氏名.*)$/i', $key ) && ! in_array( $key, $company_name_candidates ) ) {
+            if (
+                preg_match( '/^(.*name.*|.*名前.*|.*氏名.*)$/iu', $key )
+                && ! in_array( $key, $company_name_candidates, true )
+                && preg_match( '/customer|顧客/iu', $key ) !== 1
+            ) {
                 $name_candidates[] = $key;
             }
         }
@@ -774,8 +800,14 @@ class KTPWP_Contact_Form {
                 require_once dirname( __FILE__ ) . '/class-ktpwp-inquiry-client-resolver.php';
             }
 
+            $this->adjust_field_mapping( $posted_data );
             $client_data = $this->prepare_client_data( $posted_data );
-            $resolved    = KTPWP_Inquiry_Client_Resolver::resolve(
+
+            if ( KTPWP_Inquiry_Client_Resolver::should_skip_duplicate_inquiry( $client_data['email'] ?? '', 0 ) ) {
+                return $posted_data;
+            }
+
+            $resolved = KTPWP_Inquiry_Client_Resolver::resolve(
                 array(
                     'email'        => $client_data['email'] ?? '',
                     'company_name' => $client_data['company_name'] ?? '',

@@ -17,6 +17,36 @@ if ( ! class_exists( 'KTPWP_Inquiry_Client_Resolver' ) ) {
 	class KTPWP_Inquiry_Client_Resolver {
 
 		/**
+		 * 同一リクエスト内の CF7 二重取り込み防止。
+		 *
+		 * @var array<string, true>
+		 */
+		private static $processed_inquiry_keys = array();
+
+		/**
+		 * 同一 CF7 送信を複数フックから二重処理しない。
+		 *
+		 * @param string $email       正規化済みメール。
+		 * @param int    $form_id     CF7 フォーム ID。
+		 * @return bool スキップする場合 true。
+		 */
+		public static function should_skip_duplicate_inquiry( $email, $form_id = 0 ) {
+			$email = self::normalize_email_for_lookup( $email );
+			if ( $email === '' ) {
+				return false;
+			}
+
+			$key = (int) $form_id . ':' . $email;
+			if ( isset( self::$processed_inquiry_keys[ $key ] ) ) {
+				return true;
+			}
+
+			self::$processed_inquiry_keys[ $key ] = true;
+
+			return false;
+		}
+
+		/**
 		 * メールアドレスで既存顧客を検索し、なければ新規作成する。
 		 *
 		 * 既存顧客が見つかった場合はマスタを更新せず、会社名が異なるときのみ部署を検索／作成する。
@@ -37,20 +67,25 @@ if ( ! class_exists( 'KTPWP_Inquiry_Client_Resolver' ) ) {
 			global $wpdb;
 
 			$table_name   = $wpdb->prefix . 'ktp_client';
-			$email        = isset( $data['email'] ) ? sanitize_email( $data['email'] ) : '';
+			$email        = self::normalize_email_for_lookup( $data['email'] ?? '' );
 			$company_name = self::normalize_company_name( $data['company_name'] ?? '' );
 			$contact_name = isset( $data['name'] ) ? sanitize_text_field( $data['name'] ) : '';
 			$department_id = null;
 
 			if ( $email !== '' ) {
-				$existing = $wpdb->get_row(
-					$wpdb->prepare(
-						"SELECT * FROM {$table_name} WHERE email = %s ORDER BY id DESC LIMIT 1",
-						$email
-					)
-				);
+				$existing = self::find_client_by_email( $email );
 				if ( $existing ) {
 					$client_id = (int) $existing->id;
+
+					if ( self::is_meaningful_company_name( $company_name ) && self::is_placeholder_company_name( $existing->company_name ?? '' ) ) {
+						$wpdb->update(
+							$table_name,
+							array( 'company_name' => $company_name ),
+							array( 'id' => $client_id ),
+							array( '%s' ),
+							array( '%d' )
+						);
+					}
 
 					if ( self::should_use_inquiry_department( $existing, $company_name ) ) {
 						$department_id = self::find_or_create_department_for_client( $client_id, $company_name, $contact_name, $email );
@@ -103,7 +138,7 @@ if ( ! class_exists( 'KTPWP_Inquiry_Client_Resolver' ) ) {
 			global $wpdb;
 
 			$table_name   = $wpdb->prefix . 'ktp_client';
-			$email        = isset( $data['email'] ) ? sanitize_email( $data['email'] ) : '';
+			$email        = self::normalize_email_for_lookup( $data['email'] ?? '' );
 			$company_name = self::normalize_company_name( $data['company_name'] ?? '' );
 
 			$memo = '';
@@ -147,6 +182,41 @@ if ( ! class_exists( 'KTPWP_Inquiry_Client_Resolver' ) ) {
 				'client_id'     => (int) $wpdb->insert_id,
 				'department_id' => null,
 			);
+		}
+
+		/**
+		 * メールアドレスで既存顧客を検索する（KantanBiz 同様 LOWER(TRIM) 比較）。
+		 *
+		 * @param string $email 正規化済みメール。
+		 * @return object|null
+		 */
+		private static function find_client_by_email( $email ) {
+			global $wpdb;
+
+			$email = self::normalize_email_for_lookup( $email );
+			if ( $email === '' ) {
+				return null;
+			}
+
+			$table_name = $wpdb->prefix . 'ktp_client';
+
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			return $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT * FROM {$table_name} WHERE LOWER(TRIM(email)) = %s ORDER BY id ASC LIMIT 1",
+					$email
+				)
+			);
+		}
+
+		/**
+		 * @param mixed $email メールアドレス。
+		 * @return string
+		 */
+		private static function normalize_email_for_lookup( $email ) {
+			self::ensure_inquiry_field_class();
+
+			return KTPWP_Inquiry_Field::normalize_email_for_lookup( $email );
 		}
 
 		/**
