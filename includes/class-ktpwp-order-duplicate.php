@@ -339,7 +339,13 @@ if ( ! class_exists( 'KTPWP_Order_Duplicate' ) ) {
 			global $wpdb;
 			$table = $wpdb->prefix . 'ktp_order_cost_items';
 			$items_manager->add_supplier_id_column_if_missing();
+			$items_manager->add_purchase_status_column_if_missing();
+			$items_manager->add_purchase_status_date_column_if_missing();
+			$items_manager->add_purchase_status_dates_column_if_missing();
 			$has_supplier = $this->table_has_column( $table, 'supplier_id' );
+			$has_purchase_status = $this->table_has_column( $table, 'purchase_status' );
+			$has_purchase_status_date = $this->table_has_column( $table, 'purchase_status_date' );
+			$has_purchase_status_dates = $this->table_has_column( $table, 'purchase_status_dates' );
 			$sort         = 1;
 
 			foreach ( $items as $item ) {
@@ -370,6 +376,18 @@ if ( ! class_exists( 'KTPWP_Order_Duplicate' ) ) {
 				if ( $has_supplier ) {
 					$row['supplier_id'] = isset( $item['supplier_id'] ) && $item['supplier_id'] ? (int) $item['supplier_id'] : null;
 					$formats[]          = $row['supplier_id'] === null ? '%s' : '%d';
+				}
+				if ( $has_purchase_status ) {
+					$row['purchase_status'] = ! empty( $item['purchase_status'] ) ? sanitize_key( $item['purchase_status'] ) : 'pending';
+					$formats[]              = '%s';
+				}
+				if ( $has_purchase_status_date ) {
+					$row['purchase_status_date'] = ! empty( $item['purchase_status_date'] ) ? sanitize_text_field( (string) $item['purchase_status_date'] ) : null;
+					$formats[]                   = '%s';
+				}
+				if ( $has_purchase_status_dates ) {
+					$row['purchase_status_dates'] = ! empty( $item['purchase_status_dates'] ) ? sanitize_text_field( (string) $item['purchase_status_dates'] ) : null;
+					$formats[]                    = '%s';
 				}
 				$wpdb->insert( $table, $row, $formats );
 				++$sort;
