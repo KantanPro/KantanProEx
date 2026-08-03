@@ -6387,45 +6387,58 @@ define( 'WP_DEBUG_DISPLAY', false );
         $settings = $this->get_central_banner_settings();
         $legacy_banner = get_option( 'ktp_banner_options', array() );
 
-        $image_url = '';
-        $link_url  = '';
-        $alt_text  = '';
-
         // EX 本体では広告バナーを表示しないが、配布先 KantanPro 向けの API 配信は許可する。
-        // 公式サイト側に KTP Banner がある場合は、その設定を優先して配信する。
-        // KTP Banner プラグインは複数バナー形式（banners配列）に移行済みのため、
-        // 旧フラット形式（image_url直下）と新形式（banners[].image_url）の両方に対応する。
-        $legacy_active_banner = array();
+        // 公式サイト側に KTP Banner がある場合は、その設定（複数バナー・ローテーション間隔含む）を優先して配信する。
+        $active_banners    = array();
+        $rotation_interval = 5;
+
         if ( is_array( $legacy_banner ) && ! empty( $legacy_banner['enabled'] ) ) {
             if ( ! empty( $legacy_banner['banners'] ) && is_array( $legacy_banner['banners'] ) ) {
                 foreach ( $legacy_banner['banners'] as $banner_item ) {
                     if ( ! is_array( $banner_item ) || empty( $banner_item['enabled'] ) || empty( $banner_item['image_url'] ) ) {
                         continue;
                     }
-                    $legacy_active_banner = $banner_item;
-                    break;
+                    $active_banners[] = array(
+                        'image_url' => esc_url_raw( $banner_item['image_url'] ),
+                        'link_url'  => isset( $banner_item['link_url'] ) ? esc_url_raw( $banner_item['link_url'] ) : '',
+                        'alt_text'  => isset( $banner_item['alt_text'] ) ? sanitize_text_field( $banner_item['alt_text'] ) : '',
+                    );
+                }
+                if ( isset( $legacy_banner['rotation_interval'] ) ) {
+                    $rotation_interval = max( 2, min( 60, absint( $legacy_banner['rotation_interval'] ) ) );
                 }
             } elseif ( ! empty( $legacy_banner['image_url'] ) ) {
-                $legacy_active_banner = $legacy_banner;
+                $active_banners[] = array(
+                    'image_url' => esc_url_raw( $legacy_banner['image_url'] ),
+                    'link_url'  => isset( $legacy_banner['link_url'] ) ? esc_url_raw( $legacy_banner['link_url'] ) : '',
+                    'alt_text'  => isset( $legacy_banner['alt_text'] ) ? sanitize_text_field( $legacy_banner['alt_text'] ) : '',
+                );
             }
         }
 
-        if ( ! empty( $legacy_active_banner['image_url'] ) ) {
-            $image_url = esc_url_raw( $legacy_active_banner['image_url'] );
-            $link_url  = isset( $legacy_active_banner['link_url'] ) ? esc_url_raw( $legacy_active_banner['link_url'] ) : '';
-            $alt_text  = isset( $legacy_active_banner['alt_text'] ) ? sanitize_text_field( $legacy_active_banner['alt_text'] ) : '';
-        } elseif ( ! empty( $settings['enabled'] ) && ! empty( $settings['image_url'] ) ) {
-            $image_url = esc_url_raw( $settings['image_url'] );
-            $link_url  = isset( $settings['link_url'] ) ? esc_url_raw( $settings['link_url'] ) : '';
-            $alt_text  = isset( $settings['alt_text'] ) ? sanitize_text_field( $settings['alt_text'] ) : '';
+        if ( empty( $active_banners ) && ! empty( $settings['enabled'] ) && ! empty( $settings['image_url'] ) ) {
+            $active_banners[] = array(
+                'image_url' => esc_url_raw( $settings['image_url'] ),
+                'link_url'  => isset( $settings['link_url'] ) ? esc_url_raw( $settings['link_url'] ) : '',
+                'alt_text'  => isset( $settings['alt_text'] ) ? sanitize_text_field( $settings['alt_text'] ) : '',
+            );
         }
 
+        $first = ! empty( $active_banners[0] ) ? $active_banners[0] : array(
+            'image_url' => '',
+            'link_url'  => '',
+            'alt_text'  => '',
+        );
+
         $payload = array(
-            'enabled'    => ( '' !== $image_url ),
-            'image_url'  => $image_url,
-            'link_url'   => $link_url,
-            'alt_text'   => $alt_text,
-            'updated_at' => current_time( 'mysql' ),
+            'enabled'           => ! empty( $active_banners ),
+            // 旧クライアント（単一バナーのみ対応）向けの後方互換フィールド。
+            'image_url'         => $first['image_url'],
+            'link_url'          => $first['link_url'],
+            'alt_text'          => $first['alt_text'],
+            'banners'           => $active_banners,
+            'rotation_interval' => $rotation_interval,
+            'updated_at'        => current_time( 'mysql' ),
         );
 
         return rest_ensure_response( $payload );
