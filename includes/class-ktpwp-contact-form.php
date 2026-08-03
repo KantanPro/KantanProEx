@@ -118,6 +118,8 @@ class KTPWP_Contact_Form {
         error_log( 'KTPWP DEBUG: init_hooks called' );
         // Contact Form 7が有効な場合のみフックを追加
         if ( class_exists( 'WPCF7_ContactForm' ) ) {
+            add_filter( 'wpcf7_form_hidden_fields', array( $this, 'add_spam_protection_fields' ) );
+            add_filter( 'wpcf7_validate', array( $this, 'validate_anti_spam' ), 10, 2 );
             add_filter( 'wpcf7_validate', array( $this, 'validate_inquiry_block' ), 20, 2 );
             add_action( 'wpcf7_mail_sent', array( $this, 'capture_contact_form_data' ) );
             error_log( 'KTPWP DEBUG: wpcf7_mail_sent hook registered' );
@@ -149,6 +151,173 @@ class KTPWP_Contact_Form {
         }
 
         $this->init_hooks();
+    }
+
+    /**
+     * すべての CF7 フォームにハニーポット欄と送信タイムスタンプの隠しフィールドを追加する。
+     *
+     * フォームの編集内容に手を加えることなく、サイト内の全 CF7 フォームへ
+     * 自動的にスパム対策フィールドを注入するために `wpcf7_form_hidden_fields` を利用する。
+     *
+     * @param array $fields 既存の隠しフィールド（name => value）。
+     * @return array
+     */
+    public function add_spam_protection_fields( $fields ) {
+        if ( ! is_array( $fields ) ) {
+            $fields = array();
+        }
+
+        $timestamp = time();
+
+        // ハニーポット: 通常の利用者には見えず空のまま送信されるはずの欄。
+        // ボットは全欄を機械的に埋めるため、値が入っていれば spam とみなす。
+        $fields['ktp_hp_field'] = '';
+
+        // タイムトラップ: フォーム表示時刻を改ざん検知付きで保持し、
+        // 表示から極端に早い送信（数秒未満）をボットの兆候として扱う。
+        $fields['ktp_form_ts'] = $timestamp . '-' . $this->sign_timestamp( $timestamp );
+
+        return $fields;
+    }
+
+    /**
+     * タイムスタンプの改ざん検知用署名を生成する。
+     *
+     * @param int $timestamp UNIXタイムスタンプ。
+     * @return string
+     */
+    private function sign_timestamp( $timestamp ) {
+        return substr( hash_hmac( 'sha256', (string) $timestamp, wp_salt( 'nonce' ) ), 0, 20 );
+    }
+
+    /**
+     * ハニーポット・タイムトラップ・HTML/過剰リンク混入をチェックし、
+     * スパムと判断した送信を受注取り込み前に拒否する。
+     *
+     * @param WPCF7_Validation $result バリデーション結果。
+     * @param array            $tags   フォームタグ。
+     * @return WPCF7_Validation
+     */
+    public function validate_anti_spam( $result, $tags ) {
+        if ( ! class_exists( 'WPCF7_Submission' ) || ! is_object( $result ) || ! method_exists( $result, 'invalidate' ) ) {
+            return $result;
+        }
+
+        $submission = WPCF7_Submission::get_instance();
+        if ( ! $submission ) {
+            return $result;
+        }
+
+        $posted_data = $submission->get_posted_data();
+        if ( empty( $posted_data ) || ! is_array( $posted_data ) ) {
+            return $result;
+        }
+
+        $spam_message  = __( '送信内容を確認できませんでした。時間をおいて再度お試しください。', 'ktpwp' );
+        $fallback_field = $this->get_submission_email_info( $posted_data )['field_name'];
+
+        // 1) ハニーポット欄に値が入っている場合はボットとみなす。
+        if ( ! empty( $posted_data['ktp_hp_field'] ) ) {
+            $result->invalidate( $fallback_field, $spam_message );
+            return $result;
+        }
+
+        // 2) タイムトラップ: 署名が有効かつ表示から極端に早い送信はボットとみなす。
+        if ( ! empty( $posted_data['ktp_form_ts'] ) && is_string( $posted_data['ktp_form_ts'] ) ) {
+            $parts = explode( '-', $posted_data['ktp_form_ts'], 2 );
+            if ( count( $parts ) === 2 ) {
+                list( $rendered_at, $signature ) = $parts;
+                if ( ctype_digit( $rendered_at ) && hash_equals( $this->sign_timestamp( (int) $rendered_at ), (string) $signature ) ) {
+                    $elapsed = time() - (int) $rendered_at;
+                    if ( $elapsed < 3 ) {
+                        $result->invalidate( $fallback_field, $spam_message );
+                        return $result;
+                    }
+                }
+            }
+        }
+
+        $ignore_fields = array( 'ktp_hp_field', 'ktp_form_ts' );
+
+        // 3) HTML/スクリプトタグの混入は内容にかかわらず拒否する。
+        foreach ( $posted_data as $field_name => $value ) {
+            if ( in_array( $field_name, $ignore_fields, true ) ) {
+                continue;
+            }
+
+            if ( $this->contains_disallowed_markup( $value ) ) {
+                $result->invalidate(
+                    $field_name,
+                    __( 'HTMLタグを含む内容は送信できません。', 'ktpwp' )
+                );
+                return $result;
+            }
+        }
+
+        // 4) 過剰なURL/リンクの記載はスパムとみなして拒否する。
+        foreach ( $posted_data as $field_name => $value ) {
+            if ( in_array( $field_name, $ignore_fields, true ) ) {
+                continue;
+            }
+
+            if ( $this->has_excessive_links( $value ) ) {
+                $result->invalidate(
+                    $field_name,
+                    __( 'URLの記載が多いため送信できません。', 'ktpwp' )
+                );
+                return $result;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * 送信値にHTMLタグらしき記述が含まれるかどうか。
+     *
+     * @param mixed $value フィールド値。
+     * @return bool
+     */
+    private function contains_disallowed_markup( $value ) {
+        $value = $this->flatten_field_value( $value );
+        if ( $value === '' ) {
+            return false;
+        }
+
+        // <tag ...> や </tag> のようなHTMLタグ構造を検出（"<3" 等の顔文字は対象外）。
+        return preg_match( '/<\/?[a-zA-Z][a-zA-Z0-9]*(\s[^<>]*)?>/', $value ) === 1;
+    }
+
+    /**
+     * 送信値に含まれるURLの数が許容範囲を超えているかどうか。
+     *
+     * @param mixed $value     フィールド値。
+     * @param int   $max_links 許容するURL数。
+     * @return bool
+     */
+    private function has_excessive_links( $value, $max_links = 2 ) {
+        $value = $this->flatten_field_value( $value );
+        if ( $value === '' ) {
+            return false;
+        }
+
+        $count = preg_match_all( '#(https?://|www\.)[^\s]+#i', $value, $matches );
+
+        return $count !== false && $count > $max_links;
+    }
+
+    /**
+     * 配列/文字列いずれのフィールド値も比較可能な文字列へ正規化する。
+     *
+     * @param mixed $value フィールド値。
+     * @return string
+     */
+    private function flatten_field_value( $value ) {
+        if ( is_array( $value ) ) {
+            $value = implode( ' ', array_filter( array_map( 'strval', $value ) ) );
+        }
+
+        return trim( (string) $value );
     }
 
     /**
