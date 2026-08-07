@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.26
+Stable tag: 1.4.27
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.27 - 2026年08月08日 =
+* 仕事リストの進捗タブ件数（受付中/見積中/受注/完了/請求済/入金済のバッジ数字）が、受注書の削除・新規作成直後に最大180秒間、実際の件数と食い違って表示される不具合を修正。削除・新規作成時に件数キャッシュを即時破棄するよう改善
 
 = 1.4.26 - 2026年08月07日 =
 * 受注書メールの請求項目で、サービス名だけ入力されて単価・数量が未入力（0）の行が「サービス名：0 × 0 = 0円」と表示されていた不具合を修正。計算式を出さずサービス名のみを表示するよう改善

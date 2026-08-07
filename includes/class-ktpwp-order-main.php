@@ -1248,6 +1248,11 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				$deleted = $wpdb->delete( $table_name, array( 'id' => $order_id_to_delete ), array( '%d' ) );
 
 				if ( $deleted ) {
+					// 進捗件数バッジのキャッシュを無効化（削除直後の件数ズレを防止）
+					if ( class_exists( 'KTPWP_List_Warning_Counts' ) ) {
+						KTPWP_List_Warning_Counts::invalidate();
+					}
+
 					// 統一されたリダイレクト処理に変更
 					$latest_order = $wpdb->get_row(
                         $wpdb->prepare(
@@ -1453,6 +1458,11 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 					if ( $inserted ) {
 						// AUTO_INCREMENTで生成されたIDを取得
 						$new_order_id = $wpdb->insert_id;
+
+						// 進捗件数バッジのキャッシュを無効化（新規作成直後の件数ズレを防止）
+						if ( class_exists( 'KTPWP_List_Warning_Counts' ) ) {
+							KTPWP_List_Warning_Counts::invalidate();
+						}
 
 						// 初期請求項目を作成
 						$invoice_result = $this->Create_Initial_Invoice_Item( $new_order_id );
