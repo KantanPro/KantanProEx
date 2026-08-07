@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.25
+Stable tag: 1.4.26
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.26 - 2026年08月07日 =
+* 受注書メールの請求項目で、サービス名だけ入力されて単価・数量が未入力（0）の行が「サービス名：0 × 0 = 0円」と表示されていた不具合を修正。計算式を出さずサービス名のみを表示するよう改善
 
 = 1.4.25 - 2026年08月07日 =
 * Contact Form 7経由の問い合わせ受注に「受け入れ言語ホワイトリスト」設定を追加。一般設定で許可する言語（日本語/英語/中国語/韓国語/ロシア語/アラビア語/タイ語）を選択でき、本文の文字種から言語を判定して許可言語以外の送信を受注取り込み前にブロック（デフォルトは日本語のみ許可）
