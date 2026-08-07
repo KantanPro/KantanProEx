@@ -2660,6 +2660,24 @@ class KTPWP_Settings {
                             }
                         }
 
+                        // 問い合わせフォーム（Contact Form 7）設定セクションの出力
+                        if ( isset( $wp_settings_sections['ktp-general']['contact_form_setting_section'] ) ) {
+                            $section = $wp_settings_sections['ktp-general']['contact_form_setting_section'];
+                            echo '<h2>' . esc_html( $section['title'] ) . '</h2>';
+                            if ( $section['callback'] ) {
+                                call_user_func( $section['callback'], $section );
+                            }
+                            if ( isset( $wp_settings_fields['ktp-general']['contact_form_setting_section'] ) ) {
+                                echo '<table class="form-table">';
+                                foreach ( $wp_settings_fields['ktp-general']['contact_form_setting_section'] as $field ) {
+                                    echo '<tr><th scope="row">' . esc_html( $field['title'] ) . '</th><td>';
+                                    call_user_func( $field['callback'], $field['args'] );
+                                    echo '</td></tr>';
+                                }
+                                echo '</table>';
+                            }
+                        }
+
                         // 消費税設定セクションの出力
                         if ( isset( $wp_settings_sections['ktp-general']['tax_setting_section'] ) ) {
                             $section = $wp_settings_sections['ktp-general']['tax_setting_section'];
@@ -3138,6 +3156,22 @@ class KTPWP_Settings {
             array( $this, 'currency_code_callback' ),
             'ktp-general',
             'general_setting_section'
+        );
+
+        // 問い合わせフォーム（Contact Form 7）設定セクション
+        add_settings_section(
+            'contact_form_setting_section',
+            __( '問い合わせフォーム（Contact Form 7）設定', 'ktpwp' ),
+            array( $this, 'print_contact_form_section_info' ),
+            'ktp-general'
+        );
+
+        add_settings_field(
+            'cf7_allowed_languages',
+            __( '受け入れる言語（ホワイトリスト）', 'ktpwp' ),
+            array( $this, 'cf7_allowed_languages_callback' ),
+            'ktp-general',
+            'contact_form_setting_section'
         );
 
         // 消費税設定セクション
@@ -4123,6 +4157,22 @@ class KTPWP_Settings {
             $new_input['currency_code'] = isset( $supported_currencies[ $currency_code ] ) ? $currency_code : 'JPY';
         }
 
+        // 問い合わせフォーム（Contact Form 7）受け入れ言語ホワイトリスト
+        $default_allowed_languages = class_exists( 'KTPWP_Contact_Form' ) ? KTPWP_Contact_Form::get_default_allowed_languages() : array( 'ja' );
+        $supported_languages = class_exists( 'KTPWP_Contact_Form' ) ? array_keys( KTPWP_Contact_Form::get_supported_languages() ) : array( 'ja' );
+        if ( isset( $input['cf7_allowed_languages'] ) && is_array( $input['cf7_allowed_languages'] ) ) {
+            $selected_languages = array();
+            foreach ( $input['cf7_allowed_languages'] as $lang_code ) {
+                $lang_code = sanitize_text_field( wp_unslash( (string) $lang_code ) );
+                if ( in_array( $lang_code, $supported_languages, true ) && ! in_array( $lang_code, $selected_languages, true ) ) {
+                    $selected_languages[] = $lang_code;
+                }
+            }
+            $new_input['cf7_allowed_languages'] = ! empty( $selected_languages ) ? $selected_languages : $default_allowed_languages;
+        } else {
+            $new_input['cf7_allowed_languages'] = $default_allowed_languages;
+        }
+
         if ( isset( $input['ktp_page_id'] ) ) {
             $page_id = absint( $input['ktp_page_id'] );
             if ( $page_id === 0 ) {
@@ -4621,6 +4671,44 @@ class KTPWP_Settings {
         </select>
         <div style="font-size:12px;color:#555;margin-top:4px;">
             <?php echo esc_html__( '※ 金額の表示通貨です。為替換算は行わず、入力済みの数値を選択した通貨として表示します。', 'ktpwp' ); ?>
+        </div>
+        <?php
+    }
+
+    /**
+     * 問い合わせフォーム設定セクションの説明
+     *
+     * @return void
+     */
+    public function print_contact_form_section_info() {
+        echo '<p>' . esc_html__( 'Contact Form 7からの問い合わせ受注に関する設定です。', 'ktpwp' ) . '</p>';
+    }
+
+    /**
+     * 受け入れ言語（ホワイトリスト）フィールドのコールバック
+     *
+     * @return void
+     */
+    public function cf7_allowed_languages_callback() {
+        $options  = get_option( 'ktp_general_settings', array() );
+        $selected = ( isset( $options['cf7_allowed_languages'] ) && is_array( $options['cf7_allowed_languages'] ) && ! empty( $options['cf7_allowed_languages'] ) )
+            ? $options['cf7_allowed_languages']
+            : ( class_exists( 'KTPWP_Contact_Form' ) ? KTPWP_Contact_Form::get_default_allowed_languages() : array( 'ja' ) );
+
+        $languages = class_exists( 'KTPWP_Contact_Form' )
+            ? KTPWP_Contact_Form::get_supported_languages()
+            : array( 'ja' => __( '日本語', 'ktpwp' ) );
+        ?>
+        <fieldset>
+            <?php foreach ( $languages as $code => $label ) : ?>
+                <label style="display:inline-block;margin-right:16px;margin-bottom:4px;">
+                    <input type="checkbox" name="ktp_general_settings[cf7_allowed_languages][]" value="<?php echo esc_attr( $code ); ?>" <?php checked( in_array( $code, $selected, true ) ); ?> />
+                    <?php echo esc_html( $label ); ?>
+                </label>
+            <?php endforeach; ?>
+        </fieldset>
+        <div style="font-size:12px;color:#555;margin-top:4px;">
+            <?php echo esc_html__( '※ ここでチェックした言語以外で書かれたお問い合わせフォームからの送信は、受注として取り込まずスパム対策として拒否します（本文の文字種による簡易判定です）。何も選択しない場合は日本語のみが許可されます。', 'ktpwp' ); ?>
         </div>
         <?php
     }

@@ -120,6 +120,7 @@ class KTPWP_Contact_Form {
         if ( class_exists( 'WPCF7_ContactForm' ) ) {
             add_filter( 'wpcf7_form_hidden_fields', array( $this, 'add_spam_protection_fields' ) );
             add_filter( 'wpcf7_validate', array( $this, 'validate_anti_spam' ), 10, 2 );
+            add_filter( 'wpcf7_validate', array( $this, 'validate_language_whitelist' ), 15, 2 );
             add_filter( 'wpcf7_validate', array( $this, 'validate_inquiry_block' ), 20, 2 );
             add_action( 'wpcf7_mail_sent', array( $this, 'capture_contact_form_data' ) );
             error_log( 'KTPWP DEBUG: wpcf7_mail_sent hook registered' );
@@ -318,6 +319,161 @@ class KTPWP_Contact_Form {
         }
 
         return trim( (string) $value );
+    }
+
+    /**
+     * サポートする言語コードと表示ラベルの一覧を取得する。
+     *
+     * 「設定で受け入れる言語（ホワイトリスト）」の選択肢として管理画面
+     * （KTPWP_Settings）からも参照される。
+     *
+     * @return array<string,string> 言語コード => 表示名。
+     */
+    public static function get_supported_languages() {
+        return array(
+            'ja' => __( '日本語', 'ktpwp' ),
+            'en' => __( '英語（ラテン文字）', 'ktpwp' ),
+            'zh' => __( '中国語（漢字のみ）', 'ktpwp' ),
+            'ko' => __( '韓国語', 'ktpwp' ),
+            'ru' => __( 'ロシア語', 'ktpwp' ),
+            'ar' => __( 'アラビア語', 'ktpwp' ),
+            'th' => __( 'タイ語', 'ktpwp' ),
+        );
+    }
+
+    /**
+     * 受け入れ言語のデフォルト値（日本語のみ）。
+     *
+     * @return string[]
+     */
+    public static function get_default_allowed_languages() {
+        return array( 'ja' );
+    }
+
+    /**
+     * 管理画面で設定された「受け入れる言語（ホワイトリスト）」を取得する。
+     *
+     * @return string[]
+     */
+    private function get_allowed_languages() {
+        $options = get_option( 'ktp_general_settings', array() );
+        $allowed = is_array( $options ) && ! empty( $options['cf7_allowed_languages'] ) && is_array( $options['cf7_allowed_languages'] )
+            ? $options['cf7_allowed_languages']
+            : self::get_default_allowed_languages();
+
+        $supported = array_keys( self::get_supported_languages() );
+        $allowed   = array_values( array_intersect( $allowed, $supported ) );
+
+        return ! empty( $allowed ) ? $allowed : self::get_default_allowed_languages();
+    }
+
+    /**
+     * テキストの文字種から言語を簡易判定する。
+     *
+     * ひらがな・カタカナ・ハングル・キリル文字・アラビア文字・タイ文字は
+     * それぞれ専用の文字コード範囲を持つため確度が高い。判別できる文字が
+     * ない場合（数字・記号のみ等）は 'unknown' を返し、判定を保留する。
+     *
+     * @param string $text 判定対象のテキスト。
+     * @return string 言語コード（'unknown' を含む）。
+     */
+    private function detect_submission_language( $text ) {
+        $text = trim( (string) $text );
+        if ( $text === '' ) {
+            return 'unknown';
+        }
+
+        if ( preg_match( '/[\x{3040}-\x{309F}\x{30A0}\x{30FF}]/u', $text ) ) {
+            return 'ja';
+        }
+
+        if ( preg_match( '/[\x{AC00}-\x{D7A3}]/u', $text ) ) {
+            return 'ko';
+        }
+
+        if ( preg_match( '/[\x{0400}-\x{04FF}]/u', $text ) ) {
+            return 'ru';
+        }
+
+        if ( preg_match( '/[\x{0600}-\x{06FF}]/u', $text ) ) {
+            return 'ar';
+        }
+
+        if ( preg_match( '/[\x{0E00}-\x{0E7F}]/u', $text ) ) {
+            return 'th';
+        }
+
+        // ひらがな・カタカナを伴わない漢字のみの文章は中国語とみなす。
+        if ( preg_match( '/[\x{4E00}-\x{9FFF}]/u', $text ) ) {
+            return 'zh';
+        }
+
+        if ( preg_match( '/[A-Za-z]/', $text ) ) {
+            return 'en';
+        }
+
+        return 'unknown';
+    }
+
+    /**
+     * 受け入れ言語ホワイトリストに基づき CF7 送信内容の言語をチェックし、
+     * 許可されていない言語の場合は受注取り込み前に拒否する。
+     *
+     * @param WPCF7_Validation $result バリデーション結果。
+     * @param array            $tags   フォームタグ。
+     * @return WPCF7_Validation
+     */
+    public function validate_language_whitelist( $result, $tags ) {
+        if ( ! class_exists( 'WPCF7_Submission' ) || ! is_object( $result ) || ! method_exists( $result, 'invalidate' ) ) {
+            return $result;
+        }
+
+        $submission = WPCF7_Submission::get_instance();
+        if ( ! $submission ) {
+            return $result;
+        }
+
+        $posted_data = $submission->get_posted_data();
+        if ( empty( $posted_data ) || ! is_array( $posted_data ) ) {
+            return $result;
+        }
+
+        $this->adjust_field_mapping( $posted_data );
+
+        $message = $this->get_field_value( $posted_data, $this->field_mapping['message'] );
+        $subject = $this->get_field_value( $posted_data, $this->field_mapping['subject'] );
+        $name    = $this->get_field_value( $posted_data, $this->field_mapping['name'] );
+        $company = $this->get_field_value( $posted_data, $this->field_mapping['company_name'] );
+
+        $text = trim( $message . ' ' . $subject );
+        if ( $text === '' ) {
+            $text = trim( $name . ' ' . $company );
+        }
+
+        $detected = $this->detect_submission_language( $text );
+        if ( $detected === 'unknown' ) {
+            return $result;
+        }
+
+        $allowed_languages = $this->get_allowed_languages();
+        if ( in_array( $detected, $allowed_languages, true ) ) {
+            return $result;
+        }
+
+        $field_name = 'your-message';
+        foreach ( $this->field_mapping['message'] as $candidate ) {
+            if ( isset( $posted_data[ $candidate ] ) ) {
+                $field_name = $candidate;
+                break;
+            }
+        }
+
+        $result->invalidate(
+            $field_name,
+            __( '現在、設定されている言語以外でのお問い合わせは受け付けておりません。', 'ktpwp' )
+        );
+
+        return $result;
     }
 
     /**
