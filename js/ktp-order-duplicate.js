@@ -12,7 +12,16 @@
         return window.ktpOrderDuplicate || {};
     }
 
+    function ensureModalInBody() {
+        var modal = document.getElementById('ktp-order-duplicate-modal');
+        if (!modal || modal.parentElement === document.body) {
+            return;
+        }
+        document.body.appendChild(modal);
+    }
+
     function openModal() {
+        ensureModalInBody();
         var modal = document.getElementById('ktp-order-duplicate-modal');
         if (!modal) {
             return;

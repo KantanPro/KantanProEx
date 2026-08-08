@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.28
+Stable tag: 1.4.29
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.29 - 2026年08月08日 =
+* 受注書複製ダイアログを開いたとき、背景の暗転オーバーレイがヘッダー・タブナビゲーションの下に隠れてしまい、ヘッダー部分だけ暗転せずハイライトされたように見えていた不具合を修正。ダイアログを開く際にモーダルを`body`直下へ移動し、ページ全体が正しく暗転するよう改善
 
 = 1.4.28 - 2026年08月08日 =
 * 進捗件数キャッシュの即時破棄をv1.4.27の削除・新規作成に加え、受注書複製・進捗変更を含む一般更新（`update_order`）・管理者向け全データクリアの各経路にも拡張。受注書複製直後に進捗タブのバッジ数字が実際の行数と食い違って表示される不具合を修正
