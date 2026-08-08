@@ -436,6 +436,10 @@ if ( ! class_exists( 'KTPWP_Order' ) ) {
 				return false;
 			}
 
+			if ( class_exists( 'KTPWP_List_Warning_Counts' ) ) {
+				KTPWP_List_Warning_Counts::invalidate();
+			}
+
 			return true;
 		}
 
@@ -466,6 +470,10 @@ if ( ! class_exists( 'KTPWP_Order' ) ) {
 			if ( $result === false ) {
 				error_log( 'KTPWP: Failed to delete order ' . $order_id . ': ' . $wpdb->last_error );
 				return false;
+			}
+
+			if ( class_exists( 'KTPWP_List_Warning_Counts' ) ) {
+				KTPWP_List_Warning_Counts::invalidate();
 			}
 
 			return true;

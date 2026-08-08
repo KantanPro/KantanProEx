@@ -263,6 +263,11 @@ if ( ! class_exists( 'KTPWP_Order_Duplicate' ) ) {
 				}
 
 				$wpdb->query( 'COMMIT' );
+
+				if ( class_exists( 'KTPWP_List_Warning_Counts' ) ) {
+					KTPWP_List_Warning_Counts::invalidate();
+				}
+
 				return $new_order_id;
 			} catch ( Exception $e ) {
 				$wpdb->query( 'ROLLBACK' );
