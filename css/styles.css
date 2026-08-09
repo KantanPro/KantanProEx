@@ -4121,6 +4121,17 @@ input[name="tab_item"] {
   display: block !important;
 }
 
+/* タブ本文は常に横1行ぶんを占有する。
+   .tabs が flex コンテナになる環境では tab_content も flex アイテム扱いになり、
+   既定の flex:0 1 auto で「内容なりの幅」に縮む。
+   その結果、タブが 2 行 3 列に折り返す幅（およそ 780px 未満）で
+   本文だけ狭くなる（実測 531px）ため、明示的に全幅を指定する。 */
+.ktp_plugin_container > .tab_content {
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 0;
+}
+
 /* 後方互換: ラジオがトグルされた場合（将来 JS 等で切替する場合） */
 #list:checked~#list_content,
 #order:checked~#order_content,
