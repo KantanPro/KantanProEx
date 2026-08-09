@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.29
+Stable tag: 1.4.30
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.30 - 2026年08月09日 =
+* 画面幅が狭くタブが2行3列に折り返す状態のとき、タブ本文（仕事リスト・受注書・顧客・サービス・協力会社・レポート）だけが内容なりの幅に縮み、検索欄やボタン列が本来より狭く表示される不具合を修正。タブ本文が常に全幅を占めるよう明示的に指定
 
 = 1.4.29 - 2026年08月08日 =
 * 受注書複製ダイアログを開いたとき、背景の暗転オーバーレイがヘッダー・タブナビゲーションの下に隠れてしまい、ヘッダー部分だけ暗転せずハイライトされたように見えていた不具合を修正。ダイアログを開く際にモーダルを`body`直下へ移動し、ページ全体が正しく暗転するよう改善
