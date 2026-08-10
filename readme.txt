@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.30
+Stable tag: 1.4.31
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.31 - 2026年08月10日 =
+* 顧客タブの請求書発行プレビューで、宛名ブロック（「請求書在中」を含む）をドラッグして位置を調整できる機能を追加。窓付き封筒の窓に合わせやすくなりました。ドラッグ中は封筒窓の上・左が mm で表示され、離すと帳票設定の「封筒窓(mm)」へ保存されます（調整・保存は管理者のみ）。調整した位置は印刷・PDF 出力にも反映され、明細行など本文の余白・幅は変わりません
 
 = 1.4.30 - 2026年08月09日 =
 * 画面幅が狭くタブが2行3列に折り返す状態のとき、タブ本文（仕事リスト・受注書・顧客・サービス・協力会社・レポート）だけが内容なりの幅に縮み、検索欄やボタン列が本来より狭く表示される不具合を修正。タブ本文が常に全幅を占めるよう明示的に指定

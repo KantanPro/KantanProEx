@@ -589,6 +589,16 @@ class KTPWP_Assets {
                                     'percentMax'   => KTPWP_Pdf_Document_Settings::ISSUER_LOGO_WIDTH_PERCENT_MAX,
                                     'minDisplayPx' => KTPWP_Pdf_Document_Settings::LOGO_MAX_WIDTH_MIN,
                                 ),
+                                'bulkAddresseeDrag' => array(
+                                    'enabled'  => $can_resize,
+                                    'ajaxUrl'  => $ajax_url,
+                                    'nonce'    => $nonce,
+                                    'action'   => 'ktp_update_bulk_invoice_addressee_position',
+                                    'min'      => KTPWP_Pdf_Document_Settings::ENVELOPE_POSITION_MM_MIN,
+                                    'max'      => KTPWP_Pdf_Document_Settings::ENVELOPE_POSITION_MM_MAX,
+                                    'baseTop'  => KTPWP_Pdf_Document_Settings::BULK_ADDRESSEE_BASE_TOP_MM,
+                                    'baseLeft' => KTPWP_Pdf_Document_Settings::BULK_ADDRESSEE_BASE_LEFT_MM,
+                                ),
                             );
                         }
                         return array_merge(
@@ -610,6 +620,13 @@ class KTPWP_Assets {
                 'src'       => 'js/ktp-bulk-invoice-seal-resize.js',
                 'deps'      => array( 'ktp-client-invoice' ),
                 'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-bulk-invoice-seal-resize.js' ),
+                'in_footer' => true,
+                'admin'     => false,
+            ),
+            'ktp-bulk-invoice-addressee-drag' => array(
+                'src'       => 'js/ktp-bulk-invoice-addressee-drag.js',
+                'deps'      => array( 'ktp-client-invoice' ),
+                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-bulk-invoice-addressee-drag.js' ),
                 'in_footer' => true,
                 'admin'     => false,
             ),
@@ -946,7 +963,7 @@ class KTPWP_Assets {
         $master_detail_only_scripts  = array( 'ktp-list-table-mobile' );
 
         // 顧客タブ専用（顧客以外のタブでは不要な MutationObserver を避ける）
-        $client_only_scripts = array( 'ktp-client-delete-popup', 'ktp-client-inquiry-block', 'ktp-client-invoice', 'ktp-bulk-invoice-seal-resize', 'ktp-bulk-invoice-logo-resize', 'ktp-bulk-invoice-print', 'ktp-client-contract' );
+        $client_only_scripts = array( 'ktp-client-delete-popup', 'ktp-client-inquiry-block', 'ktp-client-invoice', 'ktp-bulk-invoice-seal-resize', 'ktp-bulk-invoice-logo-resize', 'ktp-bulk-invoice-addressee-drag', 'ktp-bulk-invoice-print', 'ktp-client-contract' );
 
         // 仕事リストタブ専用（受注書タブでは読み込まない）
         $list_only_scripts = array( 'ktp-contract-billing', 'ktp-list-print', 'ktp-list-schedule' );

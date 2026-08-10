@@ -96,6 +96,20 @@ final class KTPWP_Pdf_Document_Settings {
 
 	public const DEFAULT_INVOICE_ROW_PADDING_Y = 6;
 
+	public const ENVELOPE_POSITION_MM_MIN = 0;
+
+	public const ENVELOPE_POSITION_MM_MAX = 40;
+
+	/**
+	 * 一括請求書の宛名ブロック位置の基準値（mm）。
+	 * envelope_top_mm / envelope_left_mm がこの値のとき宛名ブロックは移動量ゼロ（従来の表示位置）となり、
+	 * 差分だけが CSS 側の calc(var(--bulk-env-*) - 基準値) で宛名ブロックのマージンへ反映される。
+	 * 明細行など本文の余白・幅には影響しない。
+	 */
+	public const BULK_ADDRESSEE_BASE_TOP_MM = 6;
+
+	public const BULK_ADDRESSEE_BASE_LEFT_MM = 23;
+
 	public const OPTION_DOCUMENT_SETTINGS = 'ktp_pdf_document_settings';
 
 	public const OPTION_PDF_LAYOUT = 'ktp_pdf_layout';
@@ -192,8 +206,8 @@ final class KTPWP_Pdf_Document_Settings {
 			'margin_right_mm' => 5,
 			'margin_bottom_mm' => 5,
 			'margin_left_mm' => 10,
-			'envelope_top_mm' => 6,
-			'envelope_left_mm' => 23,
+			'envelope_top_mm' => self::BULK_ADDRESSEE_BASE_TOP_MM,
+			'envelope_left_mm' => self::BULK_ADDRESSEE_BASE_LEFT_MM,
 		),
 	);
 
@@ -245,8 +259,8 @@ final class KTPWP_Pdf_Document_Settings {
 			'margin_right_mm' => self::clamp_int( $stored['margin_right_mm'] ?? $defaults['margin_right_mm'], 0, 40 ),
 			'margin_bottom_mm' => self::clamp_int( $stored['margin_bottom_mm'] ?? $defaults['margin_bottom_mm'], 0, 40 ),
 			'margin_left_mm' => self::clamp_int( $stored['margin_left_mm'] ?? $defaults['margin_left_mm'], 0, 40 ),
-			'envelope_top_mm' => self::clamp_int( $stored['envelope_top_mm'] ?? $defaults['envelope_top_mm'], 0, 40 ),
-			'envelope_left_mm' => self::clamp_int( $stored['envelope_left_mm'] ?? $defaults['envelope_left_mm'], 0, 40 ),
+			'envelope_top_mm' => self::clamp_int( $stored['envelope_top_mm'] ?? $defaults['envelope_top_mm'], self::ENVELOPE_POSITION_MM_MIN, self::ENVELOPE_POSITION_MM_MAX ),
+			'envelope_left_mm' => self::clamp_int( $stored['envelope_left_mm'] ?? $defaults['envelope_left_mm'], self::ENVELOPE_POSITION_MM_MIN, self::ENVELOPE_POSITION_MM_MAX ),
 		);
 
 		if ( $kind === KTPWP_Pdf_Document_Kind::BULK_INVOICE ) {
@@ -490,6 +504,25 @@ final class KTPWP_Pdf_Document_Settings {
 		$slice['issuer_logo_align']         = self::resolve_issuer_logo_align( $align );
 		$slice['logo_keep_aspect_ratio']    = true;
 		$all[ $kind ]                       = $slice;
+
+		update_option( self::OPTION_DOCUMENT_SETTINGS, self::normalize_from_request( $all ) );
+	}
+
+	/**
+	 * 一括請求書の宛名ブロック位置（封筒窓合わせ）だけを帳票設定へ反映する。
+	 * 明細行など本文の余白・幅には影響しない。
+	 */
+	public static function merge_bulk_invoice_envelope_position( $top_mm, $left_mm ) {
+		$all = get_option( self::OPTION_DOCUMENT_SETTINGS, array() );
+		if ( ! is_array( $all ) ) {
+			$all = array();
+		}
+		$kind  = KTPWP_Pdf_Document_Kind::BULK_INVOICE;
+		$slice = is_array( $all[ $kind ] ?? null ) ? $all[ $kind ] : array();
+
+		$slice['envelope_top_mm']  = self::clamp_int( $top_mm, self::ENVELOPE_POSITION_MM_MIN, self::ENVELOPE_POSITION_MM_MAX );
+		$slice['envelope_left_mm'] = self::clamp_int( $left_mm, self::ENVELOPE_POSITION_MM_MIN, self::ENVELOPE_POSITION_MM_MAX );
+		$all[ $kind ]              = $slice;
 
 		update_option( self::OPTION_DOCUMENT_SETTINGS, self::normalize_from_request( $all ) );
 	}
@@ -738,8 +771,8 @@ final class KTPWP_Pdf_Document_Settings {
 			'margin_right_mm' => self::clamp_int( $slice['margin_right_mm'] ?? $defaults['margin_right_mm'], 0, 40 ),
 			'margin_bottom_mm' => self::clamp_int( $slice['margin_bottom_mm'] ?? $defaults['margin_bottom_mm'], 0, 40 ),
 			'margin_left_mm' => self::clamp_int( $slice['margin_left_mm'] ?? $defaults['margin_left_mm'], 0, 40 ),
-			'envelope_top_mm' => self::clamp_int( $slice['envelope_top_mm'] ?? $defaults['envelope_top_mm'], 0, 40 ),
-			'envelope_left_mm' => self::clamp_int( $slice['envelope_left_mm'] ?? $defaults['envelope_left_mm'], 0, 40 ),
+			'envelope_top_mm' => self::clamp_int( $slice['envelope_top_mm'] ?? $defaults['envelope_top_mm'], self::ENVELOPE_POSITION_MM_MIN, self::ENVELOPE_POSITION_MM_MAX ),
+			'envelope_left_mm' => self::clamp_int( $slice['envelope_left_mm'] ?? $defaults['envelope_left_mm'], self::ENVELOPE_POSITION_MM_MIN, self::ENVELOPE_POSITION_MM_MAX ),
 		);
 
 		if ( array_key_exists( 'show_tax_amount_column', $defaults ) ) {

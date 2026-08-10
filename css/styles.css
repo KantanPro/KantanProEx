@@ -974,7 +974,8 @@ a.ktp-avatar-trigger {
     left: auto !important;
     grid-area: addressee;
     max-width: none !important;
-    margin: 0 !important;
+    /* 封筒窓合わせ：基準値（上6mm・左23mm）からの差分だけ宛名ブロックを動かす（本文の余白・幅には影響しない） */
+    margin: calc(var(--bulk-env-top, 6mm) - 6mm) 0 0 calc(var(--bulk-env-left, 23mm) - 23mm) !important;
     z-index: auto !important;
   }
   #ktp-invoice-preview-popup #invoiceList .ktp-bulk-invoice-issuer-stack {
@@ -8869,8 +8870,57 @@ body.ktpwp-modal-open {
   left: auto !important;
   grid-area: addressee;
   max-width: none !important;
-  margin: 0 !important;
+  /* 封筒窓合わせ：基準値（上6mm・左23mm）からの差分だけ宛名ブロックを動かす（本文の余白・幅には影響しない） */
+  margin: calc(var(--bulk-env-top, 6mm) - 6mm) 0 0 calc(var(--bulk-env-left, 23mm) - 23mm) !important;
   z-index: auto !important;
+}
+/* 宛名ブロックのドラッグ移動（管理者のみ・プレビュー画面上） */
+#invoiceList .ktp-bulk-invoice-address-block.is-ktp-bulk-addressee-draggable {
+  cursor: move;
+  touch-action: none;
+  border-radius: 4px;
+}
+#invoiceList .ktp-bulk-invoice-address-block.is-ktp-bulk-addressee-draggable:hover {
+  outline: 1px dashed rgba(37, 99, 235, 0.6);
+  outline-offset: 4px;
+}
+#invoiceList .ktp-bulk-invoice-address-block.is-ktp-bulk-addressee-draggable.is-dragging {
+  outline: 1px dashed rgba(37, 99, 235, 0.9);
+  outline-offset: 4px;
+  cursor: grabbing;
+  user-select: none;
+}
+/* ドラッグ中：封筒窓の上・左 mm 表示（印刷・PDF には出さない） */
+#invoiceList .ktp-bulk-invoice-addressee-mm-readout {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  z-index: 30;
+  display: none;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.88);
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+#invoiceList .ktp-bulk-invoice-addressee-mm-readout.is-visible {
+  display: inline-flex;
+}
+#invoiceList .ktp-bulk-invoice-addressee-mm-readout .mm-pair {
+  white-space: nowrap;
+}
+#invoiceList .ktp-bulk-invoice-addressee-mm-readout .mm-label {
+  opacity: 0.72;
+  font-weight: 500;
+  margin-right: 0.15rem;
 }
 #invoiceList .ktp-bulk-invoice-issuer-stack {
   position: static;

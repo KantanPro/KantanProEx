@@ -296,7 +296,8 @@ const BULK_INVOICE_PDF_CAPTURE_LAYOUT_FIX_CSS = `
         position: static !important;
         grid-area: addressee !important;
         max-width: none !important;
-        margin: 0 !important;
+        /* 封筒窓合わせ：基準値（上6mm・左23mm）からの差分だけ宛名ブロックを動かす */
+        margin: calc(var(--bulk-env-top, 6mm) - 6mm) 0 0 calc(var(--bulk-env-left, 23mm) - 23mm) !important;
     }
     .ktp-bulk-invoice-pdf-capture-mount.ktp-bulk-invoice-pdf-save-mode .ktp-bulk-invoice-issuer-stack,
     .ktp-bulk-invoice-pdf-capture-mount .ktp-bulk-invoice-pdf-save-mode .ktp-bulk-invoice-issuer-stack {

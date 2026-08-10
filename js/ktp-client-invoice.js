@@ -53,7 +53,8 @@ function ktpBulkInvoicePdfMirrorStylesCss() {
     css += '.ktp-bulk-invoice-pdf-save-mode .ktp-bulk-invoice-content-area.ktp-bulk-invoice-envelope-page{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;grid-template-rows:minmax(0,max-content) max-content!important;grid-template-areas:"addressee issuer" "body body"!important;column-gap:1rem!important;align-items:start!important;position:relative!important;width:100%!important;max-width:none!important;box-sizing:border-box!important;overflow:visible!important;}';
     css += '.ktp-bulk-invoice-pdf-save-mode .ktp-bulk-invoice-content-area.ktp-bulk-invoice-envelope-page--labeled{padding-top:calc(8mm + var(--bulk-envelope-label-offset,15mm))!important;}';
     css += '.ktp-bulk-invoice-pdf-save-mode .ktp-bulk-invoice-content-area.ktp-bulk-invoice-envelope-page--labeled .ktp-bulk-invoice-address-block{margin-top:calc(-1 * var(--bulk-envelope-label-offset,15mm));}';
-    css += '.ktp-bulk-invoice-pdf-save-mode .ktp-bulk-invoice-address-block{position:static!important;top:auto!important;left:auto!important;right:auto!important;grid-area:addressee!important;max-width:none!important;margin:0!important;z-index:auto!important;}';
+    // 封筒窓合わせ：基準値（上6mm・左23mm）からの差分だけ宛名ブロックを動かす（本文の余白・幅には影響しない）
+    css += '.ktp-bulk-invoice-pdf-save-mode .ktp-bulk-invoice-address-block{position:static!important;top:auto!important;left:auto!important;right:auto!important;grid-area:addressee!important;max-width:none!important;margin:calc(var(--bulk-env-top,6mm) - 6mm) 0 0 calc(var(--bulk-env-left,23mm) - 23mm)!important;z-index:auto!important;}';
     css += '.ktp-bulk-invoice-pdf-save-mode .ktp-bulk-invoice-issuer-stack{position:static!important;top:auto!important;right:auto!important;grid-area:issuer!important;justify-self:stretch!important;align-self:start!important;width:100%!important;max-width:100%!important;min-height:max-content!important;padding-bottom:3mm!important;pointer-events:auto!important;overflow:visible!important;}';
     css += '.ktp-bulk-invoice-pdf-save-mode .ktp-bulk-invoice-issuer-inner{position:relative!important;display:block!important;width:90%!important;max-width:90%!important;margin-left:auto!important;box-sizing:border-box!important;overflow:visible!important;color:#374151;line-height:1.35;}';
     css += '.ktp-bulk-invoice-pdf-save-mode .ktp-bulk-invoice-print-except-addressee{grid-area:body!important;margin-top:1.25rem!important;min-width:0;width:100%!important;}';
@@ -250,9 +251,25 @@ function ktpEnrichBulkInvoiceClientData(data) {
     return enriched;
 }
 
+/** 宛名ブロックをドラッグで動かせるか（管理者のみ・localize 設定に依存） */
+function ktpBulkInvoiceAddresseeDragEnabled() {
+    return !!(typeof ktpClientInvoice !== 'undefined'
+        && ktpClientInvoice.bulkAddresseeDrag
+        && ktpClientInvoice.bulkAddresseeDrag.enabled
+        && ktpClientInvoice.bulkAddresseeDrag.ajaxUrl
+        && ktpClientInvoice.bulkAddresseeDrag.nonce
+        && ktpClientInvoice.bulkAddresseeDrag.action);
+}
+
 /** 一括請求の宛名ブロック（請求書在中ラベル付き・担当表示切替対応） */
 function ktpBuildBulkInvoiceAddresseeHtml(res, customerHonorific, t) {
-    var html = '<div class="ktp-bulk-invoice-addressee ktp-bulk-invoice-address-block">';
+    var dragEnabled = ktpBulkInvoiceAddresseeDragEnabled();
+    var html = '<div class="ktp-bulk-invoice-addressee ktp-bulk-invoice-address-block'
+        + (dragEnabled ? ' is-ktp-bulk-addressee-draggable' : '') + '"'
+        + (dragEnabled
+            ? ' data-ktp-bulk-addressee-drag="1" title="' + ktpInvoiceEscapeHtml(t('ドラッグして宛名の位置を調整できます')) + '"'
+            : '')
+        + '>';
     html += '<div class="ktp-bulk-invoice-envelope-label-slot">';
     html += '<div class="ktp-bulk-invoice-envelope-label">' + t('請求書在中') + '</div>';
     html += '</div>';
@@ -1120,6 +1137,15 @@ function ktpBuildBulkInvoiceOutputHtml(mode) {
         clone.querySelectorAll('.ktp-bulk-invoice-no-print, script, style').forEach(function(el) {
             el.remove();
         });
+
+        // 宛名ドラッグ用の操作系（点線枠・ツールチップ等）は出力に持ち込まない
+        var clonedAddressBlock = clone.querySelector('.ktp-bulk-invoice-address-block');
+        if (clonedAddressBlock) {
+            clonedAddressBlock.classList.remove('is-ktp-bulk-addressee-draggable', 'is-dragging');
+            clonedAddressBlock.removeAttribute('data-ktp-bulk-addressee-drag');
+            clonedAddressBlock.removeAttribute('data-ktp-bulk-addressee-drag-bound');
+            clonedAddressBlock.removeAttribute('title');
+        }
 
         var footerActions = clone.querySelector('#ktp-invoice-footer-actions');
         if (footerActions) {
