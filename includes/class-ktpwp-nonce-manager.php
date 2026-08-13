@@ -62,16 +62,40 @@ class KTPWP_Nonce_Manager {
     }
 
     /**
+     * 業務用ナンスを発行してよいユーザーか
+     *
+     * 業務用 Ajax エンドポイントはすべてログイン＋権限を必須としているため、
+     * 未ログイン訪問者にナンスを出力する必要はない。
+     * 未ログイン用ナンスは user_id=0 で生成され、誰の値でも検証を通過してしまうため、
+     * 公開ページに出力してしまうと権限チェック漏れのハンドラがそのまま攻撃面になる。
+     *
+     * @return bool
+     */
+    public static function can_issue_business_nonce() {
+        return function_exists( 'is_user_logged_in' ) && is_user_logged_in();
+    }
+
+    /**
+     * 業務用ナンスを生成（未ログイン時は空文字）
+     *
+     * @param string $action ナンスアクション名。
+     * @return string ナンス値。
+     */
+    public static function create_business_nonce( $action ) {
+        if ( ! self::can_issue_business_nonce() ) {
+            return '';
+        }
+        return wp_create_nonce( $action );
+    }
+
+    /**
      * 統一されたstaff_chatナンス値を取得
      *
      * @return string ナンス値
      */
     public function get_staff_chat_nonce() {
         if ( ! isset( self::$nonce_cache['staff_chat'] ) ) {
-            self::$nonce_cache['staff_chat'] = wp_create_nonce( 'ktpwp_staff_chat_nonce' );
-            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( 'KTPWP Nonce Manager: Created unified staff_chat nonce: ' . self::$nonce_cache['staff_chat'] );
-            }
+            self::$nonce_cache['staff_chat'] = self::create_business_nonce( 'ktpwp_staff_chat_nonce' );
         }
         return self::$nonce_cache['staff_chat'];
     }
@@ -83,10 +107,7 @@ class KTPWP_Nonce_Manager {
      */
     public function get_auto_save_nonce() {
         if ( ! isset( self::$nonce_cache['auto_save'] ) ) {
-            self::$nonce_cache['auto_save'] = wp_create_nonce( 'ktpwp_auto_save_nonce' );
-            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( 'KTPWP Nonce Manager: Created unified auto_save nonce: ' . self::$nonce_cache['auto_save'] );
-            }
+            self::$nonce_cache['auto_save'] = self::create_business_nonce( 'ktpwp_auto_save_nonce' );
         }
         return self::$nonce_cache['auto_save'];
     }
@@ -98,10 +119,7 @@ class KTPWP_Nonce_Manager {
      */
     public function get_ktp_ajax_nonce() {
         if ( ! isset( self::$nonce_cache['ktp_ajax'] ) ) {
-            self::$nonce_cache['ktp_ajax'] = wp_create_nonce( 'ktp_ajax_nonce' );
-            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( 'KTPWP Nonce Manager: Created unified ktp_ajax nonce: ' . self::$nonce_cache['ktp_ajax'] );
-            }
+            self::$nonce_cache['ktp_ajax'] = self::create_business_nonce( 'ktp_ajax_nonce' );
         }
         return self::$nonce_cache['ktp_ajax'];
     }
@@ -128,7 +146,7 @@ class KTPWP_Nonce_Manager {
     public function clear_cache() {
         self::$nonce_cache = array();
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'KTPWP Nonce Manager: Cache cleared' );
+            ktpwp_debug_log( 'KTPWP Nonce Manager: Cache cleared' );
         }
     }
 }

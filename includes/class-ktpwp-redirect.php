@@ -248,7 +248,7 @@ class KTPWP_Redirect {
 
         if ( ! in_array( $host, $this->allowed_hosts, true ) ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( 'KTPWP Redirect: Unsafe host blocked - ' . $host );
+                ktpwp_debug_log( 'KTPWP Redirect: Unsafe host blocked - ' . $host );
             }
             return false;
         }

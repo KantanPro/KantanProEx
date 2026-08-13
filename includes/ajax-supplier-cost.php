@@ -14,7 +14,7 @@ if ( ! function_exists( 'ktpwp_supplier_cost_log' ) ) {
 	 */
 	function ktpwp_supplier_cost_log( $message ) {
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			error_log( $message );
+			ktpwp_debug_log( $message );
 		}
 	}
 }
@@ -25,7 +25,7 @@ add_action(
 		// デバッグログ開始
 		ktpwp_supplier_cost_log('[SUPPLIER-COST-AJAX] 協力会社リスト取得開始');
 		ktpwp_supplier_cost_log('[SUPPLIER-COST-AJAX] REQUEST_METHOD: ' . $_SERVER['REQUEST_METHOD']);
-		ktpwp_supplier_cost_log('[SUPPLIER-COST-AJAX] POST data: ' . print_r($_POST, true));
+		ktpwp_supplier_cost_log('[SUPPLIER-COST-AJAX] POST keys: ' . implode(', ', array_keys($_POST)));
 		ktpwp_supplier_cost_log('[SUPPLIER-COST-AJAX] Current user ID: ' . get_current_user_id());
 		ktpwp_supplier_cost_log('[SUPPLIER-COST-AJAX] Current user capabilities: ' . print_r(wp_get_current_user()->allcaps, true));
 		
@@ -72,7 +72,7 @@ add_action(
 		// デバッグログ開始
 		ktpwp_supplier_cost_log('[SUPPLIER-COST-AJAX] 職能リスト取得開始');
 		ktpwp_supplier_cost_log('[SUPPLIER-COST-AJAX] REQUEST_METHOD: ' . $_SERVER['REQUEST_METHOD']);
-		ktpwp_supplier_cost_log('[SUPPLIER-COST-AJAX] POST data: ' . print_r($_POST, true));
+		ktpwp_supplier_cost_log('[SUPPLIER-COST-AJAX] POST keys: ' . implode(', ', array_keys($_POST)));
 		ktpwp_supplier_cost_log('[SUPPLIER-COST-AJAX] Current user ID: ' . get_current_user_id());
 		
 		if ( ! current_user_can( 'edit_posts' ) ) {

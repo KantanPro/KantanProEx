@@ -144,7 +144,7 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 
 			// 入力値の検証
 			if ( empty( $query_post ) || empty( $tab_name ) ) {
-				error_log( 'KTPWP: Invalid parameters in handle_operations' );
+				ktpwp_debug_log( 'KTPWP: Invalid parameters in handle_operations' );
 				return;
 			}
 
@@ -388,7 +388,7 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 				);
 				if ( $insert_result === false ) {
 					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-						error_log( 'Insert error: ' . $wpdb->last_error ); }
+						ktpwp_debug_log( 'Insert error: ' . $wpdb->last_error ); }
 					echo '<script>
                 document.addEventListener("DOMContentLoaded", function() {
                     showErrorNotification("追加に失敗しました。SQLエラー: ' . esc_js( $wpdb->last_error ) . '");
@@ -436,7 +436,7 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 				$data_id = absint( $post_data['data_id'] );
 
 				if ( $data_id <= 0 ) {
-					error_log( 'KTPWP: Invalid data_id for duplication' );
+					ktpwp_debug_log( 'KTPWP: Invalid data_id for duplication' );
 					return;
 				}
 
@@ -444,7 +444,7 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 				$data = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM %i WHERE id = %d', $table_name, $data_id ), ARRAY_A );
 
 				if ( ! $data ) {
-					error_log( 'KTPWP: Data not found for duplication, ID: ' . $data_id );
+					ktpwp_debug_log( 'KTPWP: Data not found for duplication, ID: ' . $data_id );
 					return;
 				}
 
@@ -486,7 +486,7 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 				// データを挿入
 				$insert_result = $wpdb->insert( $table_name, $data );
 				if ( $insert_result === false ) {
-					error_log( 'Duplication error: ' . $wpdb->last_error );
+					ktpwp_debug_log( 'Duplication error: ' . $wpdb->last_error );
 					echo '<script>
                 document.addEventListener("DOMContentLoaded", function() {
                     showErrorNotification("複製に失敗しました。SQLエラー: ' . esc_js( $wpdb->last_error ) . '");
@@ -1521,9 +1521,9 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 				// 表題にボタングループを含める
 				// デバッグ用：query_idの値を確認
 				if (defined('WP_DEBUG') && WP_DEBUG) {
-					error_log('KTPWP Supplier Tab: query_id = ' . var_export($query_id, true));
-					error_log('KTPWP Supplier Tab: query_id type = ' . gettype($query_id));
-					error_log('KTPWP Supplier Tab: id_display condition = ' . (!empty($query_id) && $query_id !== '0' && $query_id !== 0 ? 'true' : 'false'));
+					ktpwp_debug_log('KTPWP Supplier Tab: query_id = ' . var_export($query_id, true));
+					ktpwp_debug_log('KTPWP Supplier Tab: query_id type = ' . gettype($query_id));
+					ktpwp_debug_log('KTPWP Supplier Tab: id_display condition = ' . (!empty($query_id) && $query_id !== '0' && $query_id !== 0 ? 'true' : 'false'));
 				}
 				$id_display = ( empty( $query_id ) || $query_id === '0' || $query_id === 0 ) ? '' : sprintf( __( '（ ID: %s ）', 'ktpwp' ), esc_html( $query_id ) );
 				$data_title = '<div class="data_detail_box"><div class="data_detail_title" style="display: flex; align-items: center; justify-content: space-between;">

@@ -164,6 +164,41 @@ find "${BUILD_DIR}" -type f -name "*.old" -delete
 find "${BUILD_DIR}" -type f -name "*.orig" -delete
 echo "  - 完了"
 
+echo -e "\n[7.5/8] JS/CSS を最小化中（配布ビルドのみ・ソースは変更しません）..."
+# 縮小は「安全側」に倒す:
+#   - 行コメント(//) はURL(http://)や正規表現を壊しうるため触らない
+#   - ブロックコメント(/* */) と行頭・行末の空白、空行のみを削除する
+# これだけでも未圧縮の JS 約1.2MB / CSS 約230KB から確実に削れる。
+MINIFY_BEFORE=$(find "${BUILD_DIR}" \( -name "*.js" -o -name "*.css" \) -type f -exec cat {} + 2>/dev/null | wc -c | tr -d ' ')
+
+minify_asset_file() {
+    local target="$1"
+    local tmp="${target}.min.tmp"
+
+    # /* ... */ を削除 → 行頭/行末空白を除去 → 空行を除去
+    perl -0777 -pe 's{/\*.*?\*/}{}gs' "$target" \
+        | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' \
+        | grep -v '^$' > "$tmp" 2>/dev/null
+
+    # 生成物が空、または元より大きい場合は縮小せず元を残す（安全弁）
+    if [ -s "$tmp" ] && [ "$(wc -c < "$tmp")" -le "$(wc -c < "$target")" ]; then
+        mv "$tmp" "$target"
+    else
+        rm -f "$tmp"
+    fi
+}
+
+MINIFIED_COUNT=0
+while IFS= read -r -d '' asset; do
+    minify_asset_file "$asset"
+    MINIFIED_COUNT=$((MINIFIED_COUNT + 1))
+done < <(find "${BUILD_DIR}" \( -name "*.js" -o -name "*.css" \) -type f -print0)
+
+MINIFY_AFTER=$(find "${BUILD_DIR}" \( -name "*.js" -o -name "*.css" \) -type f -exec cat {} + 2>/dev/null | wc -c | tr -d ' ')
+echo "  - 対象ファイル数: ${MINIFIED_COUNT}"
+echo "  - サイズ: ${MINIFY_BEFORE} バイト → ${MINIFY_AFTER} バイト"
+echo "  - 完了"
+
 echo -e "\n[8/10] ZIPファイルを作成中..."
 (cd "${BUILD_DIR}/.." && zip -r -q "${FINAL_ZIP_PATH}" "${BUILD_DIR_NAME}")
 

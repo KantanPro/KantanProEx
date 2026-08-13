@@ -33,7 +33,7 @@ if ( ! in_array( 'promised_delivery_date', $columns, true ) ) {
 	);
 
 	if ( $result === false && defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-		error_log( 'KTPWP Migration: promised_delivery_date の追加に失敗: ' . $wpdb->last_error );
+		ktpwp_debug_log( 'KTPWP Migration: promised_delivery_date の追加に失敗: ' . $wpdb->last_error );
 	} elseif ( class_exists( 'KTPWP_Schema_Cache' ) ) {
 		KTPWP_Schema_Cache::invalidate( $table_name );
 	}

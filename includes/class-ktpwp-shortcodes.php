@@ -87,7 +87,7 @@ class KTPWP_Shortcodes {
         }
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'KTPWP Shortcodes: Registered shortcodes - ' . implode( ', ', $this->registered_shortcodes ) );
+            ktpwp_debug_log( 'KTPWP Shortcodes: Registered shortcodes - ' . implode( ', ', $this->registered_shortcodes ) );
         }
     }
 
@@ -161,7 +161,7 @@ class KTPWP_Shortcodes {
 
         } catch (Exception $e) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('KTPWP Shortcode Error: ' . $e->getMessage());
+                ktpwp_debug_log('KTPWP Shortcode Error: ' . $e->getMessage());
             }
             echo '<div class="ktpwp-error">' . esc_html__('エラーが発生しました。', 'ktpwp') . '</div>'; // バッファに出力
         }
@@ -652,7 +652,7 @@ class KTPWP_Shortcodes {
         $user_sessions = WP_Session_Tokens::get_instance($current_user->ID);
         if (!$user_sessions) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('KTPWP Debug: get_navigation_links - WP_Session_Tokens::get_instance returned null for user ID: ' . $current_user->ID);
+                ktpwp_debug_log('KTPWP Debug: get_navigation_links - WP_Session_Tokens::get_instance returned null for user ID: ' . $current_user->ID);
             }
             return '';
         }
@@ -660,7 +660,7 @@ class KTPWP_Shortcodes {
         $all_sessions = $user_sessions->get_all();
         if (empty($all_sessions)) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('KTPWP Debug: get_navigation_links - No active sessions found for user ID: ' . $current_user->ID);
+                ktpwp_debug_log('KTPWP Debug: get_navigation_links - No active sessions found for user ID: ' . $current_user->ID);
             }
             return '';
         }
@@ -1013,7 +1013,7 @@ class KTPWP_Shortcodes {
             require_once $file_path;
         } else {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('KTPWP Error: Required class file not found - ' . $filename);
+                ktpwp_debug_log('KTPWP Error: Required class file not found - ' . $filename);
             }
         }
     }

@@ -49,7 +49,7 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 			// }
 
 			if ( empty( $tab_name ) ) {
-				error_log( 'KTPWP: Empty tab_name provided to List_Tab_View method' );
+				ktpwp_debug_log( 'KTPWP: Empty tab_name provided to List_Tab_View method' );
 				return;
 			}
 
@@ -298,7 +298,9 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 			$list_search_args = array();
 			if ( $list_search !== '' ) {
 				$list_like = '%' . $wpdb->esc_like( $list_search ) . '%';
-				$order_cols = $wpdb->get_col( "SHOW COLUMNS FROM `{$table_name}`" );
+				$order_cols = class_exists( 'KTPWP_Schema_Cache' )
+					? KTPWP_Schema_Cache::get_columns( $table_name )
+					: (array) $wpdb->get_col( "SHOW COLUMNS FROM `{$table_name}`" );
 				$search_columns = array( 'customer_name', 'user_name', 'project_name' );
 				if ( is_array( $order_cols ) && in_array( 'memo', $order_cols, true ) ) {
 					$search_columns[] = 'memo';
@@ -416,6 +418,37 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 					6 => __( '入金済', 'ktpwp' ),
 					7 => __( 'ボツ', 'ktpwp' ),
 				);
+
+				// 締め日・支払条件の警告表示に使う顧客情報を一括取得する。
+				// 以前は表示行ごとに SELECT ... WHERE id = %d を発行していたため、
+				// 1ページ表示するだけで表示件数と同じ本数のクエリが発生していた（N+1）。
+				$client_info_map = array();
+				if ( in_array( (int) $selected_progress, array( 4, 5 ), true ) && ! empty( $order_list ) ) {
+					$client_ids = array();
+					foreach ( $order_list as $order ) {
+						$cid = isset( $order->client_id ) ? (int) $order->client_id : 0;
+						if ( $cid > 0 ) {
+							$client_ids[ $cid ] = $cid;
+						}
+					}
+					if ( ! empty( $client_ids ) ) {
+						$client_table    = $wpdb->prefix . 'ktp_client';
+						$client_ids      = array_values( $client_ids );
+						$id_placeholders = implode( ', ', array_fill( 0, count( $client_ids ), '%d' ) );
+						$client_rows     = $wpdb->get_results(
+							$wpdb->prepare(
+								"SELECT id, closing_day, payment_month, payment_day FROM `{$client_table}` WHERE id IN ({$id_placeholders})",
+								$client_ids
+							)
+						);
+						if ( is_array( $client_rows ) ) {
+							foreach ( $client_rows as $client_row ) {
+								$client_info_map[ (int) $client_row->id ] = $client_row;
+							}
+						}
+					}
+				}
+
 				$content .= '<ul>';
 				foreach ( $order_list as $order ) {
 					$order_id = esc_html( $order->id );
@@ -484,7 +517,7 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 							// デバッグ情報（開発時のみ）
 							if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 								$debug_msg = '納期警告判定: 今日=' . $today->format( 'Y-m-d' ) . ', 納期=' . $delivery_date->format( 'Y-m-d' ) . ', 残り日数=' . $days_left . ', 警告日数=' . $warning_days . ', 表示=' . ( $show_warning ? 'YES' : 'NO' );
-								error_log( $debug_msg );
+								ktpwp_debug_log( $debug_msg );
 							}
 						}
 					}
@@ -496,8 +529,7 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 						// 顧客IDから締め日を取得
 						$client_id = isset( $order->client_id ) ? intval( $order->client_id ) : 0;
 						if ( $client_id > 0 ) {
-							$client_table = $wpdb->prefix . 'ktp_client';
-							$client_info = $wpdb->get_row( $wpdb->prepare( "SELECT closing_day FROM {$client_table} WHERE id = %d", $client_id ) );
+							$client_info = isset( $client_info_map[ $client_id ] ) ? $client_info_map[ $client_id ] : null;
 							if ( $client_info && $client_info->closing_day && $client_info->closing_day !== 'なし' ) {
 								// 案件の完了日を取得
 								$completion_date = isset( $order->completion_date ) ? trim( (string) $order->completion_date ) : '';
@@ -554,13 +586,7 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 						$client_id = isset( $order->client_id ) ? (int) $order->client_id : 0;
 						$completion_date_raw = isset( $order->completion_date ) ? trim( (string) $order->completion_date ) : '';
 						if ( $client_id > 0 && $completion_date_raw !== '' ) {
-							$client_table = $wpdb->prefix . 'ktp_client';
-							$client_info = $wpdb->get_row(
-								$wpdb->prepare(
-									"SELECT closing_day, payment_month, payment_day FROM {$client_table} WHERE id = %d",
-									$client_id
-								)
-							);
+							$client_info = isset( $client_info_map[ $client_id ] ) ? $client_info_map[ $client_id ] : null;
 							if ( $client_info && ! empty( $client_info->payment_month ) && ! empty( $client_info->payment_day ) ) {
 								$completion_dt = DateTime::createFromFormat( 'Y-m-d', $completion_date_raw );
 								$errors = DateTime::getLastErrors();
@@ -831,7 +857,9 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 			$order_table = $wpdb->prefix . 'ktp_order';
 			$order_args = array( $like, $like, $like );
 			$order_where = " ( customer_name LIKE %s OR user_name LIKE %s OR project_name LIKE %s ";
-			$order_cols = $wpdb->get_col( "SHOW COLUMNS FROM `{$order_table}`" );
+			$order_cols = class_exists( 'KTPWP_Schema_Cache' )
+				? KTPWP_Schema_Cache::get_columns( $order_table )
+				: (array) $wpdb->get_col( "SHOW COLUMNS FROM `{$order_table}`" );
 			if ( is_array( $order_cols ) && in_array( 'memo', $order_cols, true ) ) {
 				$order_where .= " OR memo LIKE %s ";
 				$order_args[] = $like;
@@ -870,7 +898,9 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 
 			// 顧客
 			$client_table = $wpdb->prefix . 'ktp_client';
-			$client_cols = $wpdb->get_col( "SHOW COLUMNS FROM `{$client_table}`" );
+			$client_cols = class_exists( 'KTPWP_Schema_Cache' )
+				? KTPWP_Schema_Cache::get_columns( $client_table )
+				: (array) $wpdb->get_col( "SHOW COLUMNS FROM `{$client_table}`" );
 			$client_where = " ( company_name LIKE %s OR name LIKE %s ";
 			$client_args = array( $like, $like );
 			if ( is_array( $client_cols ) && in_array( 'memo', $client_cols, true ) ) {
@@ -900,7 +930,9 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 
 			// サービス
 			$service_table = $wpdb->prefix . 'ktp_service';
-			$service_cols = $wpdb->get_col( "SHOW COLUMNS FROM `{$service_table}`" );
+			$service_cols = class_exists( 'KTPWP_Schema_Cache' )
+				? KTPWP_Schema_Cache::get_columns( $service_table )
+				: (array) $wpdb->get_col( "SHOW COLUMNS FROM `{$service_table}`" );
 			$service_where = " ( service_name LIKE %s ";
 			$service_args = array( $like );
 			if ( is_array( $service_cols ) ) {
@@ -936,8 +968,12 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 			// 協力会社（職能・スキル名 product_name も検索対象）
 			$supplier_table = $wpdb->prefix . 'ktp_supplier';
 			$supplier_skills_table = $wpdb->prefix . 'ktp_supplier_skills';
-			$supplier_skills_exists = ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $supplier_skills_table ) ) === $supplier_skills_table );
-			$supplier_cols = $wpdb->get_col( "SHOW COLUMNS FROM `{$supplier_table}`" );
+			$supplier_skills_exists = class_exists( 'KTPWP_Schema_Cache' )
+				? KTPWP_Schema_Cache::table_exists( $supplier_skills_table )
+				: ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $supplier_skills_table ) ) === $supplier_skills_table );
+			$supplier_cols = class_exists( 'KTPWP_Schema_Cache' )
+				? KTPWP_Schema_Cache::get_columns( $supplier_table )
+				: (array) $wpdb->get_col( "SHOW COLUMNS FROM `{$supplier_table}`" );
 			$supplier_where = $supplier_skills_exists ? " ( s.company_name LIKE %s OR s.name LIKE %s " : " ( company_name LIKE %s OR name LIKE %s ";
 			$supplier_args = array( $like, $like );
 			if ( is_array( $supplier_cols ) ) {

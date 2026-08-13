@@ -221,7 +221,7 @@ if ( ! class_exists( 'KTPWP_Public_Purchase_Thank_You' ) ) {
 				);
 			} catch ( Exception $e ) {
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-					error_log( 'KTPWP purchase thank you session: ' . $e->getMessage() );
+					ktpwp_debug_log( 'KTPWP purchase thank you session: ' . $e->getMessage() );
 				}
 				return $context;
 			}

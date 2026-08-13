@@ -119,7 +119,7 @@ class KTPWP_Assets {
         }
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'KTPWP Assets: Interfering assets dequeued on KantanPro page: ' . implode( ', ', $handles ) );
+            ktpwp_debug_log( 'KTPWP Assets: Interfering assets dequeued on KantanPro page: ' . implode( ', ', $handles ) );
         }
     }
 
@@ -227,11 +227,56 @@ class KTPWP_Assets {
     }
 
     /**
+     * アセットのキャッシュバスター用 mtime（リクエスト内メモ化）
+     *
+     * @var array<string, int>
+     */
+    private static $asset_mtimes = array();
+
+    /**
      * アセット設定
      */
     private function setup_assets() {
         $this->setup_styles();
         $this->setup_scripts();
+    }
+
+    /**
+     * キャッシュバスター付きのバージョン文字列を返す
+     *
+     * アセット定義の構築時に毎回 filemtime() を呼ぶと、1 リクエストあたり
+     * 30 回近い stat() が発生する。ファイルの更新時刻はリクエスト中に
+     * 変化しないため、パス単位でメモ化する。
+     *
+     * @param string $relative_path プラグインルートからの相対パス（例: 'js/ktp-js.js'）。
+     * @return string バージョン文字列。
+     */
+    private static function asset_version( $relative_path ) {
+        $mtime = self::asset_mtime( $relative_path );
+
+        return $mtime > 0
+            ? KTPWP_PLUGIN_VERSION . '.' . $mtime
+            : KTPWP_PLUGIN_VERSION;
+    }
+
+    /**
+     * アセットの更新時刻を取得（リクエスト内メモ化）
+     *
+     * @param string $relative_path プラグインルートからの相対パス。
+     * @return int 更新時刻。ファイルが無い場合は 0。
+     */
+    private static function asset_mtime( $relative_path ) {
+        $relative_path = ltrim( (string) $relative_path, '/' );
+
+        if ( ! isset( self::$asset_mtimes[ $relative_path ] ) ) {
+            $full_path = KTPWP_PLUGIN_DIR . $relative_path;
+
+            self::$asset_mtimes[ $relative_path ] = file_exists( $full_path )
+                ? (int) filemtime( $full_path )
+                : 0;
+        }
+
+        return self::$asset_mtimes[ $relative_path ];
     }
 
     /**
@@ -242,7 +287,7 @@ class KTPWP_Assets {
             'ktp-css' => array(
                 'src'    => 'css/styles.css',
                 'deps'   => array(),
-                'ver'    => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'css/styles.css' ),
+                'ver'    => self::asset_version( 'css/styles.css' ),
                 'media'  => 'all',
                 'admin'  => false,
             ),
@@ -313,7 +358,7 @@ class KTPWP_Assets {
             'ktp-order-inline-projectname' => array(
                 'src'       => 'js/ktp-order-inline-projectname.js',
                 'deps'      => array( 'jquery' ),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-order-inline-projectname.js' ),
+                'ver'       => self::asset_version( 'js/ktp-order-inline-projectname.js' ),
                 'in_footer' => true,
                 'admin'     => false,
                 'localize'  => array(
@@ -325,7 +370,7 @@ class KTPWP_Assets {
 
                         return array(
                             'ajax_url' => admin_url( 'admin-ajax.php' ),
-                            'nonce'    => $can_edit ? wp_create_nonce( 'ktp_update_project_name' ) : '',
+                            'nonce'    => $can_edit ? KTPWP_Nonce_Manager::create_business_nonce( 'ktp_update_project_name' ) : '',
                         );
                     },
                 ),
@@ -340,28 +385,28 @@ class KTPWP_Assets {
                     'object' => 'ktp_ajax_object',
                     'data'   => array(
                         'ajax_url' => admin_url( 'admin-ajax.php' ),
-                        'nonce'    => wp_create_nonce( 'ktp_ajax_nonce' ),
+                        'nonce'    => KTPWP_Nonce_Manager::create_business_nonce( 'ktp_ajax_nonce' ),
                     ),
                 ),
             ),
             'ktp-cost-items' => array(
                 'src'       => 'js/ktp-cost-items.js',
                 'deps'      => array( 'jquery', 'jquery-ui-sortable', 'ktp-supplier-selector' ),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-cost-items.js' ),
+                'ver'       => self::asset_version( 'js/ktp-cost-items.js' ),
                 'in_footer' => true,
                 'admin'     => false,
                 'localize'  => array(
                     'object' => 'ktp_ajax_object',
                     'data'   => array(
                         'ajax_url' => admin_url( 'admin-ajax.php' ),
-                        'nonce'    => wp_create_nonce( 'ktp_ajax_nonce' ),
+                        'nonce'    => KTPWP_Nonce_Manager::create_business_nonce( 'ktp_ajax_nonce' ),
                     ),
                 ),
             ),
             'ktp-email-attachment-warnings' => array(
                 'src'       => 'js/ktp-email-attachment-warnings.js',
                 'deps'      => array(),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-email-attachment-warnings.js' ),
+                'ver'       => self::asset_version( 'js/ktp-email-attachment-warnings.js' ),
                 'in_footer' => true,
                 'admin'     => false,
             ),
@@ -375,7 +420,7 @@ class KTPWP_Assets {
                     'object' => 'ktp_ajax_object',
                     'data'   => array(
                         'ajax_url' => admin_url( 'admin-ajax.php' ),
-                        'nonce'    => wp_create_nonce( 'ktpwp_ajax_nonce' ),
+                        'nonce'    => KTPWP_Nonce_Manager::create_business_nonce( 'ktpwp_ajax_nonce' ),
                     ),
                 ),
             ),
@@ -389,21 +434,21 @@ class KTPWP_Assets {
                     'object' => 'ktp_ajax_object',
                     'data'   => array(
                         'ajax_url' => admin_url( 'admin-ajax.php' ),
-                        'nonce'    => wp_create_nonce( 'ktp_ajax_nonce' ),
+                        'nonce'    => KTPWP_Nonce_Manager::create_business_nonce( 'ktp_ajax_nonce' ),
                     ),
                 ),
             ),
             'ktp-service-selector' => array(
                 'src'       => 'js/ktp-service-selector.js',
                 'deps'      => array( 'jquery', 'ktp-invoice-items' ),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-service-selector.js' ),
+                'ver'       => self::asset_version( 'js/ktp-service-selector.js' ),
                 'in_footer' => true,
                 'admin'     => false,
                 'localize'  => array(
                     'object' => 'ktp_service_ajax_object',
                     'data'   => array(
                         'ajax_url' => admin_url( 'admin-ajax.php' ),
-                        'nonce'    => wp_create_nonce( 'ktp_ajax_nonce' ),
+                        'nonce'    => KTPWP_Nonce_Manager::create_business_nonce( 'ktp_ajax_nonce' ),
                     ),
                 ),
             ),
@@ -431,28 +476,28 @@ class KTPWP_Assets {
             'ktp-email-popup' => array(
                 'src'       => 'js/ktp-email-popup.js',
                 'deps'      => array( 'jquery', 'ktp-email-attachment-warnings' ),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-email-popup.js' ),
+                'ver'       => self::asset_version( 'js/ktp-email-popup.js' ),
                 'in_footer' => true,
                 'admin'     => false,
                 'localize'  => array(
                     'object' => 'ktp_ajax_object',
                     'data'   => array(
                         'ajax_url' => admin_url( 'admin-ajax.php' ),
-                        'nonce'    => wp_create_nonce( 'ktpwp_ajax_nonce' ),
+                        'nonce'    => KTPWP_Nonce_Manager::create_business_nonce( 'ktpwp_ajax_nonce' ),
                     ),
                 ),
             ),
             'ktp-order-preview' => array(
                 'src'       => 'js/ktp-order-preview.js',
                 'deps'      => array( 'jquery', 'ktp-svg-icons' ),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-order-preview.js' ),
+                'ver'       => self::asset_version( 'js/ktp-order-preview.js' ),
                 'in_footer' => true,
                 'admin'     => false,
             ),
             'ktp-order-duplicate' => array(
                 'src'       => 'js/ktp-order-duplicate.js',
                 'deps'      => array( 'jquery' ),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-order-duplicate.js' ),
+                'ver'       => self::asset_version( 'js/ktp-order-duplicate.js' ),
                 'in_footer' => true,
                 'admin'     => false,
                 'localize'  => array(
@@ -460,7 +505,7 @@ class KTPWP_Assets {
                     'data'   => function () {
                         return array(
                             'ajax_url' => admin_url( 'admin-ajax.php' ),
-                            'nonce'    => wp_create_nonce( 'ktp_ajax_nonce' ),
+                            'nonce'    => KTPWP_Nonce_Manager::create_business_nonce( 'ktp_ajax_nonce' ),
                         );
                     },
                 ),
@@ -468,14 +513,14 @@ class KTPWP_Assets {
             'ktp-delivery-dates' => array(
                 'src'       => 'js/ktp-delivery-dates.js',
                 'deps'      => array( 'jquery' ),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-delivery-dates.js' ),
+                'ver'       => self::asset_version( 'js/ktp-delivery-dates.js' ),
                 'in_footer' => true,
                 'admin'     => false,
                 'localize'  => array(
                     'object' => 'ktp_ajax',
                     'data'   => array(
                         'ajax_url' => admin_url( 'admin-ajax.php' ),
-                        'nonce'    => wp_create_nonce( 'ktp_ajax_nonce' ),
+                        'nonce'    => KTPWP_Nonce_Manager::create_business_nonce( 'ktp_ajax_nonce' ),
                         'settings' => array(
                             'delivery_warning_days' => KTPWP_Settings::get_delivery_warning_days(),
                         ),
@@ -492,7 +537,7 @@ class KTPWP_Assets {
             'ktp-client-inquiry-block' => array(
                 'src'       => 'js/ktp-client-inquiry-block.js',
                 'deps'      => array( 'jquery', 'ktp-svg-icons' ),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-client-inquiry-block.js' ),
+                'ver'       => self::asset_version( 'js/ktp-client-inquiry-block.js' ),
                 'in_footer' => true,
                 'admin'     => false,
                 'localize'  => array(
@@ -507,7 +552,7 @@ class KTPWP_Assets {
 
                         return array(
                             'ajax_url'  => admin_url( 'admin-ajax.php' ),
-                            'nonce'     => wp_create_nonce( 'ktp_ajax_nonce' ),
+                            'nonce'     => KTPWP_Nonce_Manager::create_business_nonce( 'ktp_ajax_nonce' ),
                             'client_id' => $client_id,
                             'list_url'  => class_exists( 'KTPWP_Main' )
                                 ? remove_query_arg(
@@ -535,28 +580,28 @@ class KTPWP_Assets {
             'ktp-number-format' => array(
                 'src'       => 'js/ktp-number-format.js',
                 'deps'      => array(),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-number-format.js' ),
+                'ver'       => self::asset_version( 'js/ktp-number-format.js' ),
                 'in_footer' => true,
                 'admin'     => false,
             ),
             'ktp-atena-print' => array(
                 'src'       => 'js/ktp-atena-print.js',
                 'deps'      => array(),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-atena-print.js' ),
+                'ver'       => self::asset_version( 'js/ktp-atena-print.js' ),
                 'in_footer' => true,
                 'admin'     => false,
             ),
             'ktp-print-iframe' => array(
                 'src'       => 'js/ktp-print-iframe.js',
                 'deps'      => array(),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-print-iframe.js' ),
+                'ver'       => self::asset_version( 'js/ktp-print-iframe.js' ),
                 'in_footer' => true,
                 'admin'     => false,
             ),
             'ktp-client-invoice' => array(
                 'src'       => 'js/ktp-client-invoice.js',
                 'deps'      => array( 'jquery', 'ktp-svg-icons' ),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-client-invoice.js' ),
+                'ver'       => self::asset_version( 'js/ktp-client-invoice.js' ),
                 'in_footer' => true,
                 'admin'     => false,
                 'localize'  => array(
@@ -566,7 +611,7 @@ class KTPWP_Assets {
                         $pdf_export     = class_exists( 'KTPWP_Pdf_Branding' ) ? KTPWP_Pdf_Branding::export_for_js() : array();
                         $can_resize     = current_user_can( 'manage_options' );
                         $ajax_url       = admin_url( 'admin-ajax.php' );
-                        $nonce          = wp_create_nonce( 'ktp_ajax_nonce' );
+                        $nonce          = KTPWP_Nonce_Manager::create_business_nonce( 'ktp_ajax_nonce' );
                         $bulk_resize    = array();
                         if ( class_exists( 'KTPWP_Pdf_Document_Settings' ) ) {
                             $bulk_resize = array(
@@ -619,35 +664,35 @@ class KTPWP_Assets {
             'ktp-bulk-invoice-seal-resize' => array(
                 'src'       => 'js/ktp-bulk-invoice-seal-resize.js',
                 'deps'      => array( 'ktp-client-invoice' ),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-bulk-invoice-seal-resize.js' ),
+                'ver'       => self::asset_version( 'js/ktp-bulk-invoice-seal-resize.js' ),
                 'in_footer' => true,
                 'admin'     => false,
             ),
             'ktp-bulk-invoice-addressee-drag' => array(
                 'src'       => 'js/ktp-bulk-invoice-addressee-drag.js',
                 'deps'      => array( 'ktp-client-invoice' ),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-bulk-invoice-addressee-drag.js' ),
+                'ver'       => self::asset_version( 'js/ktp-bulk-invoice-addressee-drag.js' ),
                 'in_footer' => true,
                 'admin'     => false,
             ),
             'ktp-bulk-invoice-logo-resize' => array(
                 'src'       => 'js/ktp-bulk-invoice-logo-resize.js',
                 'deps'      => array( 'ktp-client-invoice' ),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-bulk-invoice-logo-resize.js' ),
+                'ver'       => self::asset_version( 'js/ktp-bulk-invoice-logo-resize.js' ),
                 'in_footer' => true,
                 'admin'     => false,
             ),
             'ktp-bulk-invoice-print' => array(
                 'src'       => 'js/ktp-bulk-invoice-print.js',
                 'deps'      => array( 'ktp-print-iframe', 'ktp-client-invoice' ),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-bulk-invoice-print.js' ),
+                'ver'       => self::asset_version( 'js/ktp-bulk-invoice-print.js' ),
                 'in_footer' => true,
                 'admin'     => false,
             ),
             'ktp-service-contract-fields' => array(
                 'src'       => 'js/ktp-service-contract-fields.js',
                 'deps'      => array(),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-service-contract-fields.js' ),
+                'ver'       => self::asset_version( 'js/ktp-service-contract-fields.js' ),
                 'in_footer' => true,
                 'admin'     => false,
                 'localize'  => array(
@@ -664,7 +709,7 @@ class KTPWP_Assets {
             'ktp-client-contract' => array(
                 'src'       => 'js/ktp-client-contract.js',
                 'deps'      => array( 'ktp-svg-icons' ),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-client-contract.js' ),
+                'ver'       => self::asset_version( 'js/ktp-client-contract.js' ),
                 'in_footer' => true,
                 'admin'     => false,
                 'localize'  => array(
@@ -679,7 +724,7 @@ class KTPWP_Assets {
 
                         return array(
                             'ajax_url'       => admin_url( 'admin-ajax.php' ),
-                            'nonce'          => wp_create_nonce( 'ktp_contract_nonce' ),
+                            'nonce'          => KTPWP_Nonce_Manager::create_business_nonce( 'ktp_contract_nonce' ),
                             'client_id'      => $client_id,
                             'stripe_enabled' => class_exists( 'KTPWP_Stripe_Billing' ) && KTPWP_Stripe_Billing::is_enabled(),
                         );
@@ -689,49 +734,49 @@ class KTPWP_Assets {
             'ktp-contract-billing' => array(
                 'src'       => 'js/ktp-contract-billing.js',
                 'deps'      => array(),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-contract-billing.js' ),
+                'ver'       => self::asset_version( 'js/ktp-contract-billing.js' ),
                 'in_footer' => true,
                 'admin'     => false,
                 'localize'  => array(
                     'object' => 'ktpContractBilling',
                     'data'   => array(
                         'ajax_url' => admin_url( 'admin-ajax.php' ),
-                        'nonce'    => wp_create_nonce( 'ktp_contract_billing_nonce' ),
+                        'nonce'    => KTPWP_Nonce_Manager::create_business_nonce( 'ktp_contract_billing_nonce' ),
                     ),
                 ),
             ),
             'ktp-list-print' => array(
                 'src'       => 'js/ktp-list-print.js',
                 'deps'      => array( 'jquery' ),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-list-print.js' ),
+                'ver'       => self::asset_version( 'js/ktp-list-print.js' ),
                 'in_footer' => true,
                 'admin'     => false,
             ),
             'ktp-tab-list-print' => array(
                 'src'       => 'js/ktp-tab-list-print.js',
                 'deps'      => array( 'jquery' ),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-tab-list-print.js' ),
+                'ver'       => self::asset_version( 'js/ktp-tab-list-print.js' ),
                 'in_footer' => true,
                 'admin'     => false,
             ),
             'ktp-list-table-mobile' => array(
                 'src'       => 'js/ktp-list-table-mobile.js',
                 'deps'      => array( 'ktp-svg-icons' ),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-list-table-mobile.js' ),
+                'ver'       => self::asset_version( 'js/ktp-list-table-mobile.js' ),
                 'in_footer' => true,
                 'admin'     => false,
             ),
             'ktp-list-schedule' => array(
                 'src'       => 'js/ktp-list-schedule.js',
                 'deps'      => array(),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-list-schedule.js' ),
+                'ver'       => self::asset_version( 'js/ktp-list-schedule.js' ),
                 'in_footer' => true,
                 'admin'     => false,
             ),
             'ktp-order-delete-confirm' => array(
                 'src'       => 'js/ktp-order-delete-confirm.js',
                 'deps'      => array(),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-order-delete-confirm.js' ),
+                'ver'       => self::asset_version( 'js/ktp-order-delete-confirm.js' ),
                 'in_footer' => true,
                 'admin'     => false,
                 'localize'  => array(
@@ -747,14 +792,14 @@ class KTPWP_Assets {
             'ktp-order-contract' => array(
                 'src'       => 'js/ktp-order-contract.js',
                 'deps'      => array( 'ktp-number-format' ),
-                'ver'       => KTPWP_PLUGIN_VERSION . '.' . filemtime( KTPWP_PLUGIN_DIR . 'js/ktp-order-contract.js' ),
+                'ver'       => self::asset_version( 'js/ktp-order-contract.js' ),
                 'in_footer' => true,
                 'admin'     => false,
                 'localize'  => array(
                     'object' => 'ktpOrderContract',
                     'data'   => array(
                         'ajax_url' => admin_url( 'admin-ajax.php' ),
-                        'nonce'    => wp_create_nonce( 'ktp_order_contract_nonce' ),
+                        'nonce'    => KTPWP_Nonce_Manager::create_business_nonce( 'ktp_order_contract_nonce' ),
                         'icons'    => class_exists( 'KTPWP_SVG_Icons' )
                             ? array(
                                 'delete' => KTPWP_SVG_Icons::get_icon(
@@ -799,8 +844,8 @@ class KTPWP_Assets {
         $current_page = get_query_var( 'pagename' ) ?: get_query_var( 'page_id' );
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'KTPWP_Assets: Frontend assets check - URL: ' . $current_url . ', Page: ' . $current_page . ', Should load: true' );
-            error_log( 'KTPWP_Assets: GET parameters: ' . print_r( $_GET, true ) );
+            ktpwp_debug_log( 'KTPWP_Assets: Frontend assets check - URL: ' . $current_url . ', Page: ' . $current_page . ', Should load: true' );
+            ktpwp_debug_log( 'KTPWP_Assets: GET parameters: ' . print_r( $_GET, true ) );
         }
 
         $this->enqueue_styles( false );
@@ -823,7 +868,7 @@ class KTPWP_Assets {
         }
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'KTPWP_Assets: Frontend assets enqueued for KantanPro page' );
+            ktpwp_debug_log( 'KTPWP_Assets: Frontend assets enqueued for KantanPro page' );
         }
     }
 
@@ -835,7 +880,7 @@ class KTPWP_Assets {
     public function enqueue_admin_assets( $hook_suffix ) {
         // デバッグ: フック名を出力
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'KTPWP_Assets: Admin assets enqueue called for hook: ' . $hook_suffix );
+            ktpwp_debug_log( 'KTPWP_Assets: Admin assets enqueue called for hook: ' . $hook_suffix );
         }
 
         $this->enqueue_admin_menu_icons();
@@ -860,7 +905,7 @@ class KTPWP_Assets {
         }
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'KTPWP_Assets: Admin assets enqueued for hook: ' . $hook_suffix );
+            ktpwp_debug_log( 'KTPWP_Assets: Admin assets enqueued for hook: ' . $hook_suffix );
         }
     }
 
@@ -898,9 +943,9 @@ class KTPWP_Assets {
                 // プラグインバージョンにファイル更新時刻を付加する）
                 $version = isset( $style['ver'] ) ? $style['ver'] : KTPWP_PLUGIN_VERSION;
                 if ( ! empty( $style['src'] ) ) {
-                    $file_path = plugin_dir_path( dirname( __FILE__ ) ) . ltrim( $style['src'], '/' );
-                    if ( file_exists( $file_path ) ) {
-                        $version .= '.' . filemtime( $file_path );
+                    $mtime = self::asset_mtime( $style['src'] );
+                    if ( $mtime > 0 ) {
+                        $version .= '.' . $mtime;
                     }
                 }
                 
@@ -1029,7 +1074,7 @@ class KTPWP_Assets {
 
 
                     if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                        error_log( 'KTPWP Assets: Admin AJAX config added for ktp-js with unified nonce: ' . json_encode( $ajax_data ) );
+                        ktpwp_debug_log( 'KTPWP Assets: Admin AJAX config added for ktp-js with unified nonce: ' . json_encode( $ajax_data ) );
                     }
                 }
 
@@ -1044,14 +1089,14 @@ class KTPWP_Assets {
     private function localize_frontend_scripts() {
         // デバッグログ
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'KTPWP Assets: localize_frontend_scripts called' );
+            ktpwp_debug_log( 'KTPWP Assets: localize_frontend_scripts called' );
         }
 
         // 統一されたAJAX設定を使用
         $ajax_data = $this->get_unified_ajax_config();
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'KTPWP Assets: AJAX data prepared with unified nonce: ' . json_encode( $ajax_data ) );
+            ktpwp_debug_log( 'KTPWP Assets: AJAX data prepared with unified nonce: ' . json_encode( $ajax_data ) );
         }
 
         wp_add_inline_script( 'ktp-js', 'var ktp_ajax_object = ' . json_encode( $ajax_data ) . ';' );
@@ -1068,7 +1113,7 @@ class KTPWP_Assets {
 
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'KTPWP Assets: Inline scripts added with unified nonce' );
+            ktpwp_debug_log( 'KTPWP Assets: Inline scripts added with unified nonce' );
         }
     }
 
@@ -1082,7 +1127,7 @@ class KTPWP_Assets {
         // スクリプトが登録されているかチェック
         if ( ! wp_script_is( $handle, 'registered' ) ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( "KTPWP: Script handle '{$handle}' is not registered for localization." );
+                ktpwp_debug_log( "KTPWP: Script handle '{$handle}' is not registered for localization." );
             }
             return;
         }
@@ -1090,7 +1135,7 @@ class KTPWP_Assets {
         // ローカライズデータが配列でない場合は処理しない
         if ( ! is_array( $localize_data ) ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( "KTPWP: Localize data for '{$handle}' must be an array." );
+                ktpwp_debug_log( "KTPWP: Localize data for '{$handle}' must be an array." );
             }
             return;
         }
@@ -1117,7 +1162,7 @@ class KTPWP_Assets {
             $localize_array = is_array( $data ) ? $data : array( 'value' => $data );
             wp_localize_script( $handle, $localize_data['object'], $localize_array );
         } elseif ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( "KTPWP: Invalid localize data format for '{$handle}'. Expected 'object' and 'data' keys." );
+                ktpwp_debug_log( "KTPWP: Invalid localize data format for '{$handle}'. Expected 'object' and 'data' keys." );
         }
     }
 
@@ -1239,7 +1284,7 @@ class KTPWP_Assets {
         echo '</script>';
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'KTPWP Assets: AJAX config output in head (debug mode): ' . json_encode( $ajax_data ) );
+            ktpwp_debug_log( 'KTPWP Assets: AJAX config output in head (debug mode): ' . json_encode( $ajax_data ) );
         }
     }
 
@@ -1264,7 +1309,7 @@ class KTPWP_Assets {
         echo '</script>';
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'KTPWP Assets: Fallback AJAX config output in footer (debug mode)' );
+            ktpwp_debug_log( 'KTPWP Assets: Fallback AJAX config output in footer (debug mode)' );
         }
     }
 

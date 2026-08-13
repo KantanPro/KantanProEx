@@ -73,6 +73,20 @@ if ( ! class_exists( 'KTPWP_Order' ) ) {
 		/**
 		 * Get the order table schema.
 		 *
+		 * wp_ktp_order の唯一の正典スキーマ。
+		 *
+		 * 以前はこのメソッドが order_number / order_status / delivery_date_1..3 /
+		 * client_company などを含む別系統の定義を返しており、
+		 * 実際に使われている定義（time / progress / customer_name / search_field 系）と
+		 * 矛盾していた。ktp_table_setup() はこの戻り値を dbDelta に渡すため、
+		 * 20250703_sync_production_to_local_structure が「未使用」として削除した
+		 * カラムを毎回復活させてしまううえ、UNIQUE KEY order_number が空文字のまま
+		 * 付与されると 2 件目以降の受注書登録が重複エラーで失敗しうる状態だった。
+		 *
+		 * ここでは実際に運用されている構造（KTPWP_Settings が作成する構造）に統一し、
+		 * dbDelta が既存テーブルに対して何も変更しないようにする。
+		 * カラム追加は今後もこの定義ではなく includes/migrations/ で行うこと。
+		 *
 		 * @return string The SQL for creating the order table.
 		 */
 		public function get_schema() {
@@ -81,39 +95,22 @@ if ( ! class_exists( 'KTPWP_Order' ) ) {
 			$charset_collate = $wpdb->get_charset_collate();
 
 			$sql = "CREATE TABLE {$table_name} (
-				id int(11) NOT NULL AUTO_INCREMENT,
-				order_number varchar(50) NOT NULL COMMENT '受注番号',
-				client_id int(11) NOT NULL COMMENT 'クライアントID',
-				project_name varchar(255) NOT NULL COMMENT 'プロジェクト名',
-				order_date date NOT NULL COMMENT '受注日',
-				desired_delivery_date date NULL DEFAULT NULL COMMENT '希望納期',
-				expected_delivery_date date NULL DEFAULT NULL COMMENT '納品予定日',
-				completion_date date NULL DEFAULT NULL COMMENT '完了日',
-				closing_day varchar(50) NULL DEFAULT NULL COMMENT '締め日',
-				payment_month varchar(50) NULL DEFAULT NULL COMMENT '支払月',
-				payment_day varchar(50) NULL DEFAULT NULL COMMENT '支払日',
-				payment_method varchar(100) NULL DEFAULT NULL COMMENT '支払方法',
-				tax_category varchar(100) NULL DEFAULT '税込' COMMENT '税区分',
-				company_name varchar(255) NULL DEFAULT NULL COMMENT '会社名',
-				delivery_date_1 date NULL DEFAULT NULL COMMENT '納期1',
-				delivery_date_2 date NULL DEFAULT NULL COMMENT '納期2',
-				delivery_date_3 date NULL DEFAULT NULL COMMENT '納期3',
-				delivery_status_1 varchar(50) NULL DEFAULT 'pending' COMMENT '納期1のステータス',
-				delivery_status_2 varchar(50) NULL DEFAULT 'pending' COMMENT '納期2のステータス',
-				delivery_status_3 varchar(50) NULL DEFAULT 'pending' COMMENT '納期3のステータス',
-				client_company varchar(255) NULL DEFAULT NULL COMMENT 'クライアント会社名',
-				order_status varchar(50) NULL DEFAULT 'draft' COMMENT '受注ステータス',
-				payment_timing varchar(20) NULL DEFAULT NULL COMMENT '支払タイミング（NULL=顧客に従う, postpay, prepay）',
-				external_source varchar(50) NULL DEFAULT NULL COMMENT '連携元（例: woocommerce）',
-				external_order_id varchar(100) NULL DEFAULT NULL COMMENT '外部注文ID',
-				total_amount decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '合計金額',
-				status varchar(20) NOT NULL DEFAULT 'pending' COMMENT 'ステータス',
-				created_at timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '作成日時',
-				updated_at timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日時',
+				id MEDIUMINT(9) NOT NULL AUTO_INCREMENT,
+				time BIGINT(11) DEFAULT 0 NOT NULL,
+				client_id MEDIUMINT(9) DEFAULT NULL,
+				customer_name VARCHAR(100) NOT NULL,
+				company_name VARCHAR(255) DEFAULT NULL,
+				user_name TINYTEXT,
+				project_name VARCHAR(255),
+				progress TINYINT(1) NOT NULL DEFAULT 1,
+				invoice_items TEXT,
+				cost_items TEXT,
+				memo TEXT,
+				search_field TEXT,
+				created_at datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
+				updated_at datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
 				PRIMARY KEY  (id),
-				UNIQUE KEY order_number (order_number),
-				KEY client_id (client_id),
-				KEY order_date (order_date)
+				KEY client_id (client_id)
 			) {$charset_collate};";
 
 			return $sql;
@@ -372,7 +369,7 @@ if ( ! class_exists( 'KTPWP_Order' ) ) {
 			);
 
 			if ( $result === false ) {
-				error_log( 'KTPWP: Failed to create order: ' . $wpdb->last_error );
+				ktpwp_debug_log( 'KTPWP: Failed to create order: ' . $wpdb->last_error );
 				return false;
 			}
 
@@ -432,7 +429,7 @@ if ( ! class_exists( 'KTPWP_Order' ) ) {
 			);
 
 			if ( $result === false ) {
-				error_log( 'KTPWP: Failed to update order ' . $order_id . ': ' . $wpdb->last_error );
+				ktpwp_debug_log( 'KTPWP: Failed to update order ' . $order_id . ': ' . $wpdb->last_error );
 				return false;
 			}
 
@@ -468,7 +465,7 @@ if ( ! class_exists( 'KTPWP_Order' ) ) {
 			);
 
 			if ( $result === false ) {
-				error_log( 'KTPWP: Failed to delete order ' . $order_id . ': ' . $wpdb->last_error );
+				ktpwp_debug_log( 'KTPWP: Failed to delete order ' . $order_id . ': ' . $wpdb->last_error );
 				return false;
 			}
 

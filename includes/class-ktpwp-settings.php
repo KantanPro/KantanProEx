@@ -1096,7 +1096,7 @@ class KTPWP_Settings {
         
         // デバッグ時のみ、予期しない出力があればログに記録
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG && ! empty( $output ) ) {
-            error_log( 'KTPWP: KTPWP_Settings::activate中に予期しない出力を検出: ' . substr( $output, 0, 1000 ) );
+            ktpwp_debug_log( 'KTPWP: KTPWP_Settings::activate中に予期しない出力を検出: ' . substr( $output, 0, 1000 ) );
         }
     }
 
@@ -1127,8 +1127,14 @@ class KTPWP_Settings {
         dbDelta( $sql_client );
 
         // wp_ktp_order テーブル
+        // 正典スキーマは KTPWP_Order::get_schema() に一本化している。
+        // ここで定義を複製すると、片方だけ更新されたときに dbDelta が
+        // 互いのカラムを打ち消し合うため、必ず参照で取得すること。
         $table_name_order = $wpdb->prefix . 'ktp_order';
-        $sql_order = "CREATE TABLE $table_name_order (
+        if ( class_exists( 'KTPWP_Order' ) && method_exists( 'KTPWP_Order', 'get_instance' ) ) {
+            $sql_order = KTPWP_Order::get_instance()->get_schema();
+        } else {
+            $sql_order = "CREATE TABLE $table_name_order (
             id MEDIUMINT(9) NOT NULL AUTO_INCREMENT,
             time BIGINT(11) DEFAULT 0 NOT NULL,
             client_id MEDIUMINT(9) DEFAULT NULL,
@@ -1141,11 +1147,12 @@ class KTPWP_Settings {
             cost_items TEXT,
             memo TEXT,
             search_field TEXT,
-            created_at datetime DEFAULT '0000-00-00 00:00:00' NOT NULL, 
+            created_at datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
             updated_at datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
             PRIMARY KEY  (id),
-            KEY client_id (client_id) 
+            KEY client_id (client_id)
         ) $charset_collate;";
+        }
         dbDelta( $sql_order );
 
         // テーブル作成後、AUTO_INCREMENTカウンターを確実に1に設定
@@ -1306,7 +1313,7 @@ class KTPWP_Settings {
 			KTPWP_FM_Import::render_admin_page();
 		} catch ( \Throwable $e ) {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
-				error_log( 'KTPWP create_fm_import_page: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine() );
+				ktpwp_debug_log( 'KTPWP create_fm_import_page: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine() );
 			}
 			if ( ! current_user_can( 'manage_options' ) ) {
 				wp_die( esc_html__( 'このページにアクセスする権限がありません。', 'ktpwp' ) );
@@ -2415,7 +2422,7 @@ class KTPWP_Settings {
         // メールアドレスが存在しない場合は送信しない
         if ( empty( $user_obj->user_email ) ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( 'KTPWP Staff Notification: メールアドレスが未設定のため通知を送信できません (User ID: ' . $user_obj->ID . ')' );
+                ktpwp_debug_log( 'KTPWP Staff Notification: メールアドレスが未設定のため通知を送信できません (User ID: ' . $user_obj->ID . ')' );
             }
             return false;
         }
@@ -2482,7 +2489,7 @@ class KTPWP_Settings {
         // ログ出力（詳細なエラー情報を含む）
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
             if ( $sent ) {
-                error_log( 'KTPWP Staff Notification: ' . $action . ' 通知メールを送信しました (User: ' . $display_name . ', Email: ' . $to . ')' );
+                ktpwp_debug_log( 'KTPWP Staff Notification: ' . $action . ' 通知メールを送信しました (User: ' . $display_name . ', Email: ' . $to . ')' );
             } else {
                 // PHPMailerのエラー情報を取得
                 global $phpmailer;
@@ -2490,7 +2497,7 @@ class KTPWP_Settings {
                 if ( isset( $phpmailer ) && is_object( $phpmailer ) && ! empty( $phpmailer->ErrorInfo ) ) {
                     $error_message = $phpmailer->ErrorInfo;
                 }
-                error_log( 'KTPWP Staff Notification: ' . $action . ' 通知メールの送信に失敗しました (User: ' . $display_name . ', Email: ' . $to . ', Error: ' . $error_message . ')' );
+                ktpwp_debug_log( 'KTPWP Staff Notification: ' . $action . ' 通知メールの送信に失敗しました (User: ' . $display_name . ', Email: ' . $to . ', Error: ' . $error_message . ')' );
             }
         }
 
@@ -4036,7 +4043,7 @@ class KTPWP_Settings {
             }
         } catch ( Throwable $e ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				error_log( $e->getMessage() ); }
+				ktpwp_debug_log( $e->getMessage() ); }
         }
     }
 
@@ -4078,10 +4085,10 @@ class KTPWP_Settings {
             if ( isset( $phpmailer ) && is_object( $phpmailer ) ) {
                 $error_message = $phpmailer->ErrorInfo;
                 if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-					error_log( 'KTPWP SMTPテストメール送信失敗: ' . $error_message ); }
+					ktpwp_debug_log( 'KTPWP SMTPテストメール送信失敗: ' . $error_message ); }
             } else {
                 $error_message = __( 'PHPMailerインスタンスが取得できませんでした', 'ktpwp' );
-                error_log( 'KTPWP SMTPテストメール送信失敗: ' . $error_message );
+                ktpwp_debug_log( 'KTPWP SMTPテストメール送信失敗: ' . $error_message );
             }
 
             $this->test_mail_message = __( 'テストメールの送信に失敗しました。SMTP設定をご確認ください。', 'ktpwp' );
@@ -5732,7 +5739,7 @@ define( 'WP_DEBUG_DISPLAY', false );
             self::check_log_rotation( $log_file );
 
             // ログファイルに書き込み
-            error_log( $log_message );
+            ktpwp_debug_log( $log_message );
         }
     }
 
@@ -5794,7 +5801,7 @@ define( 'WP_DEBUG_DISPLAY', false );
                 self::cleanup_old_logs( dirname( $log_file ) );
                 
                 if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                    error_log( 'KTPWP: Log rotated - ' . basename( $backup_file ) );
+                    ktpwp_debug_log( 'KTPWP: Log rotated - ' . basename( $backup_file ) );
                 }
             }
         }
@@ -5814,7 +5821,7 @@ define( 'WP_DEBUG_DISPLAY', false );
             if ( filemtime( $file ) < $cutoff_time ) {
                 unlink( $file );
                 if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                    error_log( 'KTPWP: Cleaned up old log file - ' . basename( $file ) );
+                    ktpwp_debug_log( 'KTPWP: Cleaned up old log file - ' . basename( $file ) );
                 }
             }
         }
@@ -5847,7 +5854,7 @@ define( 'WP_DEBUG_DISPLAY', false );
         $iv = self::get_encryption_iv();
         
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'KTPWP Encryption: Using site-specific encryption key' );
+            ktpwp_debug_log( 'KTPWP Encryption: Using site-specific encryption key' );
         }
         
         return base64_encode( openssl_encrypt( $plain_text, 'AES-256-CBC', $key, 0, $iv ) );
@@ -5865,7 +5872,7 @@ define( 'WP_DEBUG_DISPLAY', false );
         $iv = self::get_encryption_iv();
         
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'KTPWP Decryption: Using site-specific encryption key' );
+            ktpwp_debug_log( 'KTPWP Decryption: Using site-specific encryption key' );
         }
         
         $decrypted = openssl_decrypt( base64_decode( $encrypted_text ), 'AES-256-CBC', $key, 0, $iv );
@@ -5882,7 +5889,7 @@ define( 'WP_DEBUG_DISPLAY', false );
         $iv = self::get_encryption_iv();
         
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'KTPWP Encryption Static: Using site-specific encryption key' );
+            ktpwp_debug_log( 'KTPWP Encryption Static: Using site-specific encryption key' );
         }
         
         return base64_encode( openssl_encrypt( $plain_text, 'AES-256-CBC', $key, 0, $iv ) );
@@ -5897,7 +5904,7 @@ define( 'WP_DEBUG_DISPLAY', false );
         $iv = self::get_encryption_iv();
         
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( 'KTPWP Decryption Static: Using site-specific encryption key' );
+            ktpwp_debug_log( 'KTPWP Decryption Static: Using site-specific encryption key' );
         }
         
         $decrypted = openssl_decrypt( base64_decode( $encrypted_text ), 'AES-256-CBC', $key, 0, $iv );

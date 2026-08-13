@@ -125,7 +125,7 @@ class KTPWP_Image_Optimizer {
             $upload['webp_file'] = $webp_file;
             
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                error_log( "KTPWP Image Optimizer: WebP converted - {$upload['file']} -> {$webp_file}" );
+                ktpwp_debug_log( "KTPWP Image Optimizer: WebP converted - {$upload['file']} -> {$webp_file}" );
             }
         }
         
@@ -205,7 +205,7 @@ class KTPWP_Image_Optimizer {
                 
                 if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
                     $reduction_percent = round( ( $size_reduction / $original_size ) * 100, 2 );
-                    error_log( "KTPWP Image Optimizer: WebP conversion successful - Size reduction: {$reduction_percent}%" );
+                    ktpwp_debug_log( "KTPWP Image Optimizer: WebP conversion successful - Size reduction: {$reduction_percent}%" );
                 }
                 
                 return $webp_path;
@@ -594,7 +594,7 @@ class KTPWP_Image_Optimizer {
                 update_option( 'ktpwp_htaccess_webp_updated', true );
                 
                 if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                    error_log( 'KTPWP Image Optimizer: .htaccess updated with WebP rules' );
+                    ktpwp_debug_log( 'KTPWP Image Optimizer: .htaccess updated with WebP rules' );
                 }
             }
         }

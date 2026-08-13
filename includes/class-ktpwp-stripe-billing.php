@@ -385,7 +385,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 
 				$stripe->accounts->update( $account->id, $update );
 			} catch ( Exception $e ) {
-				error_log( 'KTPWP Stripe sync business_profile: ' . $e->getMessage() );
+				ktpwp_debug_log( 'KTPWP Stripe sync business_profile: ' . $e->getMessage() );
 			}
 		}
 
@@ -482,7 +482,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 
 			if ( $type === 'invoice.payment_failed' ) {
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-					error_log( 'KTPWP Stripe: invoice.payment_failed received' );
+					ktpwp_debug_log( 'KTPWP Stripe: invoice.payment_failed received' );
 				}
 				return;
 			}
@@ -611,7 +611,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 			$result = $this->prepare_invoice_for_order( (int) $order->id, $finalize_preview );
 			if ( is_wp_error( $result ) ) {
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-					error_log( 'KTPWP Stripe preview: ' . $result->get_error_message() );
+					ktpwp_debug_log( 'KTPWP Stripe preview: ' . $result->get_error_message() );
 				}
 				$body .= "\n\n" . sprintf(
 					/* translators: %s: error message */
@@ -1270,7 +1270,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				$existing = $stripe->invoices->retrieve( (string) $order->stripe_invoice_id );
 			} catch ( Exception $e ) {
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-					error_log( 'KTPWP Stripe retrieve existing: ' . $e->getMessage() );
+					ktpwp_debug_log( 'KTPWP Stripe retrieve existing: ' . $e->getMessage() );
 				}
 
 				return null;
@@ -1289,7 +1289,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 					$stripe->invoices->voidInvoice( $existing->id );
 				} catch ( Exception $e ) {
 					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-						error_log( 'KTPWP Stripe void stale invoice: ' . $e->getMessage() );
+						ktpwp_debug_log( 'KTPWP Stripe void stale invoice: ' . $e->getMessage() );
 					}
 				}
 
@@ -1319,7 +1319,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				$stripe->invoices->voidInvoice( $existing->id );
 			} catch ( Exception $e ) {
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-					error_log( 'KTPWP Stripe void draft invoice: ' . $e->getMessage() );
+					ktpwp_debug_log( 'KTPWP Stripe void draft invoice: ' . $e->getMessage() );
 				}
 			}
 
@@ -1361,7 +1361,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 						return $stored_id;
 					} catch ( Exception $e ) {
 						if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-							error_log( 'KTPWP Stripe customer stale, recreating: ' . $e->getMessage() );
+							ktpwp_debug_log( 'KTPWP Stripe customer stale, recreating: ' . $e->getMessage() );
 						}
 						if ( $this->client_table_has_column( 'stripe_customer_id' ) ) {
 							$wpdb->update(
@@ -1555,7 +1555,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 					return $this->sync_public_checkout_session_for_order( $order_id, $session );
 				} catch ( Exception $e ) {
 					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-						error_log( 'KTPWP Stripe checkout sync: ' . $e->getMessage() );
+						ktpwp_debug_log( 'KTPWP Stripe checkout sync: ' . $e->getMessage() );
 					}
 					return false;
 				}
@@ -1577,7 +1577,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				return true;
 			} catch ( Exception $e ) {
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-					error_log( 'KTPWP Stripe sync: ' . $e->getMessage() );
+					ktpwp_debug_log( 'KTPWP Stripe sync: ' . $e->getMessage() );
 				}
 				return false;
 			}
@@ -1799,7 +1799,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				}
 			} catch ( Exception $e ) {
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-					error_log( 'KTPWP Stripe void: ' . $e->getMessage() );
+					ktpwp_debug_log( 'KTPWP Stripe void: ' . $e->getMessage() );
 				}
 			}
 		}
