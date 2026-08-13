@@ -169,16 +169,22 @@ echo -e "\n[7.5/8] JS/CSS を最小化中（配布ビルドのみ・ソースは
 #   - 行コメント(//) はURL(http://)や正規表現を壊しうるため触らない
 #   - ブロックコメント(/* */) と行頭・行末の空白、空行のみを削除する
 # これだけでも未圧縮の JS 約1.2MB / CSS 約230KB から確実に削れる。
-MINIFY_BEFORE=$(find "${BUILD_DIR}" \( -name "*.js" -o -name "*.css" \) -type f -exec cat {} + 2>/dev/null | wc -c | tr -d ' ')
+MINIFY_BEFORE=$(find "${BUILD_DIR}" \( -name "*.js" -o -name "*.css" \) -type f -exec cat {} + 2>/dev/null | wc -c | tr -d ' ' || echo 0)
 
 minify_asset_file() {
     local target="$1"
     local tmp="${target}.min.tmp"
 
+    # 空ファイル・空行のみのファイルは対象外（grep が 1 を返し set -e で落ちるため）
+    if [ ! -s "$target" ]; then
+        return 0
+    fi
+
     # /* ... */ を削除 → 行頭/行末空白を除去 → 空行を除去
-    perl -0777 -pe 's{/\*.*?\*/}{}gs' "$target" \
+    # set -e / pipefail 環境でも中断しないよう、失敗しても続行する
+    { perl -0777 -pe 's{/\*.*?\*/}{}gs' "$target" \
         | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' \
-        | grep -v '^$' > "$tmp" 2>/dev/null
+        | grep -v '^$' > "$tmp" 2>/dev/null; } || true
 
     # 生成物が空、または元より大きい場合は縮小せず元を残す（安全弁）
     if [ -s "$tmp" ] && [ "$(wc -c < "$tmp")" -le "$(wc -c < "$target")" ]; then
@@ -186,6 +192,8 @@ minify_asset_file() {
     else
         rm -f "$tmp"
     fi
+
+    return 0
 }
 
 MINIFIED_COUNT=0
@@ -194,7 +202,7 @@ while IFS= read -r -d '' asset; do
     MINIFIED_COUNT=$((MINIFIED_COUNT + 1))
 done < <(find "${BUILD_DIR}" \( -name "*.js" -o -name "*.css" \) -type f -print0)
 
-MINIFY_AFTER=$(find "${BUILD_DIR}" \( -name "*.js" -o -name "*.css" \) -type f -exec cat {} + 2>/dev/null | wc -c | tr -d ' ')
+MINIFY_AFTER=$(find "${BUILD_DIR}" \( -name "*.js" -o -name "*.css" \) -type f -exec cat {} + 2>/dev/null | wc -c | tr -d ' ' || echo 0)
 echo "  - 対象ファイル数: ${MINIFIED_COUNT}"
 echo "  - サイズ: ${MINIFY_BEFORE} バイト → ${MINIFY_AFTER} バイト"
 echo "  - 完了"
