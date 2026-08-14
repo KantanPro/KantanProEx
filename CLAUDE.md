@@ -76,6 +76,32 @@ This repo ships as **4 edition ZIPs** (pro/solo/team/business) via `./scripts/bu
 - ZIP must not include `.md` files, `vendor/`, `create_dummy_data.php`, `*.po`/`*.pot`, or nested `*.zip`; must be under 3MB; edition constants (`KTPWP_EDITION`/`KTPWP_STAFF_LIMIT`/`KANTANPRO_PLUGIN_NAME`) must match the variant.
 - Never release without the required "✅ リリース完了" / "❌ リリース未実施" summary line the rule specifies.
 
+### One-line release triggers
+
+When the user types one of these **alone as their whole message**, treat it as the full release request — read `.cursor/rules/release-workflow-bundle.mdc` and run that section end-to-end without asking for the details again. Don't ask "which version number?" — derive it (see below) and proceed.
+
+| 入力 | 意味 | 実施範囲 |
+|---|---|---|
+| `リリースA` / `リリースEX` | 手順書の **A. EX のみ GitHub Release** | 有料版のみ。無料版は対象外 |
+| `リリースB` / `リリース一式` | 手順書の **B. フリー版 ZIP + EX Release まとめて（配布一式）** | 無料版 + 有料版の両方 |
+
+Repos and absolute paths (the rule body's older relative paths are wrong — use these):
+
+| 版 | ローカルパス | GitHub | asset |
+|---|---|---|---|
+| 無料版 KantanPro | `/Users/kantanpro/Desktop/KantanPro-free-test/wp-content/plugins/KantanPro` | `KantanPro/KantanPro` | ZIP 1件 |
+| 有料版 KantanProEX | `/Users/kantanpro/Desktop/KantanPro/wordpress/wp-content/plugins/KantanProEX` | `KantanPro/KantanProEx` | ZIP 4件 |
+
+Fixed behavior for both triggers, so a one-liner is enough:
+- **Version number**: bump patch from the current `ktpwp.php` `Version`. If the local `Version` is already ahead of the newest GitHub Release (an unreleased bump), don't reuse that number — bump past it. 無料 1.3.x / 有料 1.4.x は別系統。
+- **Version bump locations**: 無料は `ktpwp.php` / `readme.txt`（Stable tag + changelog）/ `plugin_config.json` の `default_version` の3ファイル。有料は前2つ。
+- **Changelog / release notes**: 日本語。エンドユーザー向けに「何が直ったか」を書く（内部関数名は書かない）。
+- **Commit**: 日本語メッセージ + `git push origin main`、その後 `git tag v{version} && git push origin v{version}`。
+- **Verify before reporting**: ZIP 検証（`unzip -t` / 3MB未満 / 同梱 Version 一致 / 除外ファイル / エディション定数）を実行し、有料版は公開後の `release-assets.yml` が success か `gh run list` で確認する。
+- **Report**: 手順書の「回答形式（必須）」どおり。冒頭に ✅/❌、両版の URL・zipballUrl・asset・ローカル ZIP パス・解凍後フォルダ名・コミットハッシュ。
+
+Only stop and ask if a genuine blocker appears (build fails, acceptance check fails, working tree has unrelated uncommitted changes).
+
 ## Commit messages
 
 Always write commit messages in Japanese, concise form like `〇〇を追加` / `〇〇を修正` / `〇〇のバグを修正` — never English one-liners (`fix: foo`). Applies to Cursor SCM/agent-generated messages too.
