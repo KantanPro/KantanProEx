@@ -52,7 +52,16 @@ class KTPWP_Update_Checker {
      * ヘッダーバッジ用の更新チェック間隔（秒）
      */
     private $badge_check_interval = 3600;
-    
+
+    /**
+     * 直近の更新チェックが GitHub への到達失敗で終わったか
+     *
+     * true のときは「最新版」ではなく「取得できなかった」を意味する。
+     *
+     * @var bool
+     */
+    private $last_check_failed = false;
+
     /**
      * フロントエンド通知の実行フラグ
      */
@@ -891,9 +900,50 @@ class KTPWP_Update_Checker {
     }
 
     /**
+     * 直近の更新チェックが GitHub 到達失敗で終わったか
+     *
+     * @return bool
+     */
+    public function last_check_failed() {
+        return (bool) $this->last_check_failed;
+    }
+
+    /**
+     * GitHub API のレート制限による失敗レスポンスか
+     *
+     * GitHub は一次レート制限の超過を 403 + X-RateLimit-Remaining: 0 で返す。
+     * 二次レート制限のみ 429 のため、403 も判定対象に含める必要がある。
+     *
+     * @param array|WP_Error $response wp_remote_get のレスポンス
+     * @return bool
+     */
+    private function is_rate_limited_response( $response ) {
+        if ( is_wp_error( $response ) ) {
+            return false;
+        }
+
+        $response_code = (int) wp_remote_retrieve_response_code( $response );
+        if ( $response_code === 429 ) {
+            return true;
+        }
+
+        if ( $response_code !== 403 ) {
+            return false;
+        }
+
+        $remaining = wp_remote_retrieve_header( $response, 'x-ratelimit-remaining' );
+        if ( $remaining !== '' && (int) $remaining === 0 ) {
+            return true;
+        }
+
+        return (bool) preg_match( '/rate limit/i', (string) wp_remote_retrieve_body( $response ) );
+    }
+
+    /**
      * 最新の公開済みGitHub Releaseを取得する
      *
      * /releases/latest が取れない場合は /releases の先頭から draft/prerelease を除外して取得する。
+     * API へ到達できなかった場合は $this->last_check_failed を立てる（「最新版」と区別するため）。
      *
      * @return array|false
      */
@@ -925,9 +975,10 @@ class KTPWP_Update_Checker {
             } else {
                 $response_code = wp_remote_retrieve_response_code( $response );
                 ktpwp_debug_log( 'KantanPro: GitHub latest APIレスポンス: ' . $response_code . ' - ' . wp_remote_retrieve_body( $response ) );
-                if ( (int) $response_code === 429 && is_array( $cached ) ) {
-                    ktpwp_debug_log( 'KantanPro: GitHub API レート制限のためキャッシュ済み Release を使用します' );
-                    return $cached;
+                if ( $this->is_rate_limited_response( $response ) ) {
+                    ktpwp_debug_log( 'KantanPro: GitHub API レート制限を検出しました（latest）' );
+                    $this->last_check_failed = true;
+                    return is_array( $cached ) ? $cached : false;
                 }
             }
         }
@@ -938,21 +989,23 @@ class KTPWP_Update_Checker {
 
         if ( is_wp_error( $list_response ) ) {
             ktpwp_debug_log( 'KantanPro: GitHub releases API接続エラー: ' . $list_response->get_error_message() );
+            $this->last_check_failed = true;
             return is_array( $cached ) ? $cached : false;
         }
 
         $response_code = wp_remote_retrieve_response_code( $list_response );
         if ( $response_code !== 200 ) {
             ktpwp_debug_log( 'KantanPro: GitHub releases API エラーレスポンス: ' . $response_code . ' - ' . wp_remote_retrieve_body( $list_response ) );
-            if ( (int) $response_code === 429 && is_array( $cached ) ) {
-                ktpwp_debug_log( 'KantanPro: GitHub API レート制限のためキャッシュ済み Release を使用します' );
-                return $cached;
+            if ( $this->is_rate_limited_response( $list_response ) ) {
+                ktpwp_debug_log( 'KantanPro: GitHub API レート制限を検出しました（一覧）' );
             }
-            return false;
+            $this->last_check_failed = true;
+            return is_array( $cached ) ? $cached : false;
         }
 
         $releases = json_decode( wp_remote_retrieve_body( $list_response ), true );
         if ( ! is_array( $releases ) ) {
+            $this->last_check_failed = true;
             return is_array( $cached ) ? $cached : false;
         }
 
@@ -966,6 +1019,7 @@ class KTPWP_Update_Checker {
             }
         }
 
+        $this->last_check_failed = true;
         return is_array( $cached ) ? $cached : false;
     }
     
@@ -1323,6 +1377,12 @@ class KTPWP_Update_Checker {
                 'update_data' => $status['update_data'],
                 'debug_info' => $debug_info
             ) );
+        } elseif ( $this->last_check_failed() ) {
+            wp_send_json_error( array(
+                'message' => __( '更新情報を取得できませんでした。時間をおいて再度お試しください。', 'ktpwp' ),
+                'error_type' => 'fetch_failed',
+                'debug_info' => $debug_info
+            ) );
         } else {
             wp_send_json_success( array(
                 'message' => __( '最新バージョンです。', 'ktpwp' ),
@@ -1337,6 +1397,8 @@ class KTPWP_Update_Checker {
      * GitHub更新チェック
      */
     public function check_github_updates() {
+        $this->last_check_failed = false;
+
         // 更新通知が無効の場合は何もしない
         if ( ! $this->is_update_notification_enabled() ) {
             ktpwp_debug_log( 'KantanPro: 更新通知が無効のため、更新チェックをスキップします' );
@@ -1365,6 +1427,7 @@ class KTPWP_Update_Checker {
             $data = $this->get_latest_github_release();
             if ( ! $data ) {
                 ktpwp_debug_log( 'KantanPro: GitHub Release情報を取得できませんでした' );
+                $this->last_check_failed = true;
                 $existing = get_option( 'ktpwp_update_available', false );
                 if ( is_array( $existing ) && $this->has_header_update_badge() ) {
                     ktpwp_debug_log( 'KantanPro: GitHub 取得失敗のため保存済み更新情報を維持します' );
@@ -1372,7 +1435,7 @@ class KTPWP_Update_Checker {
                 }
                 return false;
             }
-            
+
             $latest_version = $this->clean_version( $data['tag_name'] );
             $current_version = $this->clean_version( $this->current_version );
             
@@ -1425,6 +1488,11 @@ class KTPWP_Update_Checker {
                 ktpwp_debug_log( 'KantanPro: 更新が利用可能です - バージョン: ' . $latest_version );
                 ktpwp_debug_log( 'KantanPro: 保存された更新データ: ' . print_r( $update_data, true ) );
                 return $update_data;
+            } elseif ( $this->last_check_failed ) {
+                // API へ到達できずキャッシュ済み Release で判定した場合は「最新版」と確定できない。
+                // ktpwp_update_available を上書きすると誤って最新版扱いが固定されるため保存しない。
+                ktpwp_debug_log( 'KantanPro: GitHub 到達失敗のため判定を保留します（保存済み情報を維持）' );
+                return false;
             } else {
                 // 更新なし（false ではなく配列で保存し、管理画面アクセスのたびに API を叩かない）
                 update_option(
@@ -1443,10 +1511,16 @@ class KTPWP_Update_Checker {
             
         } catch ( Exception $e ) {
             ktpwp_debug_log( 'KantanPro: 更新チェック中に例外が発生: ' . $e->getMessage() );
+            $this->last_check_failed = true;
             return false;
         } finally {
             // 最後のチェック時刻を更新
-            set_transient( 'ktpwp_last_update_check', time(), DAY_IN_SECONDS );
+            // 到達失敗時は打刻しない（次のアクセスで再試行できるようにする）
+            if ( ! $this->last_check_failed ) {
+                set_transient( 'ktpwp_last_update_check', time(), DAY_IN_SECONDS );
+            } else {
+                ktpwp_debug_log( 'KantanPro: 更新チェックに失敗したため実行間隔の打刻をスキップします' );
+            }
         }
     }
     
@@ -2388,7 +2462,11 @@ class KTPWP_Update_Checker {
         }
 
         $this->check_github_updates();
-        set_transient( 'ktpwp_last_badge_update_check', time(), DAY_IN_SECONDS );
+
+        // 到達失敗時は打刻しない（次のページ表示で再試行する）
+        if ( ! $this->last_check_failed ) {
+            set_transient( 'ktpwp_last_badge_update_check', time(), DAY_IN_SECONDS );
+        }
 
         return (bool) $this->has_header_update_badge();
     }
@@ -2620,6 +2698,13 @@ class KTPWP_Update_Checker {
                     'message' => __( '新しいバージョンが利用可能です！', 'ktpwp' ),
                     'has_update' => true,
                     'update_data' => $status['update_data']
+                ) );
+            } elseif ( $this->last_check_failed() ) {
+                // GitHub へ到達できなかった場合は「最新版」と表示しない
+                ktpwp_debug_log( 'KantanPro: 更新情報の取得に失敗' );
+                wp_send_json_error( array(
+                    'message' => __( '更新情報を取得できませんでした。時間をおいて再度お試しください。', 'ktpwp' ),
+                    'error_type' => 'fetch_failed'
                 ) );
             } else {
                 ktpwp_debug_log( 'KantanPro: 更新なし' );
