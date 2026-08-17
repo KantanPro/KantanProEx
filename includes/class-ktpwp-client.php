@@ -2619,9 +2619,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
                     recordId: recordId,
                     labelInnerHtml: inner,
                     title: t('宛名印刷'),
-                    gridStartMm: 105,
-                    maxMemoLines: 18,
-                    memoNote: t('※ 本画面の印刷位置は、プリンタの印刷余白が上下左右いずれも10mmのときに長形３号窓明封筒の窓と揃うようレイアウトしています。')
+                    maxMemoLines: 18
                 };
                 if (representativeName || departmentContactLine) {
                     previewConfig.addresseeContact = {
