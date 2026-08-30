@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.36
+Stable tag: 1.4.37
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.37 - 2026年08月30日 =
+* 請求候補データを返す内部処理で、権限の確認が抜けていた問題を修正しました。ログインしていれば権限に関わらずデータを取得できる状態でしたが、編集権限を必須にしました
 
 = 1.4.36 - 2026年08月30日 =
 * PDF出力とグラフ描画に使うライブラリ（html2canvas / jsPDF / Chart.js）をプラグインに同梱するよう変更。外部CDNへの依存をなくし、CDNが利用できない環境やCDNが不調なときでもPDFを出力できるようになりました
