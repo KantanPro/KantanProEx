@@ -1334,7 +1334,7 @@ class KTPWP_Settings {
 	 */
 	public function create_data_tools_page() {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( __( 'この設定ページにアクセスする権限がありません。', 'ktpwp' ) );
+			wp_die( esc_html__( 'この設定ページにアクセスする権限がありません。', 'ktpwp' ) );
 		}
 		
 		$notice = '';
@@ -1402,10 +1402,10 @@ class KTPWP_Settings {
 	 */
 	public function handle_export_data() {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( __( '権限がありません。', 'ktpwp' ) );
+			wp_die( esc_html__( '権限がありません。', 'ktpwp' ) );
 		}
 		if ( ! isset( $_POST['ktpwp_export_nonce'] ) || ! wp_verify_nonce( $_POST['ktpwp_export_nonce'], 'ktpwp_export_data' ) ) {
-			wp_die( __( 'セキュリティチェックに失敗しました。', 'ktpwp' ) );
+			wp_die( esc_html__( 'セキュリティチェックに失敗しました。', 'ktpwp' ) );
 		}
 
 		global $wpdb;
@@ -1430,7 +1430,7 @@ class KTPWP_Settings {
 
 		$json = wp_json_encode( $export );
 		if ( empty( $json ) ) {
-			wp_die( __( 'エクスポートデータの生成に失敗しました。', 'ktpwp' ) );
+			wp_die( esc_html__( 'エクスポートデータの生成に失敗しました。', 'ktpwp' ) );
 		}
 
 		$format = isset( $_POST['format'] ) ? sanitize_text_field( $_POST['format'] ) : 'json';
@@ -1489,10 +1489,10 @@ class KTPWP_Settings {
 	 */
 	public function handle_restore_data() {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( __( '権限がありません。', 'ktpwp' ) );
+			wp_die( esc_html__( '権限がありません。', 'ktpwp' ) );
 		}
 		if ( ! isset( $_POST['ktpwp_restore_nonce'] ) || ! wp_verify_nonce( $_POST['ktpwp_restore_nonce'], 'ktpwp_restore_data' ) ) {
-			wp_die( __( 'セキュリティチェックに失敗しました。', 'ktpwp' ) );
+			wp_die( esc_html__( 'セキュリティチェックに失敗しました。', 'ktpwp' ) );
 		}
 
 		$redirect = admin_url( 'admin.php?page=ktp-data-tools' );
@@ -1746,7 +1746,7 @@ class KTPWP_Settings {
      */
     public function create_developer_page() {
         if ( ! current_user_can( 'manage_options' ) ) {
-            wp_die( __( 'この設定ページにアクセスする権限がありません。', 'ktpwp' ) );
+            wp_die( esc_html__( 'この設定ページにアクセスする権限がありません。', 'ktpwp' ) );
         }
 
         if ( ! $this->is_developer_settings_enabled() ) {
@@ -2209,7 +2209,7 @@ class KTPWP_Settings {
      */
     public function create_staff_page() {
         if ( ! current_user_can( 'manage_options' ) ) {
-            wp_die( __( 'この設定ページにアクセスする権限がありません。', 'ktpwp' ) );
+            wp_die( esc_html__( 'この設定ページにアクセスする権限がありません。', 'ktpwp' ) );
         }
 
         // KantanPro利用権限（ktpwp_access）付加/削除処理
@@ -2521,7 +2521,7 @@ class KTPWP_Settings {
 
     public function create_admin_page() {
         if ( ! current_user_can( 'manage_options' ) ) {
-            wp_die( __( 'この設定ページにアクセスする権限がありません。' ) );
+            wp_die( esc_html__( 'この設定ページにアクセスする権限がありません。' ) );
         }
 
         // 初期設定値がない場合は作成
@@ -2632,7 +2632,7 @@ class KTPWP_Settings {
      */
     public function create_general_page() {
         if ( ! current_user_can( 'manage_options' ) ) {
-            wp_die( __( 'この設定ページにアクセスする権限がありません。', 'ktpwp' ) );
+            wp_die( esc_html__( 'この設定ページにアクセスする権限がありません。', 'ktpwp' ) );
         } ?>
         <div class="wrap ktp-admin-wrap">
             <h1><span class="dashicons dashicons-admin-settings" style="margin-right: 10px; font-size: 24px; width: 24px; height: 24px;"></span><?php echo esc_html__( '一般設定', 'ktpwp' ); ?></h1>
@@ -2907,7 +2907,7 @@ class KTPWP_Settings {
      */
     public function create_design_page() {
         if ( ! current_user_can( 'manage_options' ) ) {
-            wp_die( __( 'この設定ページにアクセスする権限がありません。', 'ktpwp' ) );
+            wp_die( esc_html__( 'この設定ページにアクセスする権限がありません。', 'ktpwp' ) );
         } ?>
         <div class="wrap ktp-admin-wrap">
             <h1><span class="dashicons dashicons-art" style="margin-right: 10px; font-size: 24px; width: 24px; height: 24px;"></span><?php echo esc_html__( 'デザイン設定', 'ktpwp' ); ?></h1>
@@ -5352,7 +5352,7 @@ div.ktp_header > * {
         // 設定をデフォルト値にリセット
         if ( isset( $_POST['action'] ) && $_POST['action'] === 'reset_to_default' ) {
             if ( ! wp_verify_nonce( $_POST['ktp_reset_to_default_nonce'], 'ktp_reset_to_default' ) ) {
-                wp_die( __( 'セキュリティチェックに失敗しました。', 'ktpwp' ) );
+                wp_die( esc_html__( 'セキュリティチェックに失敗しました。', 'ktpwp' ) );
             }
 
             // システムデフォルト値を使用

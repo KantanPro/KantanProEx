@@ -375,7 +375,7 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 
 			// Check user capabilities - allow editors and above to access
 			if ( ! current_user_can( 'edit_posts' ) && ! current_user_can( 'ktpwp_access' ) ) {
-				wp_die( __( 'You do not have sufficient permissions to access this page.', 'ktpwp' ) );
+				wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'ktpwp' ) );
 			}
 
 			if ( empty( $tab_name ) ) {
@@ -485,12 +485,12 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				// Verify nonce
 				// if ( ! isset( $_POST['order_mail_nonce'] ) ||
 				// ! wp_verify_nonce( $_POST['order_mail_nonce'], 'send_order_mail_action' ) ) {
-				// wp_die( __( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
+				// wp_die( esc_html__( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
 				// }
 
 				// Additional capability check
 				// if ( ! current_user_can( 'manage_options' ) ) {
-				// wp_die( __( 'You do not have sufficient permissions to send emails.', 'ktpwp' ) );
+				// wp_die( esc_html__( 'You do not have sufficient permissions to send emails.', 'ktpwp' ) );
 				// }
 
 				$order_id = absint( $_POST['send_order_mail_id'] );
@@ -946,7 +946,7 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 								if ( isset( $_POST['do_send_mail'] ) && $_POST['do_send_mail'] == '1' ) {
 									// Additional verification for email sending
 									// if ( ! current_user_can( 'manage_options' ) ) {
-									// wp_die( __( 'You do not have sufficient permissions to send emails.', 'ktpwp' ) );
+									// wp_die( esc_html__( 'You do not have sufficient permissions to send emails.', 'ktpwp' ) );
 									// }
 
 									$headers = array();
@@ -1021,12 +1021,12 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				// Verify nonce
 				// if ( ! isset( $_POST['project_name_nonce'] ) ||
 				// ! wp_verify_nonce( $_POST['project_name_nonce'], 'update_project_name_action' ) ) {
-				// wp_die( __( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
+				// wp_die( esc_html__( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
 				// }
 
 				// Check user capabilities
 				// if ( ! current_user_can( 'manage_options' ) ) {
-				// wp_die( __( 'You do not have sufficient permissions to update project names.', 'ktpwp' ) );
+				// wp_die( esc_html__( 'You do not have sufficient permissions to update project names.', 'ktpwp' ) );
 				// }
 
 				$update_id = absint( $_POST['update_project_name_id'] );
@@ -1053,12 +1053,12 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				// Verify nonce
 				// if ( ! isset( $_POST['progress_nonce'] ) ||
 				// ! wp_verify_nonce( $_POST['progress_nonce'], 'update_progress_action' ) ) {
-				// wp_die( __( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
+				// wp_die( esc_html__( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
 				// }
 
 				// Check user capabilities
 				// if ( ! current_user_can( 'manage_options' ) ) {
-				// wp_die( __( 'You do not have sufficient permissions to update progress.', 'ktpwp' ) );
+				// wp_die( esc_html__( 'You do not have sufficient permissions to update progress.', 'ktpwp' ) );
 				// }
 
 				$update_id = absint( $_POST['update_progress_id'] );
@@ -1128,12 +1128,12 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				// Verify nonce
 				if ( ! isset( $_POST['invoice_items_nonce'] ) ||
                  ! wp_verify_nonce( $_POST['invoice_items_nonce'], 'save_invoice_items_action' ) ) {
-					wp_die( __( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
+					wp_die( esc_html__( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
 				}
 
 				// Check user capabilities
 				if ( ! current_user_can( 'edit_posts' ) && ! current_user_can( 'ktpwp_access' ) ) {
-					wp_die( __( 'You do not have sufficient permissions to update invoice items.', 'ktpwp' ) );
+					wp_die( esc_html__( 'You do not have sufficient permissions to update invoice items.', 'ktpwp' ) );
 				}
 
 				$order_id = isset( $_POST['order_id'] ) ? absint( $_POST['order_id'] ) : 0;
@@ -1220,12 +1220,12 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				// Verify nonce for delete action
 				// if ( ! isset( $_POST['delete_nonce'] ) ||
 				// ! wp_verify_nonce( $_POST['delete_nonce'], 'delete_order_action' ) ) {
-				// wp_die( __( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
+				// wp_die( esc_html__( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
 				// }
 
 				// Check user capabilities
 				// if ( ! current_user_can( 'manage_options' ) ) {
-				// wp_die( __( 'You do not have sufficient permissions to delete orders.', 'ktpwp' ) );
+				// wp_die( esc_html__( 'You do not have sufficient permissions to delete orders.', 'ktpwp' ) );
 				// }
 
 				// 削除処理 - 顧客データの存在に関係なく受注書を削除

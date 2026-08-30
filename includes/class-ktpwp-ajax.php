@@ -6845,7 +6845,7 @@ class KTPWP_Ajax {
 	public function get_report_data() {
 		// 権限チェック
 		if ( ! current_user_can( 'edit_posts' ) && ! current_user_can( 'ktpwp_access' ) ) {
-			wp_die( __( '権限がありません。', 'ktpwp' ) );
+			wp_die( esc_html__( '権限がありません。', 'ktpwp' ) );
 		}
 
 		// ノンスチェック
@@ -6858,7 +6858,7 @@ class KTPWP_Ajax {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 				ktpwp_debug_log( 'レポートAJAX nonce検証失敗: ' . ( isset( $_POST['nonce'] ) ? $_POST['nonce'] : 'NOT_SET' ) );
 			}
-			wp_die( __( 'セキュリティチェックに失敗しました。', 'ktpwp' ) );
+			wp_die( esc_html__( 'セキュリティチェックに失敗しました。', 'ktpwp' ) );
 		}
 		
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {

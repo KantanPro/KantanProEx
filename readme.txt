@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.35
+Stable tag: 1.4.36
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,10 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.36 - 2026年08月30日 =
+* PDF出力とグラフ描画に使うライブラリ（html2canvas / jsPDF / Chart.js）をプラグインに同梱するよう変更。外部CDNへの依存をなくし、CDNが利用できない環境やCDNが不調なときでもPDFを出力できるようになりました
+* wp_die() で表示するメッセージなど、出力のエスケープ漏れを45箇所修正
 
 = 1.4.35 - 2026年08月17日 =
 * 宛名印刷を余白なしで出力するよう変更。プレビューに表示される「用紙の上端から◯mm・左端から◯mm」が実際の印刷位置とそのまま一致するようになり、印刷ダイアログの余白設定に左右されなくなりました（用紙に印刷される内容そのものは従来と同じです）

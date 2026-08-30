@@ -1310,11 +1310,11 @@ class KTPWP_Update_Checker {
     public function handle_manual_update_check() {
         // セキュリティチェック
         if ( ! wp_verify_nonce( $_POST['_wpnonce'], 'ktpwp_manual_update_check' ) ) {
-            wp_die( __( 'セキュリティチェックに失敗しました。', 'ktpwp' ) );
+            wp_die( esc_html__( 'セキュリティチェックに失敗しました。', 'ktpwp' ) );
         }
         
         if ( ! current_user_can( 'update_plugins' ) ) {
-            wp_die( __( 'この操作を実行する権限がありません。', 'ktpwp' ) );
+            wp_die( esc_html__( 'この操作を実行する権限がありません。', 'ktpwp' ) );
         }
         
         // 更新チェック実行（キャッシュをクリアして GitHub から再取得）
