@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.37
+Stable tag: 1.4.38
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.38 - 2026年09月04日 =
+* WooCommerce など他のプラグインが原因で出る「_load_textdomain_just_in_time が誤って呼び出されました」の警告が、日本語サイトのサイト画面に表示されてしまう問題を修正しました。警告を止める処理が英語のメッセージだけを見ていたため、日本語環境では働いていませんでした
 
 = 1.4.37 - 2026年08月30日 =
 * 請求候補データを返す内部処理で、権限の確認が抜けていた問題を修正しました。ログインしていれば権限に関わらずデータを取得できる状態でしたが、編集権限を必須にしました
