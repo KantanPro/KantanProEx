@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.38
+Stable tag: 1.4.39
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.39 - 2026年09月05日 =
+* プラグインのCSSが、テーマ側のプロフィール画像まで32ピクセルに縮めてしまう問題を修正しました。WordPress共通のクラス（avatar）を絞り込みなしで指定していたため、著者ボックスやコメント欄など、プラグインと関係のない場所の画像まで小さくなっていました
 
 = 1.4.38 - 2026年09月04日 =
 * WooCommerce など他のプラグインが原因で出る「_load_textdomain_just_in_time が誤って呼び出されました」の警告が、日本語サイトのサイト画面に表示されてしまう問題を修正しました。警告を止める処理が英語のメッセージだけを見ていたため、日本語環境では働いていませんでした
