@@ -7,6 +7,9 @@ alwaysApply: false
 
 ユーザーが「リリース」「配布一式」「B.」等で依頼したとき、**無料版 ZIP と有料版 GitHub Release の両方**を行う。有料版のみの依頼でない限り、無料版を省略しない。
 
+**有料版は GitHub Release だけで終わらせない。** 「C. WooCommerce 配布ファイルの差し替え」まで実施する
+（やらないと購入者は古いバージョンをダウンロードし続ける）。無料版は Download Monitor 側の差し替え。
+
 ## リポジトリ（2つ）
 
 | 版 | ローカルパス | GitHub |
@@ -229,6 +232,8 @@ B. フリー版 ZIP + EX Release まとめて（配布一式）
    - `git tag v{version} && git push origin v{version}`
    - `gh release create v{version} --repo KantanPro/KantanProEx --title "KantanProEX（WP）v{version} をリリースしました"` に asset 4件を添付
    - 公開時に `.github/workflows/release-assets.yml` が同名 ZIP を再ビルドして上書きするため、`gh run list` で success を確認する（サイズが数百バイト変わるのは正常）
+   - **WooCommerce の商品（ID 16297）を更新** — 「C. WooCommerce 配布ファイルの差し替え」を実施。
+     4バリエーションとも新 ZIP に差し替え、UUID は変えない。ここまでやって有料版のリリース完了
 
 ## 検証（報告前に必ず実行）
 両版の ZIP に対して:
@@ -237,6 +242,7 @@ B. フリー版 ZIP + EX Release まとめて（配布一式）
 - 含まない: `.md`, `vendor/`, `*.po`, `*.pot`, 内包 `*.zip`, `.cursor/`, `wp-cli.phar`
 - 無料版のみ: `create_dummy_data.php` を**含む**
 - 有料版のみ: `create_dummy_data.php` を**含まない** / `KTPWP_EDITION`・`KTPWP_STAFF_LIMIT`・`KANTANPRO_PLUGIN_NAME` がエディションどおり（pro:0 / solo:1 / team:5 / business:15）
+- 有料版のみ: WooCommerce 商品 16297 の4バリエーションが新 ZIP を指していること／UUID が変わっていないこと／新 ZIP の直リンクが 403 であること
 
 ## 回答形式（必須）
 - 冒頭: **✅ リリース完了** または **❌ リリース未実施**
@@ -252,6 +258,7 @@ B. フリー版 ZIP + EX Release まとめて（配布一式）
 - GitHub Release URL / zipballUrl / assets 4件
 - ローカル ZIP パス一覧、解凍後フォルダ名
 - コミットハッシュ
+- **WooCommerce 商品の差し替え結果**（4バリエーションの新ファイル名・UUID 維持・直リンク 403）
 ```
 
 ## 注意
