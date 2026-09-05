@@ -77,6 +77,57 @@ alwaysApply: false
    - タイトル例: `KantanProEX（WP）v{version} をリリースしました`
    - asset に 4 ZIP 必須（pro / solo / team / business）
    - solo / team / business は対応 asset 必須（ワンクリック更新用）
+6. **WooCommerce の商品を更新（必須）** — 下の「C. WooCommerce 配布ファイルの差し替え」を実施。
+   これをやらないと**購入者は古いバージョンをダウンロードし続ける**。
+
+### C. WooCommerce 配布ファイルの差し替え（有料版のリリース時は必ず実施）
+
+kantanpro.com の販売ページが配っている ZIP を、新しいバージョンに差し替える。
+GitHub Release だけでは購入者のダウンロードは古いままなので、**ここまでやって初めてリリース完了**。
+
+対象商品: **ID 16297**「【買い切り】KantanProEX（WP）」（variable product / バリエーション4件）
+
+| バリエーション | ID | ダウンロード ID（UUID・**変更禁止**） | ZIP |
+|---|---|---|---|
+| フルアクセス版 | 18308 | `00f13b46-2e1a-4dc8-a985-ca97ff36669b` | `KantanProEX_{ver}_{date}.zip` |
+| ビジネス版 | 18307 | `86fcd242-39cd-428b-afa2-4f116ecc92e2` | `KantanProEXbusiness_{ver}_{date}.zip` |
+| チーム版 | 18306 | `3f683d45-23bf-42e9-b0f2-5eeb857dcd7d` | `KantanProEXteam_{ver}_{date}.zip` |
+| ソロ版 | 18305 | `257c57be-dc89-4b53-a7a9-39ac73bcc96f` | `KantanProEXsolo_{ver}_{date}.zip` |
+
+認証は `~/.kantanpro/wp-kantanpro.env`（`WP_SITE` / `WP_USER` / `WP_APP_PASSWORD`）。
+**アプリケーションパスワードには空白が含まれるので `source` せず、`grep`＋`cut` で取り出すこと。**
+
+#### 1. 保護ディレクトリへアップロード（4本）
+
+```bash
+curl -s -A "$UA" -u "$USER:$PASS" \
+  -F "file=@${ZIP};type=application/zip" \
+  -F "type=downloadable_product" \
+  "$SITE/wp-json/wp/v2/media"
+```
+
+- **`type=downloadable_product` を必ず付ける。** 付けないと公開ディレクトリに落ち、直リンクで
+  誰でも落とせる（＝課金回避される）。`source_url` に `woocommerce_uploads` が入っているか毎回確認する。
+- **`-A` でブラウザの User-Agent を付ける。** Cloudflare が CLI の UA の POST を 1010 で弾く。
+  GET は通るので原因を見失いやすい。
+
+#### 2. 各バリエーションの配布ファイルを差し替え
+
+```bash
+curl -s -A "$UA" -u "$USER:$PASS" -X PUT -H 'Content-Type: application/json' \
+  -d '{"downloads":[{"id":"<UUID>","name":"<新ZIP名>","file":"<新URL>"}]}' \
+  "$SITE/wp-json/wc/v3/products/16297/variations/<バリエーションID>"
+```
+
+- **UUID は絶対に変えない。** 変えると購入済みユーザーのダウンロード権限レコードと紐づかなくなる。
+  更新するのは `name` と `file` だけ。
+- 旧バージョンのファイルは**消さない**。
+
+#### 3. 確認
+
+- 4バリエーションとも `name` / `file` が新バージョンで、UUID が変わっていないこと
+- 新 ZIP の直リンクが **403** であること（保護されている＝課金回避されない）
+- 旧バージョンの直リンクも 403 のまま残っていること
 
 ### 6. 完了報告（必須・両方）
 
@@ -129,6 +180,8 @@ KantanProEX（有料版）のみリリースしてください。無料版 Kanta
 5. `gh release create v{version} --repo KantanPro/KantanProEx`
    - タイトル: `KantanProEX（WP）v{version} をリリースしました`
    - asset: 4 ZIP（pro / solo / team / business）
+6. **WooCommerce の商品（ID 16297）の配布ファイルを 4 バリエーションとも差し替える**
+   → 「C. WooCommerce 配布ファイルの差し替え」参照。ここまでやらないとリリース完了ではない
 
 ## 回答形式（必須）
 - 冒頭: **✅ リリース完了** または **❌ リリース未実施**
@@ -136,6 +189,7 @@ KantanProEX（有料版）のみリリースしてください。無料版 Kanta
 - GitHub Release URL / zipballUrl / assets 4件の確認
 - ローカル ZIP パス一覧、解凍後フォルダ名
 - コミットハッシュ
+- **WooCommerce 商品の差し替え結果**（4バリエーションの新ファイル名・UUID 維持・直リンク 403）
 ```
 
 ### B. フリー版 ZIP + EX Release まとめて（配布一式）
@@ -205,3 +259,5 @@ B. フリー版 ZIP + EX Release まとめて（配布一式）
 - 有料版のみのリリース依頼（「KantanProEX のみ」等）のときだけ A を省略可
 - 同一機能を両方に入れた場合、**有料だけリリースして無料を忘れない**
 - `create_release_zip.sh`（EX）は `#!/usr/bin/env bash` 必須（CI 互換）
+- **有料版のリリースは、GitHub Release で終わりではない。** WooCommerce の商品を更新するまでは、
+  購入者のダウンロードは古いバージョンのまま（[[C. WooCommerce 配布ファイルの差し替え]]）

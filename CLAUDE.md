@@ -74,6 +74,7 @@ This repo ships as **4 edition ZIPs** (pro/solo/team/business) via `./scripts/bu
 - A **release request often covers both products** (free `KantanPro` ZIP + this repo's 4 ZIPs) unless the user says "EX のみ" (EX only) — don't silently drop the free-version half of a bundled release.
 - Version bump locations here: `ktpwp.php` `Version` header, `readme.txt` `Stable tag` + Japanese changelog.
 - ZIP must not include `.md` files, `vendor/`, `create_dummy_data.php`, `*.po`/`*.pot`, or nested `*.zip`; must be under 3MB; edition constants (`KTPWP_EDITION`/`KTPWP_STAFF_LIMIT`/`KANTANPRO_PLUGIN_NAME`) must match the variant.
+- **A GitHub Release is not the end of a paid release.** The WooCommerce product on kantanpro.com (ID 16297, 4 variations) still serves the old ZIP until its download files are swapped — buyers keep downloading the previous version. The rule's section C has the exact steps (protected-directory upload, UUID must not change).
 - Never release without the required "✅ リリース完了" / "❌ リリース未実施" summary line the rule specifies.
 
 ### One-line release triggers
