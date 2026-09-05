@@ -7,8 +7,9 @@ alwaysApply: false
 
 ユーザーが「リリース」「配布一式」「B.」等で依頼したとき、**無料版 ZIP と有料版 GitHub Release の両方**を行う。有料版のみの依頼でない限り、無料版を省略しない。
 
-**有料版は GitHub Release だけで終わらせない。** 「C. WooCommerce 配布ファイルの差し替え」まで実施する
-（やらないと購入者は古いバージョンをダウンロードし続ける）。無料版は Download Monitor 側の差し替え。
+**どちらも GitHub Release だけで終わらせない。** サイトが配っているファイルを差し替えるまでがリリース。
+- 有料版 → 「C. WooCommerce 配布ファイルの差し替え」（購入者のダウンロードが古いままになる）
+- 無料版 → 「D. Download Monitor 配布ファイルの差し替え」（サイトのダウンロードボタンが古いままになる）
 
 ## リポジトリ（2つ）
 
@@ -53,7 +54,8 @@ alwaysApply: false
    - `gh release create v{version} --repo KantanPro/KantanPro`
    - タイトル例: `KantanPro（WP）v{version} をリリースしました`
    - asset に `KantanPro_{version}_{date}.zip` を添付
-5. **合格基準（無料版）**
+5. **Download Monitor の配布ファイルを差し替え** — 「D. Download Monitor 配布ファイルの差し替え」を実施
+6. **合格基準（無料版）**
    - `unzip -t` OK / 3MB 未満
    - ルートフォルダ名: `KantanPro`（単一）
    - `ktpwp.php` + `readme.txt` あり
@@ -131,6 +133,56 @@ curl -s -A "$UA" -u "$USER:$PASS" -X PUT -H 'Content-Type: application/json' \
 - 4バリエーションとも `name` / `file` が新バージョンで、UUID が変わっていないこと
 - 新 ZIP の直リンクが **403** であること（保護されている＝課金回避されない）
 - 旧バージョンの直リンクも 403 のまま残っていること
+
+### D. Download Monitor 配布ファイルの差し替え（無料版のリリース時は必ず実施）
+
+kantanpro.com が配っている無料版 ZIP を差し替える。GitHub Release だけでは
+サイトのダウンロードボタンは古いままなので、**ここまでやって初めてリリース完了**。
+
+対象: ダウンロード投稿 **17694**「KantanPro（WP）無料版」/ バージョン行 **17696**（**行を増やさない**）
+配布リンク: `https://www.kantanpro.com/download/17694/`
+
+**REST では上げられない。** DLM の Admin クラスは `is_admin()` のときしか読まれず、
+`upload_dir` フィルタが効かないため公開ディレクトリに落ちる。9444 の永続ブラウザを使う
+（`~/.kantanpro/bin/cdp-wp.py`。`wp_ajax_dlm_upload_file` は DLM 側の cap 名タイプミスで必ず落ちるので使わない）。
+
+#### 1. 保護ディレクトリへアップロード
+
+```bash
+# 管理画面を開いて nonce を取る
+python3 ~/.kantanpro/bin/cdp-wp.py goto "https://www.kantanpro.com/wp-admin/post.php?post=17694&action=edit"
+python3 ~/.kantanpro/bin/cdp-wp.py eval "_wpPluploadSettings.defaults.multipart_params._wpnonce"
+
+COOKIES=$(python3 ~/.kantanpro/bin/cdp-wp.py cookies "https://www.kantanpro.com/wp-admin/")
+curl -s -A "$UA" -b "$COOKIES" \
+  -F "name=KantanPro_{ver}_{date}.zip" \
+  -F "action=upload-attachment" \
+  -F "_wpnonce=<上で取った nonce>" \
+  -F "type=dlm_download" \
+  -F "async-upload=@${ZIP};type=application/zip" \
+  "https://www.kantanpro.com/wp-admin/async-upload.php"
+```
+
+- **`type=dlm_download` を必ず付ける**（付けないと公開ディレクトリに落ちる）
+- **ブラウザの User-Agent を付ける**（Cloudflare が CLI の UA の POST を 1010 で弾く）
+- 応答の `data.url` に `dlm_uploads` が入っているか確認する
+
+#### 2. バージョン行を更新（新しい行を作らない）
+
+編集画面のフィールドを書き換えて `#publish` を押す。**`downloadable_file_id[0]` = 17696 は触らない。**
+行を分けるとダウンロード数がリセットされる。
+
+```js
+document.querySelector('textarea[name="downloadable_file_urls[0]"]').value = '<新URL>';
+document.querySelector('input[name="downloadable_file_version[0]"]').value = '{ver}';
+document.querySelector('#publish').click();
+```
+
+#### 3. 確認
+
+- バージョン行が **1行のまま**、`downloadable_file_id[0]` が 17696 のまま
+- 新旧どちらの直リンクも **403**
+- `https://www.kantanpro.com/download/17694/` が新しい ZIP を返す（同梱バージョンを確認。DL数が1件増える）
 
 ### 6. 完了報告（必須・両方）
 
@@ -226,6 +278,7 @@ B. フリー版 ZIP + EX Release まとめて（配布一式）
    - `./create_release_zip.sh` → `/Users/kantanpro/Desktop/KantanPro_TEST_UP/KantanPro_{version}_{date}.zip`
    - `git tag v{version} && git push origin v{version}`
    - `gh release create v{version} --repo KantanPro/KantanPro --title "KantanPro（WP）v{version} をリリースしました"` に asset 1件を添付
+   - **Download Monitor（投稿 17694 / バージョン行 17696）を更新** — 「D.」を実施。ここまでやって無料版のリリース完了
 3. **有料版 KantanProEX**
    - バージョン更新（2ファイル）→ コミット → `git push origin main`
    - `./scripts/build-all-release-zips.sh` → `/Users/kantanpro/Desktop/KantanProEX_TEST_UP/` に4本
@@ -252,6 +305,7 @@ B. フリー版 ZIP + EX Release まとめて（配布一式）
 - GitHub Release URL / zipballUrl / asset 1件
 - ローカル ZIP パス、解凍後フォルダ名（`KantanPro`）
 - コミットハッシュ
+- **Download Monitor の差し替え結果**（バージョン行 17696 のまま／直リンク 403／配布リンクが新 ZIP を返すこと）
 
 **有料版**
 - バージョン（旧 → 新）、リリース種別
