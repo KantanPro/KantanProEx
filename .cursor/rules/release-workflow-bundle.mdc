@@ -182,7 +182,11 @@ document.querySelector('#publish').click();
 
 - バージョン行が **1行のまま**、`downloadable_file_id[0]` が 17696 のまま
 - 新旧どちらの直リンクも **403**
-- `https://www.kantanpro.com/download/17694/` が新しい ZIP を返す（同梱バージョンを確認。DL数が1件増える）
+- 編集画面を再読込し、`downloadable_file_urls[0]` と `downloadable_file_version[0]` が新しい値になっている
+
+**配布リンク `https://www.kantanpro.com/download/17694/` は叩かないこと。**
+DL数が1件増え、統計が汚れる。上の2つで差し替えは確認できている。
+（2026-09-06: 8/31〜9/5 の記録8件のうち3件がこの確認行為だった。実ユーザーのDLは0件）
 
 ### 6. 完了報告（必須・両方）
 
@@ -305,7 +309,7 @@ B. フリー版 ZIP + EX Release まとめて（配布一式）
 - GitHub Release URL / zipballUrl / asset 1件
 - ローカル ZIP パス、解凍後フォルダ名（`KantanPro`）
 - コミットハッシュ
-- **Download Monitor の差し替え結果**（バージョン行 17696 のまま／直リンク 403／配布リンクが新 ZIP を返すこと）
+- **Download Monitor の差し替え結果**（バージョン行 17696 のまま／直リンク 403／編集画面の URL・バージョンが新しい値。**配布リンクは叩かない**）
 
 **有料版**
 - バージョン（旧 → 新）、リリース種別
