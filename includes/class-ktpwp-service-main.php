@@ -811,17 +811,17 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					$pattern = isset( $field['pattern'] ) ? ' pattern="' . esc_attr( $field['pattern'] ) . '"' : '';
 					$required = isset( $field['required'] ) && $field['required'] ? ' required' : '';
 					$fieldName = esc_attr( $field['name'] );
-					$placeholder = isset( $field['placeholder'] ) ? ' placeholder="' . esc_attr__( $field['placeholder'], 'ktpwp' ) . '"' : '';
-					$label_i18n = esc_html__( $label, 'ktpwp' );
+					$placeholder = isset( $field['placeholder'] ) ? ' placeholder="' . esc_attr( $field['placeholder'] ) . '"' : '';
+					$label_i18n = esc_html( $label );
 
 					if ( $field['type'] === 'textarea' ) {
 						$data_forms .= "<div class=\"form-group\"><label>{$label_i18n}：</label> <textarea name=\"{$fieldName}\"{$pattern}{$required}{$textarea_guard_attrs}>" . esc_textarea( $value ) . '</textarea></div>';
 					} elseif ( $field['type'] === 'select' ) {
 						$options = '';
 						foreach ( (array) $field['options'] as $option ) {
-							$options .= '<option value="' . esc_attr( $option ) . '">' . esc_html__( $option, 'ktpwp' ) . '</option>';
+							$options .= '<option value="' . esc_attr( $option ) . '">' . esc_html( $option ) . '</option>';
 						}
-						$default = isset( $field['default'] ) ? esc_html__( $field['default'], 'ktpwp' ) : '';
+						$default = isset( $field['default'] ) ? esc_html( $field['default'] ) : '';
 						$data_forms .= "<div class=\"form-group\"><label>{$label_i18n}：</label> <select name=\"{$fieldName}\"{$required}><option value=\"\">{$default}</option>{$options}</select></div>";
 					} else {
 						$data_forms .= "<div class=\"form-group\"><label>{$label_i18n}：</label> <input type=\"{$field['type']}\" name=\"{$fieldName}\" value=\"" . esc_attr( $value ) . "\"{$pattern}{$required}{$placeholder}></div>";
@@ -1031,17 +1031,17 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					$pattern = isset( $field['pattern'] ) ? ' pattern="' . esc_attr( $field['pattern'] ) . '"' : '';
 					$required = isset( $field['required'] ) && $field['required'] ? ' required' : '';
 					$fieldName = esc_attr( $field['name'] );
-					$placeholder = isset( $field['placeholder'] ) ? ' placeholder="' . esc_attr__( $field['placeholder'], 'ktpwp' ) . '"' : '';
-					$label_i18n = esc_html__( $label, 'ktpwp' );
+					$placeholder = isset( $field['placeholder'] ) ? ' placeholder="' . esc_attr( $field['placeholder'] ) . '"' : '';
+					$label_i18n = esc_html( $label );
 					if ( $field['type'] === 'textarea' ) {
 						$data_forms .= "<div class=\"form-group\"><label>{$label_i18n}：</label> <textarea name=\"{$fieldName}\"{$pattern}{$required}{$textarea_guard_attrs}>" . esc_textarea( $value ) . '</textarea></div>';
 					} elseif ( $field['type'] === 'select' ) {
 						$options = '';
 						foreach ( (array) $field['options'] as $option ) {
 							$selected = $value === $option ? ' selected' : '';
-							$options .= '<option value="' . esc_attr( $option ) . "\"{$selected}>" . esc_html__( $option, 'ktpwp' ) . '</option>';
+							$options .= '<option value="' . esc_attr( $option ) . "\"{$selected}>" . esc_html( $option ) . '</option>';
 						}
-						$default = isset( $field['default'] ) ? esc_html__( $field['default'], 'ktpwp' ) : '';
+						$default = isset( $field['default'] ) ? esc_html( $field['default'] ) : '';
 						$data_forms .= "<div class=\"form-group\"><label>{$label_i18n}：</label> <select name=\"{$fieldName}\"{$required}><option value=\"\">{$default}</option>{$options}</select></div>";
 					} else {
 						$step = isset( $field['step'] ) ? ' step="' . esc_attr( $field['step'] ) . '"' : '';

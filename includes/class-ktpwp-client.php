@@ -408,6 +408,11 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 		 * @return void
 		 */
 		function View_Table( $name ) {
+			// アクセス権限チェック（多層防御。主なゲートは ktpwp.php の kantanAllTab() 側）。
+			if ( function_exists( 'ktpwp_current_user_can_access' ) && ! ktpwp_current_user_can_access() ) {
+				return '';
+			}
+
 			global $wpdb;
 
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -1627,8 +1632,8 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 					$pattern = isset( $field['pattern'] ) ? " pattern=\"{$field['pattern']}\"" : '';
 					$required = isset( $field['required'] ) && $field['required'] ? ' required' : '';
 					$fieldName = $field['name'];
-					$placeholder = isset( $field['placeholder'] ) ? ' placeholder="' . esc_attr__( $field['placeholder'], 'ktpwp' ) . '"' : '';
-					$label_i18n = esc_html__( $label, 'ktpwp' );
+					$placeholder = isset( $field['placeholder'] ) ? ' placeholder="' . esc_attr( $field['placeholder'] ) . '"' : '';
+					$label_i18n = esc_html( $label );
 					if ( $field['type'] === 'textarea' ) {
 						$fieldId = 'ktp-client-' . preg_replace( '/[^a-zA-Z0-9_-]/', '', $fieldName );
 						$data_forms .= "<div class=\"form-group\"><label for=\"{$fieldId}\">{$label_i18n}：</label> <textarea id=\"{$fieldId}\" name=\"{$fieldName}\"{$pattern}{$required}>" . esc_textarea( $value ) . '</textarea></div>';
@@ -1644,7 +1649,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 							} else {
 								$selected = ( $value === $opt_value ) ? ' selected' : '';
 							}
-							$options .= '<option value="' . esc_attr( $opt_value ) . '"' . $selected . '>' . ( $options_assoc ? esc_html( $opt_label ) : esc_html__( $opt_label, 'ktpwp' ) ) . '</option>';
+							$options .= '<option value="' . esc_attr( $opt_value ) . '"' . $selected . '>' . ( $options_assoc ? esc_html( $opt_label ) : esc_html( $opt_label ) ) . '</option>';
 						}
 						$fieldId = 'ktp-client-' . preg_replace( '/[^a-zA-Z0-9_-]/', '', $fieldName );
 						$data_forms .= "<div class=\"form-group\"><label for=\"{$fieldId}\">{$label_i18n}：</label> <select id=\"{$fieldId}\" name=\"{$fieldName}\"{$required}>{$options}</select></div>";
@@ -1653,7 +1658,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 						$contact_html = class_exists( 'KTPWP_External_Url' )
 							? KTPWP_External_Url::maybe_render_form_group(
 								$fieldName,
-								__( $label, 'ktpwp' ),
+								$label, // KTPWP_External_Url が最終出力時に esc_html() するため、ここでは変数をそのまま渡す
 								$fieldId,
 								$field,
 								$value,
@@ -1905,13 +1910,13 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 
 					$pattern = isset( $field['pattern'] ) ? ' pattern="' . esc_attr( $field['pattern'] ) . '"' : '';
 					$required = isset( $field['required'] ) && $field['required'] ? ' required' : '';
-					$placeholder = isset( $field['placeholder'] ) ? ' placeholder="' . esc_attr__( $field['placeholder'], 'ktpwp' ) . '"' : '';
+					$placeholder = isset( $field['placeholder'] ) ? ' placeholder="' . esc_attr( $field['placeholder'] ) . '"' : '';
 
 					$fieldId = 'ktp-client-' . preg_replace( '/[^a-zA-Z0-9_-]/', '', $field['name'] );
 					$contact_html = class_exists( 'KTPWP_External_Url' )
 						? KTPWP_External_Url::maybe_render_form_group(
 							$field['name'],
-							__( $basic_field_labels[ $field_name ], 'ktpwp' ),
+							$basic_field_labels[ $field_name ], // KTPWP_External_Url が最終出力時に esc_html() する
 							$fieldId,
 							$field,
 							$value,
@@ -1923,7 +1928,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 					if ( $contact_html !== null ) {
 						$data_forms .= $contact_html;
 					} else {
-						$data_forms .= '<div class="form-group"><label for="' . $fieldId . '">' . esc_html__( $basic_field_labels[ $field_name ], 'ktpwp' ) . '：</label> <input id="' . $fieldId . '" type="' . esc_attr( $field['type'] ) . '" name="' . esc_attr( $field['name'] ) . '" value="' . esc_attr( $value ) . '"' . $pattern . $required . $placeholder . '></div>';
+						$data_forms .= '<div class="form-group"><label for="' . $fieldId . '">' . esc_html( $basic_field_labels[ $field_name ] ) . '：</label> <input id="' . $fieldId . '" type="' . esc_attr( $field['type'] ) . '" name="' . esc_attr( $field['name'] ) . '" value="' . esc_attr( $value ) . '"' . $pattern . $required . $placeholder . '></div>';
 					}
 				}
 
@@ -2092,11 +2097,11 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 
 					$pattern = isset( $field['pattern'] ) ? ' pattern="' . esc_attr( $field['pattern'] ) . '"' : '';
 					$required = isset( $field['required'] ) && $field['required'] ? ' required' : '';
-					$placeholder = isset( $field['placeholder'] ) ? ' placeholder="' . esc_attr__( $field['placeholder'], 'ktpwp' ) . '"' : '';
+					$placeholder = isset( $field['placeholder'] ) ? ' placeholder="' . esc_attr( $field['placeholder'] ) . '"' : '';
 
 					if ( $field['type'] === 'textarea' ) {
 						$fieldId = 'ktp-client-' . preg_replace( '/[^a-zA-Z0-9_-]/', '', $field['name'] );
-						$data_forms .= '<div class="form-group"><label for="' . $fieldId . '">' . esc_html__( $field_key, 'ktpwp' ) . '：</label> <textarea id="' . $fieldId . '" name="' . esc_attr( $field['name'] ) . '"' . $pattern . $required . '>' . esc_textarea( $value ) . '</textarea></div>';
+						$data_forms .= '<div class="form-group"><label for="' . $fieldId . '">' . esc_html( $field_key ) . '：</label> <textarea id="' . $fieldId . '" name="' . esc_attr( $field['name'] ) . '"' . $pattern . $required . '>' . esc_textarea( $value ) . '</textarea></div>';
 					} elseif ( $field['type'] === 'select' ) {
 						$options = '';
 						$options_assoc = ! empty( $field['options_assoc'] );
@@ -2105,16 +2110,16 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 								$opt_value = $opt_label;
 							}
 							$selected = $value === $opt_value ? ' selected' : '';
-							$options .= '<option value="' . esc_attr( $opt_value ) . '"' . $selected . '>' . ( $options_assoc ? esc_html( $opt_label ) : esc_html__( $opt_label, 'ktpwp' ) ) . '</option>';
+							$options .= '<option value="' . esc_attr( $opt_value ) . '"' . $selected . '>' . ( $options_assoc ? esc_html( $opt_label ) : esc_html( $opt_label ) ) . '</option>';
 						}
 						$fieldId = 'ktp-client-' . preg_replace( '/[^a-zA-Z0-9_-]/', '', $field['name'] );
-						$data_forms .= '<div class="form-group"><label for="' . $fieldId . '">' . esc_html__( $field_key, 'ktpwp' ) . '：</label> <select id="' . $fieldId . '" name="' . esc_attr( $field['name'] ) . '"' . $required . '>' . $options . '</select></div>';
+						$data_forms .= '<div class="form-group"><label for="' . $fieldId . '">' . esc_html( $field_key ) . '：</label> <select id="' . $fieldId . '" name="' . esc_attr( $field['name'] ) . '"' . $required . '>' . $options . '</select></div>';
 					} else {
 						$fieldId = 'ktp-client-' . preg_replace( '/[^a-zA-Z0-9_-]/', '', $field['name'] );
 						$contact_html = class_exists( 'KTPWP_External_Url' )
 							? KTPWP_External_Url::maybe_render_form_group(
 								$field['name'],
-								__( $field_key, 'ktpwp' ),
+								$field_key, // KTPWP_External_Url が最終出力時に esc_html() する
 								$fieldId,
 								$field,
 								$value,
@@ -2126,7 +2131,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
 						if ( $contact_html !== null ) {
 							$data_forms .= $contact_html;
 						} else {
-							$data_forms .= '<div class="form-group"><label for="' . $fieldId . '">' . esc_html__( $field_key, 'ktpwp' ) . '：</label> <input id="' . $fieldId . '" type="' . esc_attr( $field['type'] ) . '" name="' . esc_attr( $field['name'] ) . '" value="' . esc_attr( $value ) . '"' . $pattern . $required . $placeholder . '></div>';
+							$data_forms .= '<div class="form-group"><label for="' . $fieldId . '">' . esc_html( $field_key ) . '：</label> <input id="' . $fieldId . '" type="' . esc_attr( $field['type'] ) . '" name="' . esc_attr( $field['name'] ) . '" value="' . esc_attr( $value ) . '"' . $pattern . $required . $placeholder . '></div>';
 						}
 					}
 				}

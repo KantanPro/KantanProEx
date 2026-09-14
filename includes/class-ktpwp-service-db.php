@@ -110,7 +110,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			}
 
 			// Verify nonce for security
-			if ( ! isset( $_POST['_ktp_service_nonce'] ) || ! wp_verify_nonce( $_POST['_ktp_service_nonce'], 'ktp_service_action' ) ) {
+			if ( ! isset( $_POST['_ktp_service_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_ktp_service_nonce'] ) ), 'ktp_service_action' ) ) {
 				wp_die( esc_html__( 'Security check failed.', 'ktpwp' ) );
 			}
 
@@ -290,7 +290,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			$table_name = $wpdb->prefix . 'ktp_' . sanitize_key( $tab_name );
 
 			// nonceを検証
-			if ( ! isset( $_POST['_ktp_service_nonce'] ) || ! wp_verify_nonce( $_POST['_ktp_service_nonce'], 'ktp_service_action' ) ) {
+			if ( ! isset( $_POST['_ktp_service_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_ktp_service_nonce'] ) ), 'ktp_service_action' ) ) {
 				wp_die( esc_html__( 'Nonce verification failed.', 'ktpwp' ) );
 			}
 
@@ -420,7 +420,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			$table_name = $wpdb->prefix . 'ktp_' . sanitize_key( $tab_name );
 
 			// nonceを検証
-			if ( ! isset( $_POST['_ktp_service_nonce'] ) || ! wp_verify_nonce( $_POST['_ktp_service_nonce'], 'ktp_service_action' ) ) {
+			if ( ! isset( $_POST['_ktp_service_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_ktp_service_nonce'] ) ), 'ktp_service_action' ) ) {
 				wp_die( esc_html__( 'Nonce verification failed.', 'ktpwp' ) );
 			}
 
@@ -577,7 +577,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				wp_die( esc_html__( 'Invalid request method.', 'ktpwp' ) );
 			}
 
-			if ( ! isset( $_POST['_ktp_service_nonce'] ) || ! wp_verify_nonce( $_POST['_ktp_service_nonce'], 'ktp_service_action' ) ) {
+			if ( ! isset( $_POST['_ktp_service_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_ktp_service_nonce'] ) ), 'ktp_service_action' ) ) {
 				wp_die( esc_html__( 'Nonce verification failed.', 'ktpwp' ) );
 			}
 
@@ -619,7 +619,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			$table_name = $wpdb->prefix . 'ktp_' . sanitize_key( $tab_name );
 
 			// nonceを検証
-			if ( ! isset( $_POST['_ktp_service_nonce'] ) || ! wp_verify_nonce( $_POST['_ktp_service_nonce'], 'ktp_service_action' ) ) {
+			if ( ! isset( $_POST['_ktp_service_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_ktp_service_nonce'] ) ), 'ktp_service_action' ) ) {
 				wp_die( esc_html__( 'Nonce verification failed.', 'ktpwp' ) );
 			}
 

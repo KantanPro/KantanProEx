@@ -119,7 +119,7 @@ if ( ! class_exists( 'KTPWP_Client_DB' ) ) {
 				}
 
 				// nonce検証
-				if ( ! isset( $_POST['ktp_client_nonce'] ) || ! wp_verify_nonce( $_POST['ktp_client_nonce'], 'ktp_client_action' ) ) {
+				if ( ! isset( $_POST['ktp_client_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['ktp_client_nonce'] ) ), 'ktp_client_action' ) ) {
 					wp_die( esc_html__( '不正なリクエストです。', 'ktpwp' ) );
 				}
 

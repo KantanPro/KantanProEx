@@ -345,7 +345,7 @@ class KTPWP_Ajax {
 					wp_send_json_error( __( '権限がありません', 'ktpwp' ) );
 				}
 				// nonceチェック
-				if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( $_POST['nonce'], 'ktp_ajax_nonce' ) ) {
+				if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'ktp_ajax_nonce' ) ) {
 					wp_send_json_error( __( 'セキュリティ検証に失敗しました', 'ktpwp' ) );
 				}
 				global $wpdb;
@@ -880,11 +880,11 @@ class KTPWP_Ajax {
 		$nonce_fields = array( 'nonce', 'ktp_ajax_nonce', '_ajax_nonce', '_wpnonce' );
 		foreach ( $nonce_fields as $field ) {
 			if ( isset( $_POST[ $field ] ) ) {
-				$nonce_value = $_POST[ $field ];
+				$nonce_value = is_array( $_POST[ $field ] ) ? $_POST[ $field ] : sanitize_text_field( wp_unslash( $_POST[ $field ] ) );
 
 				// 配列の場合はvalueキーを取得
 				if ( is_array( $nonce_value ) && isset( $nonce_value['value'] ) ) {
-					$nonce_value = $nonce_value['value'];
+					$nonce_value = sanitize_text_field( wp_unslash( $nonce_value['value'] ) );
 				}
 
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -1019,11 +1019,11 @@ class KTPWP_Ajax {
 		$nonce_fields = array( 'nonce', 'ktp_ajax_nonce', '_ajax_nonce', '_wpnonce' );
 		foreach ( $nonce_fields as $field ) {
 			if ( isset( $_POST[ $field ] ) ) {
-				$nonce_value = $_POST[ $field ];
+				$nonce_value = is_array( $_POST[ $field ] ) ? $_POST[ $field ] : sanitize_text_field( wp_unslash( $_POST[ $field ] ) );
 
 				// 配列の場合はvalueキーを取得
 				if ( is_array( $nonce_value ) && isset( $nonce_value['value'] ) ) {
-					$nonce_value = $nonce_value['value'];
+					$nonce_value = sanitize_text_field( wp_unslash( $nonce_value['value'] ) );
 				}
 
 				if ( wp_verify_nonce( $nonce_value, 'ktp_ajax_nonce' ) ) {
@@ -1133,11 +1133,11 @@ class KTPWP_Ajax {
 		$nonce_fields = array( 'nonce', 'ktp_ajax_nonce', '_ajax_nonce', '_wpnonce' );
 		foreach ( $nonce_fields as $field ) {
 			if ( isset( $_POST[ $field ] ) ) {
-				$nonce_value = $_POST[ $field ];
+				$nonce_value = is_array( $_POST[ $field ] ) ? $_POST[ $field ] : sanitize_text_field( wp_unslash( $_POST[ $field ] ) );
 
 				// 配列の場合はvalueキーを取得
 				if ( is_array( $nonce_value ) && isset( $nonce_value['value'] ) ) {
-					$nonce_value = $nonce_value['value'];
+					$nonce_value = sanitize_text_field( wp_unslash( $nonce_value['value'] ) );
 				}
 
 				if ( wp_verify_nonce( $nonce_value, 'ktp_ajax_nonce' ) ) {
@@ -1263,11 +1263,11 @@ class KTPWP_Ajax {
 		$nonce_fields = array( 'nonce', 'ktp_ajax_nonce', '_ajax_nonce', '_wpnonce' );
 		foreach ( $nonce_fields as $field ) {
 			if ( isset( $_POST[ $field ] ) ) {
-				$nonce_value = $_POST[ $field ];
+				$nonce_value = is_array( $_POST[ $field ] ) ? $_POST[ $field ] : sanitize_text_field( wp_unslash( $_POST[ $field ] ) );
 
 				// 配列の場合はvalueキーを取得
 				if ( is_array( $nonce_value ) && isset( $nonce_value['value'] ) ) {
-					$nonce_value = $nonce_value['value'];
+					$nonce_value = sanitize_text_field( wp_unslash( $nonce_value['value'] ) );
 				}
 
 				$nonce_value = sanitize_text_field( $nonce_value );
@@ -2966,7 +2966,7 @@ class KTPWP_Ajax {
 			}
 			wp_send_json_error(
 				array(
-					'message' => $e->getMessage(),
+					'message' => __( 'エラーが発生しました。', 'ktpwp' ),
 				)
 			);
 		} finally {
@@ -3109,12 +3109,17 @@ class KTPWP_Ajax {
 			if ( empty( $my_email ) ) {
 				global $wpdb;
 				$setting_table = $wpdb->prefix . 'ktp_setting';
-				$setting       = $wpdb->get_row(
-					$wpdb->prepare(
-						"SELECT * FROM `{$setting_table}` WHERE id = %d",
-						1
-					)
-				);
+				// 新規インストールにはこの旧テーブル自体が存在しないため、
+				// 存在確認してからクエリする（無ければ毎回 database error が出ていた）。
+				$setting = null;
+				if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $setting_table ) ) === $setting_table ) {
+					$setting = $wpdb->get_row(
+						$wpdb->prepare(
+							"SELECT * FROM `{$setting_table}` WHERE id = %d",
+							1
+						)
+					);
+				}
 				if ( $setting ) {
 					$my_email = sanitize_email( $setting->email_address );
 				}
@@ -3282,7 +3287,7 @@ class KTPWP_Ajax {
 			}
 			wp_send_json_error(
 				array(
-					'message' => $e->getMessage(),
+					'message' => __( 'エラーが発生しました。', 'ktpwp' ),
 				)
 			);
 		}
@@ -3337,7 +3342,7 @@ class KTPWP_Ajax {
 			ktpwp_debug_log( 'KTPWP Ajax get_supplier_email Error: ' . $e->getMessage() );
 			wp_send_json_error(
 				array(
-					'message' => $e->getMessage(),
+					'message' => __( 'エラーが発生しました。', 'ktpwp' ),
 				)
 			);
 		}
@@ -3390,12 +3395,17 @@ class KTPWP_Ajax {
 			if ( empty( $my_email ) ) {
 				global $wpdb;
 				$setting_table = $wpdb->prefix . 'ktp_setting';
-				$setting       = $wpdb->get_row(
-                    $wpdb->prepare(
-                        "SELECT * FROM `{$setting_table}` WHERE id = %d",
-                        1
-                    )
-                );
+				// 新規インストールにはこの旧テーブル自体が存在しないため、
+				// 存在確認してからクエリする（無ければ毎回 database error が出ていた）。
+				$setting = null;
+				if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $setting_table ) ) === $setting_table ) {
+					$setting = $wpdb->get_row(
+						$wpdb->prepare(
+							"SELECT * FROM `{$setting_table}` WHERE id = %d",
+							1
+						)
+					);
+				}
 				if ( $setting ) {
 					$my_email = sanitize_email( $setting->email_address );
 				}
@@ -3411,12 +3421,17 @@ class KTPWP_Ajax {
 			if ( empty( $my_company ) ) {
 				global $wpdb;
 				$setting_table = $wpdb->prefix . 'ktp_setting';
-				$setting       = $wpdb->get_row(
-                    $wpdb->prepare(
-                        "SELECT * FROM `{$setting_table}` WHERE id = %d",
-                        1
-                    )
-                );
+				// 新規インストールにはこの旧テーブル自体が存在しないため、
+				// 存在確認してからクエリする（無ければ毎回 database error が出ていた）。
+				$setting = null;
+				if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $setting_table ) ) === $setting_table ) {
+					$setting = $wpdb->get_row(
+						$wpdb->prepare(
+							"SELECT * FROM `{$setting_table}` WHERE id = %d",
+							1
+						)
+					);
+				}
 				if ( $setting ) {
 					$my_company = sanitize_text_field( strip_tags( $setting->my_company_content ) );
 				}
@@ -3547,7 +3562,7 @@ class KTPWP_Ajax {
 			}
 			wp_send_json_error(
 				array(
-					'message' => $e->getMessage(),
+					'message' => __( 'エラーが発生しました。', 'ktpwp' ),
 				)
 			);
 		}
@@ -3645,7 +3660,7 @@ class KTPWP_Ajax {
 			}
 			wp_send_json_error(
 				array(
-					'message' => $e->getMessage(),
+					'message' => __( 'エラーが発生しました。', 'ktpwp' ),
 				)
 			);
 		}
@@ -3798,12 +3813,17 @@ class KTPWP_Ajax {
 			if ( empty( $company_info ) ) {
 				global $wpdb;
 				$setting_table = $wpdb->prefix . 'ktp_setting';
-				$setting       = $wpdb->get_row(
-                    $wpdb->prepare(
-                        "SELECT * FROM `{$setting_table}` WHERE id = %d",
-                        1
-                    )
-                );
+				// 新規インストールにはこの旧テーブル自体が存在しないため、
+				// 存在確認してからクエリする（無ければ毎回 database error が出ていた）。
+				$setting = null;
+				if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $setting_table ) ) === $setting_table ) {
+					$setting = $wpdb->get_row(
+						$wpdb->prepare(
+							"SELECT * FROM `{$setting_table}` WHERE id = %d",
+							1
+						)
+					);
+				}
 				if ( $setting ) {
 					$company_info = sanitize_text_field( strip_tags( $setting->my_company_content ) );
 				}
@@ -3823,7 +3843,7 @@ class KTPWP_Ajax {
 			ktpwp_debug_log( 'KTPWP Ajax get_company_info Error: ' . $e->getMessage() );
 			wp_send_json_error(
 				array(
-					'message' => $e->getMessage(),
+					'message' => __( 'エラーが発生しました。', 'ktpwp' ),
 				)
 			);
 		}
@@ -3909,7 +3929,7 @@ class KTPWP_Ajax {
 			ktpwp_debug_log( 'KTPWP Ajax get_supplier_contact_info Error: ' . $e->getMessage() );
 			wp_send_json_error(
 				array(
-					'message' => $e->getMessage(),
+					'message' => __( 'エラーが発生しました。', 'ktpwp' ),
 				)
 			);
 		}
@@ -3941,7 +3961,7 @@ class KTPWP_Ajax {
 			}
 
 			// Nonce検証（_ajax_nonceパラメータで送信される）
-			$nonce = $_POST['_ajax_nonce'] ?? '';
+			$nonce = sanitize_text_field( wp_unslash( $_POST['_ajax_nonce'] ?? '' ) );
 			if ( ! wp_verify_nonce( $nonce, $this->nonce_names['staff_chat'] ) ) {
 				$this->log_ajax_error(
 					'Staff chat get messages nonce verification failed',
@@ -3973,8 +3993,9 @@ class KTPWP_Ajax {
 				return;
 			}
 
-			// 権限チェック
-			if ( ! current_user_can( 'read' ) ) {
+			// 権限チェック（'read' は購読者も持つため、任意受注のスタッフチャットが
+			// 読み取れてしまっていた。他のハンドラと同じ capability チェックに揃える）
+			if ( ! current_user_can( 'edit_posts' ) && ! current_user_can( 'ktpwp_access' ) ) {
 				$this->send_clean_json_response(
 					array(
 						'success' => false,
@@ -4163,7 +4184,7 @@ class KTPWP_Ajax {
 				return;
 			}
 
-			$nonce       = $_POST['_ajax_nonce'] ?? '';
+			$nonce       = sanitize_text_field( wp_unslash( $_POST['_ajax_nonce'] ?? '' ) );
 			$nonce_valid = wp_verify_nonce( $nonce, $this->nonce_names['staff_chat'] );
 			if ( ! $nonce_valid && ! current_user_can( 'edit_posts' ) && ! current_user_can( 'ktpwp_access' ) ) {
 				wp_send_json_error( __( '権限がありません（nonce不正）', 'ktpwp' ) );
@@ -4226,7 +4247,7 @@ class KTPWP_Ajax {
 	public function get_order_preview() {
 		try {
 			// nonce検証
-			if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( $_POST['nonce'], 'ktp_ajax_nonce' ) ) {
+			if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'ktp_ajax_nonce' ) ) {
 				throw new Exception( 'セキュリティチェックに失敗しました。' );
 			}
 
@@ -4283,7 +4304,7 @@ class KTPWP_Ajax {
 			ktpwp_debug_log( 'KTPWP Ajax get_order_preview Error: ' . $e->getMessage() );
 			wp_send_json_error(
 				array(
-					'message' => $e->getMessage(),
+					'message' => __( 'エラーが発生しました。', 'ktpwp' ),
 				)
 			);
 		}
@@ -4621,11 +4642,11 @@ class KTPWP_Ajax {
 
 			foreach ( $nonce_names as $nonce_name ) {
 				if ( isset( $_POST[ $nonce_name ] ) ) {
-					$nonce_value = $_POST[ $nonce_name ];
+					$nonce_value = is_array( $_POST[ $nonce_name ] ) ? $_POST[ $nonce_name ] : sanitize_text_field( wp_unslash( $_POST[ $nonce_name ] ) );
 
 					// 配列の場合はvalueキーを取得
 					if ( is_array( $nonce_value ) && isset( $nonce_value['value'] ) ) {
-						$nonce_value = $nonce_value['value'];
+						$nonce_value = sanitize_text_field( wp_unslash( $nonce_value['value'] ) );
 					}
 
 					ktpwp_debug_log( 'KTPWP Ajax: Found nonce field: ' . $nonce_name . ' = ' . $nonce_value );
@@ -4707,7 +4728,7 @@ class KTPWP_Ajax {
 			ktpwp_debug_log( 'KTPWP Ajax save_delivery_date Error: ' . $e->getMessage() );
 			wp_send_json_error(
 				array(
-					'message' => $e->getMessage(),
+					'message' => __( 'エラーが発生しました。', 'ktpwp' ),
 				)
 			);
 		}
@@ -4889,7 +4910,7 @@ class KTPWP_Ajax {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 				ktpwp_debug_log( 'KTPWP Ajax update_delivery_date Error: ' . $e->getMessage() );
 			}
-			wp_send_json_error( array( 'message' => $e->getMessage() ) );
+			wp_send_json_error( array( 'message' => __( 'エラーが発生しました。', 'ktpwp' ) ) );
 		}
 	}
 
@@ -4903,7 +4924,7 @@ class KTPWP_Ajax {
 				return;
 			}
 
-			if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( $_POST['nonce'], 'ktp_ajax_nonce' ) ) {
+			if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'ktp_ajax_nonce' ) ) {
 				wp_send_json_error( __( 'セキュリティ検証に失敗しました', 'ktpwp' ) );
 				return;
 			}
@@ -4929,7 +4950,7 @@ class KTPWP_Ajax {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 				ktpwp_debug_log( 'KTPWP Ajax ajax_get_creating_warning_count Error: ' . $e->getMessage() );
 			}
-			wp_send_json_error( __( 'エラーが発生しました: ' . $e->getMessage(), 'ktpwp' ) );
+			wp_send_json_error( __( 'エラーが発生しました。', 'ktpwp' ) );
 		}
 	}
 
@@ -4949,7 +4970,7 @@ class KTPWP_Ajax {
 			}
 
 			// nonce検証
-			if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( $_POST['nonce'], 'ktp_ajax_nonce' ) ) {
+			if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'ktp_ajax_nonce' ) ) {
 				ktpwp_debug_log( 'KTPWP Ajax: Nonce verification failed' );
 				wp_send_json_error( __( 'セキュリティ検証に失敗しました', 'ktpwp' ) );
 				return;
@@ -4995,7 +5016,7 @@ class KTPWP_Ajax {
 
 		} catch ( Exception $e ) {
 			ktpwp_debug_log( 'KTPWP Ajax ajax_get_client_tax_category Error: ' . $e->getMessage() );
-			wp_send_json_error( __( 'エラーが発生しました: ' . $e->getMessage(), 'ktpwp' ) );
+			wp_send_json_error( __( 'エラーが発生しました。', 'ktpwp' ) );
 		}
 	}
 
@@ -5066,7 +5087,7 @@ class KTPWP_Ajax {
 			}
 
 			// nonce検証
-			if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( $_POST['nonce'], 'ktp_ajax_nonce' ) ) {
+			if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'ktp_ajax_nonce' ) ) {
 				ktpwp_debug_log( 'KTPWP Ajax: Nonce verification failed' );
 				wp_send_json_error( __( 'セキュリティ検証に失敗しました', 'ktpwp' ) );
 				return;
@@ -5140,7 +5161,7 @@ class KTPWP_Ajax {
 
 		} catch ( Exception $e ) {
 			ktpwp_debug_log( 'KTPWP Ajax ajax_get_client_tax_category_by_order Error: ' . $e->getMessage() );
-			wp_send_json_error( __( 'エラーが発生しました: ' . $e->getMessage(), 'ktpwp' ) );
+			wp_send_json_error( __( 'エラーが発生しました。', 'ktpwp' ) );
 		}
 	}
 
@@ -5172,7 +5193,7 @@ class KTPWP_Ajax {
 
 			foreach ($nonce_sources as $source) {
 				if (isset($_POST[$source]) && !empty($_POST[$source])) {
-					$nonce_value = $_POST[$source];
+					$nonce_value = sanitize_text_field( wp_unslash( $_POST[$source] ) );
 					ktpwp_debug_log('KTPWP Ajax: Trying tax category nonce from source: ' . $source . ' with value: ' . $nonce_value);
 					// 複数のnonce名で検証を試行
 					$nonce_names = [
@@ -5257,7 +5278,7 @@ class KTPWP_Ajax {
 
 		} catch ( Exception $e ) {
 			ktpwp_debug_log( 'KTPWP Ajax ajax_get_supplier_tax_category Error: ' . $e->getMessage() );
-			wp_send_json_error( __( 'エラーが発生しました: ' . $e->getMessage(), 'ktpwp' ) );
+			wp_send_json_error( __( 'エラーが発生しました。', 'ktpwp' ) );
 		}
 	}
 
@@ -5369,7 +5390,7 @@ class KTPWP_Ajax {
 
 		} catch ( Exception $e ) {
 			ktpwp_debug_log( 'KTPWP Ajax ajax_auto_save_field Error: ' . $e->getMessage() );
-			wp_send_json_error( __( 'エラーが発生しました: ' . $e->getMessage(), 'ktpwp' ) );
+			wp_send_json_error( __( 'エラーが発生しました。', 'ktpwp' ) );
 		}
 	}
 
@@ -5415,7 +5436,7 @@ class KTPWP_Ajax {
 
 			foreach ($nonce_sources as $source) {
 				if (isset($_POST[$source]) && !empty($_POST[$source])) {
-					$nonce_value = $_POST[$source];
+					$nonce_value = sanitize_text_field( wp_unslash( $_POST[$source] ) );
 					ktpwp_debug_log('KTPWP Ajax: Trying nonce from source: ' . $source . ' with value: ' . $nonce_value);
 					// 複数のnonce名で検証を試行
 					$nonce_names = [
@@ -5517,7 +5538,7 @@ class KTPWP_Ajax {
 
 		} catch ( Exception $e ) {
 			ktpwp_debug_log( 'KTPWP Ajax ajax_get_supplier_qualified_invoice_number Error: ' . $e->getMessage() );
-			wp_send_json_error( __( 'エラーが発生しました: ' . $e->getMessage(), 'ktpwp' ) );
+			wp_send_json_error( __( 'エラーが発生しました。', 'ktpwp' ) );
 		}
 	}
 
@@ -5609,7 +5630,7 @@ class KTPWP_Ajax {
 		}
 
 		// セキュリティチェック
-		if (!isset($_POST['ktp_ajax_nonce']) || !wp_verify_nonce($_POST['ktp_ajax_nonce'], 'ktp_ajax_nonce')) {
+		if (!isset( $_POST['ktp_ajax_nonce'] ) || !wp_verify_nonce(sanitize_text_field( wp_unslash( $_POST['ktp_ajax_nonce'] ) ), 'ktp_ajax_nonce')) {
 			wp_send_json_error( __( 'セキュリティチェックに失敗しました。', 'ktpwp' ) );
 			return;
 		}
@@ -5783,7 +5804,7 @@ class KTPWP_Ajax {
 		}
 
 		// セキュリティチェック
-		if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'ktp_ajax_nonce')) {
+		if (!isset( $_POST['nonce'] ) || !wp_verify_nonce(sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'ktp_ajax_nonce')) {
 			wp_send_json_error( __( 'セキュリティチェックに失敗しました。', 'ktpwp' ) );
 			return;
 		}
@@ -6481,12 +6502,17 @@ class KTPWP_Ajax {
 			// 旧システムからも取得（後方互換性）
 			if ( empty( $my_company ) ) {
 				$setting_table = $wpdb->prefix . 'ktp_setting';
-				$setting = $wpdb->get_row(
-					$wpdb->prepare(
-						"SELECT * FROM `{$setting_table}` WHERE id = %d",
-						1
-					)
-				);
+				// 新規インストールにはこの旧テーブル自体が存在しないため、
+				// 存在確認してからクエリする（無ければ毎回 database error が出ていた）。
+				$setting = null;
+				if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $setting_table ) ) === $setting_table ) {
+					$setting = $wpdb->get_row(
+						$wpdb->prepare(
+							"SELECT * FROM `{$setting_table}` WHERE id = %d",
+							1
+						)
+					);
+				}
 				if ( $setting && isset( $setting->my_company_content ) ) {
 					$my_company = sanitize_text_field( strip_tags( $setting->my_company_content ) );
 				}
@@ -6544,7 +6570,7 @@ class KTPWP_Ajax {
 			}
 			wp_send_json_error(
 				array(
-					'message' => $e->getMessage(),
+					'message' => __( 'エラーが発生しました。', 'ktpwp' ),
 				)
 			);
 		}
@@ -6860,7 +6886,7 @@ class KTPWP_Ajax {
 			ktpwp_debug_log( 'レポートAJAX nonce検証: ' . ( isset( $_POST['nonce'] ) ? $_POST['nonce'] : 'NOT_SET' ) );
 		}
 		
-		if ( ! wp_verify_nonce( $_POST['nonce'], 'ktpwp_ajax_nonce' ) ) {
+		if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'ktpwp_ajax_nonce' ) ) {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 				ktpwp_debug_log( 'レポートAJAX nonce検証失敗: ' . ( isset( $_POST['nonce'] ) ? $_POST['nonce'] : 'NOT_SET' ) );
 			}

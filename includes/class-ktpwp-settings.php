@@ -1404,7 +1404,7 @@ class KTPWP_Settings {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( '権限がありません。', 'ktpwp' ) );
 		}
-		if ( ! isset( $_POST['ktpwp_export_nonce'] ) || ! wp_verify_nonce( $_POST['ktpwp_export_nonce'], 'ktpwp_export_data' ) ) {
+		if ( ! isset( $_POST['ktpwp_export_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['ktpwp_export_nonce'] ) ), 'ktpwp_export_data' ) ) {
 			wp_die( esc_html__( 'セキュリティチェックに失敗しました。', 'ktpwp' ) );
 		}
 
@@ -1491,7 +1491,7 @@ class KTPWP_Settings {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( '権限がありません。', 'ktpwp' ) );
 		}
-		if ( ! isset( $_POST['ktpwp_restore_nonce'] ) || ! wp_verify_nonce( $_POST['ktpwp_restore_nonce'], 'ktpwp_restore_data' ) ) {
+		if ( ! isset( $_POST['ktpwp_restore_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['ktpwp_restore_nonce'] ) ), 'ktpwp_restore_data' ) ) {
 			wp_die( esc_html__( 'セキュリティチェックに失敗しました。', 'ktpwp' ) );
 		}
 
@@ -4766,8 +4766,15 @@ class KTPWP_Settings {
             return; // 既に移行済み
         }
 
-        // 旧設定テーブルから会社情報を取得
+        // 旧設定テーブルから会社情報を取得。
+        // 新規インストールにはこの旧テーブル自体が存在しないため、
+        // クエリ前に存在確認する（無ければ WordPress database error が
+        // 有効化のたびにログへ出てしまう）。
         $setting_table = $wpdb->prefix . 'ktp_setting';
+        if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $setting_table ) ) !== $setting_table ) {
+            update_option( 'ktp_company_info_migrated', true );
+            return;
+        }
         $old_setting = $wpdb->get_row(
             $wpdb->prepare(
                 "SELECT my_company_content FROM {$setting_table} WHERE id = %d",
@@ -5351,7 +5358,7 @@ div.ktp_header > * {
 
         // 設定をデフォルト値にリセット
         if ( isset( $_POST['action'] ) && $_POST['action'] === 'reset_to_default' ) {
-            if ( ! wp_verify_nonce( $_POST['ktp_reset_to_default_nonce'], 'ktp_reset_to_default' ) ) {
+            if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['ktp_reset_to_default_nonce'] ) ), 'ktp_reset_to_default' ) ) {
                 wp_die( esc_html__( 'セキュリティチェックに失敗しました。', 'ktpwp' ) );
             }
 
@@ -5408,7 +5415,7 @@ div.ktp_header > * {
      */
     public static function admin_page() {
         // 設定の保存処理
-        if ( isset( $_POST['submit'] ) && wp_verify_nonce( $_POST['ktpwp_settings_nonce'], 'ktpwp_settings' ) ) {
+        if ( isset( $_POST['submit'] ) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['ktpwp_settings_nonce'] ) ), 'ktpwp_settings' ) ) {
             self::save_settings();
         }
 

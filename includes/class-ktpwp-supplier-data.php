@@ -133,7 +133,7 @@ if ( ! class_exists( 'KTPWP_Supplier_Data' ) ) {
 			// Security: CSRF protection - verify nonce on POST requests
 			if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
 				if ( ! isset( $post_data['ktp_supplier_nonce'] ) ||
-                 ! wp_verify_nonce( $post_data['ktp_supplier_nonce'], 'ktp_supplier_action' ) ) {
+                 ! wp_verify_nonce( sanitize_text_field( wp_unslash( $post_data['ktp_supplier_nonce'] ) ), 'ktp_supplier_action' ) ) {
 					// エラーログはサーバーサイドのみに記録（ヘッダーに表示されない）
 					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 						ktpwp_debug_log( 'KTPWP: Nonce verification failed' );

@@ -112,7 +112,7 @@ class KTPWP_License_Manager {
      * @since 1.0.0
      */
     public function handle_license_activation() {
-        if ( ! isset( $_POST['ktp_license_activation'] ) || ! wp_verify_nonce( $_POST['ktp_license_nonce'], 'ktp_license_activation' ) ) {
+        if ( ! isset( $_POST['ktp_license_activation'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['ktp_license_nonce'] ) ), 'ktp_license_activation' ) ) {
             return;
         }
 

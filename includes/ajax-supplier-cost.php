@@ -53,7 +53,7 @@ add_action(
 			
 			if ( $wpdb->last_error ) {
 				ktpwp_supplier_cost_log('[SUPPLIER-COST-AJAX] データベースエラー: ' . $wpdb->last_error );
-				wp_send_json_error( __( 'データベースエラー: ', 'ktpwp' ) . $wpdb->last_error );
+				wp_send_json_error( __( 'データベースエラーが発生しました。', 'ktpwp' ) );
 			}
 			
 			ktpwp_supplier_cost_log('[SUPPLIER-COST-AJAX] 協力会社リスト取得成功: ' . count( $suppliers ) . '件' );
@@ -61,7 +61,7 @@ add_action(
 			
 		} catch ( Exception $e ) {
 			ktpwp_supplier_cost_log('[SUPPLIER-COST-AJAX] 例外発生: ' . $e->getMessage() );
-			wp_send_json_error( __( '協力会社リストの取得中にエラーが発生しました: ', 'ktpwp' ) . $e->getMessage() );
+			wp_send_json_error( __( '協力会社リストの取得中にエラーが発生しました。', 'ktpwp' ) );
 		}
 	}
 );
@@ -137,7 +137,7 @@ add_action(
 			
 			if ( $wpdb->last_error ) {
 				ktpwp_supplier_cost_log('[SUPPLIER-COST-AJAX] データベースエラー: ' . $wpdb->last_error );
-				wp_send_json_error( __( 'データベースエラー: ', 'ktpwp' ) . $wpdb->last_error );
+				wp_send_json_error( __( 'データベースエラーが発生しました。', 'ktpwp' ) );
 			}
 			
 			ktpwp_supplier_cost_log('[SUPPLIER-COST-AJAX] 職能リスト取得成功: ' . count( $skills ) . '件' );
@@ -145,7 +145,7 @@ add_action(
 			
 		} catch ( Exception $e ) {
 			ktpwp_supplier_cost_log('[SUPPLIER-COST-AJAX] 例外発生: ' . $e->getMessage() );
-			wp_send_json_error( __( '職能リストの取得中にエラーが発生しました: ', 'ktpwp' ) . $e->getMessage() );
+			wp_send_json_error( __( '職能リストの取得中にエラーが発生しました。', 'ktpwp' ) );
 		}
 	}
 );
@@ -231,7 +231,10 @@ add_action(
 		// items配列で送信された場合の対応
 		$item = null;
 		if ( isset( $_POST['items'] ) ) {
-			$items = json_decode( stripslashes( $_POST['items'] ), true );
+			$items = json_decode( wp_unslash( $_POST['items'] ), true );
+			if ( is_array( $items ) ) {
+				$items = map_deep( $items, 'sanitize_text_field' );
+			}
 			if ( is_array( $items ) && isset( $items[0] ) ) {
 				$item = $items[0];
 			}

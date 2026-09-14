@@ -1309,7 +1309,7 @@ class KTPWP_Update_Checker {
      */
     public function handle_manual_update_check() {
         // セキュリティチェック
-        if ( ! wp_verify_nonce( $_POST['_wpnonce'], 'ktpwp_manual_update_check' ) ) {
+        if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ) ), 'ktpwp_manual_update_check' ) ) {
             wp_die( esc_html__( 'セキュリティチェックに失敗しました。', 'ktpwp' ) );
         }
         
@@ -1341,7 +1341,7 @@ class KTPWP_Update_Checker {
         }
         
         // セキュリティチェック
-        if ( ! wp_verify_nonce( $_POST['nonce'], 'ktpwp_update_checker' ) ) {
+        if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'ktpwp_update_checker' ) ) {
             ktpwp_debug_log( 'KantanPro: ajax_check_github_update - nonce検証に失敗しました' );
             wp_send_json_error( array(
                 'message' => __( 'セキュリティチェックに失敗しました。', 'ktpwp' ),
@@ -1765,7 +1765,7 @@ class KTPWP_Update_Checker {
         }
         
         // セキュリティチェック
-        if ( ! wp_verify_nonce( $_POST['nonce'], 'ktpwp_dismiss_update_notice' ) ) {
+        if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'ktpwp_dismiss_update_notice' ) ) {
             ktpwp_debug_log( 'KantanPro: dismiss_update_notice - nonce検証に失敗しました' );
             wp_send_json_error( array(
                 'message' => __( 'セキュリティチェックに失敗しました。', 'ktpwp' ),
@@ -1960,7 +1960,7 @@ class KTPWP_Update_Checker {
         }
         
         // セキュリティチェック
-        if ( ! wp_verify_nonce( $_POST['nonce'], 'ktpwp_dismiss_frontend_update_notice' ) ) {
+        if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'ktpwp_dismiss_frontend_update_notice' ) ) {
             ktpwp_debug_log( 'KantanPro: dismiss_frontend_update_notice - nonce検証に失敗しました' );
             wp_send_json_error( array(
                 'message' => __( 'セキュリティチェックに失敗しました。', 'ktpwp' ),
@@ -2001,7 +2001,7 @@ class KTPWP_Update_Checker {
         }
         
         // セキュリティチェック
-        if ( ! wp_verify_nonce( $_POST['nonce'], 'ktpwp_perform_update' ) ) {
+        if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'ktpwp_perform_update' ) ) {
             ktpwp_debug_log( 'KantanPro: perform_plugin_update - nonce検証に失敗しました' );
             wp_send_json_error( array(
                 'message' => __( 'セキュリティチェックに失敗しました。', 'ktpwp' ),
@@ -2611,7 +2611,7 @@ class KTPWP_Update_Checker {
         }
         
         // セキュリティチェック
-        if ( ! wp_verify_nonce( $_POST['nonce'], 'ktpwp_header_update_notice' ) ) {
+        if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'ktpwp_header_update_notice' ) ) {
             ktpwp_debug_log( 'KantanPro: dismiss_header_update_notice - nonce検証に失敗しました' );
             wp_send_json_error( array(
                 'message' => __( 'セキュリティチェックに失敗しました。', 'ktpwp' ),
@@ -2652,7 +2652,7 @@ class KTPWP_Update_Checker {
             
             // セキュリティチェック
             ktpwp_debug_log( 'KantanPro: nonce検証開始 - 受信nonce: ' . $_POST['nonce'] );
-            if ( ! wp_verify_nonce( $_POST['nonce'], 'ktpwp_header_update_check' ) ) {
+            if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'ktpwp_header_update_check' ) ) {
                 ktpwp_debug_log( 'KantanPro: ajax_check_header_update - nonce検証に失敗しました' );
                 ktpwp_debug_log( 'KantanPro: 期待されるnonce: ' . wp_create_nonce( 'ktpwp_header_update_check' ) );
                 wp_send_json_error( array(
@@ -2717,7 +2717,7 @@ class KTPWP_Update_Checker {
         } catch ( Exception $e ) {
             ktpwp_debug_log( 'KantanPro: AJAX更新チェックで例外が発生: ' . $e->getMessage() );
             wp_send_json_error( array(
-                'message' => __( '更新チェック中にエラーが発生しました: ', 'ktpwp' ) . $e->getMessage(),
+                'message' => __( '更新チェック中にエラーが発生しました。', 'ktpwp' ),
                 'error_type' => 'exception'
             ) );
         }
@@ -2834,7 +2834,7 @@ class KTPWP_Update_Checker {
         }
         
         // ナンスチェック
-        if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( $_POST['nonce'], 'ktpwp_update_checker' ) ) {
+        if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'ktpwp_update_checker' ) ) {
             wp_send_json_error( array(
                 'message' => __( 'セキュリティチェックに失敗しました。', 'ktpwp' ),
                 'error_type' => 'invalid_nonce'
@@ -2862,8 +2862,9 @@ class KTPWP_Update_Checker {
             ) );
             
         } catch ( Exception $e ) {
+            ktpwp_debug_log( 'KantanPro: キャッシュクリアで例外が発生: ' . $e->getMessage() );
             wp_send_json_error( array(
-                'message' => __( 'キャッシュクリアに失敗しました: ', 'ktpwp' ) . $e->getMessage(),
+                'message' => __( 'キャッシュクリアに失敗しました。', 'ktpwp' ),
                 'error_type' => 'cache_clear_failed'
             ) );
         }

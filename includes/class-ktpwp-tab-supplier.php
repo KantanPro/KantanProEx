@@ -535,6 +535,11 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 		// -----------------------------
 
 		function View_Table( $name ) {
+			// アクセス権限チェック（多層防御。主なゲートは ktpwp.php の kantanAllTab() 側）。
+			if ( function_exists( 'ktpwp_current_user_can_access' ) && ! ktpwp_current_user_can_access() ) {
+				return '';
+			}
+
 			global $wpdb, $wp; // $wp をグローバルに追加
 
 			// ベースURLの構築
@@ -1336,7 +1341,7 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 						$contact_html = class_exists( 'KTPWP_External_Url' )
 							? KTPWP_External_Url::maybe_render_form_group(
 								$fieldName,
-								__( $label, 'ktpwp' ),
+								$label, // KTPWP_External_Url が最終出力時に esc_html() するため、ここでは変数をそのまま渡す
 								$field_id,
 								$field,
 								(string) $value,
@@ -1558,7 +1563,7 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 						$contact_html = class_exists( 'KTPWP_External_Url' )
 							? KTPWP_External_Url::maybe_render_form_group(
 								$field['name'],
-								__( $label, 'ktpwp' ),
+								$label, // KTPWP_External_Url が最終出力時に esc_html() するため、ここでは変数をそのまま渡す
 								$field_id,
 								$field,
 								(string) $value,
@@ -1923,7 +1928,7 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 
 			// Security check - verify nonce
 			if ( ! isset( $post_data['ktp_skills_nonce'] ) ||
-             ! wp_verify_nonce( $post_data['ktp_skills_nonce'], 'ktp_skills_action' ) ) {
+             ! wp_verify_nonce( sanitize_text_field( wp_unslash( $post_data['ktp_skills_nonce'] ) ), 'ktp_skills_action' ) ) {
 				if ( $early_context ) {
 					$this->redirect_skills_error_notification( 'skill_err_nonce' );
 				}

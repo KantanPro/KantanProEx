@@ -19,7 +19,7 @@ add_action( 'wp_ajax_ktp_generate_sales_ledger_pdf', 'ktp_handle_sales_ledger_pd
 
 function ktp_handle_sales_ledger_pdf_ajax() {
     // セキュリティチェック
-    if ( ! wp_verify_nonce( $_POST['nonce'] ?? '', 'ktpwp_ajax_nonce' ) ) {
+    if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ?? '' ) ), 'ktpwp_ajax_nonce' ) ) {
         wp_send_json_error( __( 'セキュリティチェックに失敗しました。', 'ktpwp' ) );
         return;
     }
@@ -54,7 +54,7 @@ function ktp_handle_sales_ledger_pdf_ajax() {
 
     } catch ( Exception $e ) {
         ktpwp_debug_log( 'KTPWP Sales Ledger PDF Error: ' . $e->getMessage() );
-        wp_send_json_error( __( 'PDF生成中にエラーが発生しました: ', 'ktpwp' ) . $e->getMessage() );
+        wp_send_json_error( __( 'PDF生成中にエラーが発生しました。', 'ktpwp' ) );
     }
 }
 

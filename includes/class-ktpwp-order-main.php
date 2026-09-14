@@ -449,7 +449,7 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 			if ( $request_method === 'POST' && isset( $_POST['staff_chat_message'] ) && isset( $_POST['staff_chat_order_id'] ) ) {
             // Verify nonce
             if ( isset( $_POST['staff_chat_nonce'] ) &&
-                 wp_verify_nonce( $_POST['staff_chat_nonce'], 'staff_chat_action' ) ) {
+                 wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['staff_chat_nonce'] ) ), 'staff_chat_action' ) ) {
 
                 // Check user capabilities
                 if ( current_user_can( 'edit_posts' ) || current_user_can('ktpwp_access') ) {
@@ -483,15 +483,15 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 			// Handle email sending with proper security checks
 			if ( $request_method === 'POST' && isset( $_POST['send_order_mail_id'] ) ) {
 				// Verify nonce
-				// if ( ! isset( $_POST['order_mail_nonce'] ) ||
-				// ! wp_verify_nonce( $_POST['order_mail_nonce'], 'send_order_mail_action' ) ) {
-				// wp_die( esc_html__( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
-				// }
+				if ( ! isset( $_POST['order_mail_nonce'] ) ||
+				! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['order_mail_nonce'] ) ), 'send_order_mail_action' ) ) {
+					wp_die( esc_html__( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
+				}
 
 				// Additional capability check
-				// if ( ! current_user_can( 'manage_options' ) ) {
-				// wp_die( esc_html__( 'You do not have sufficient permissions to send emails.', 'ktpwp' ) );
-				// }
+				if ( ! current_user_can( 'edit_posts' ) && ! current_user_can( 'ktpwp_access' ) ) {
+					wp_die( esc_html__( 'You do not have sufficient permissions to send emails.', 'ktpwp' ) );
+				}
 
 				$order_id = absint( $_POST['send_order_mail_id'] );
 				if ( $order_id > 0 ) {
@@ -586,13 +586,18 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 								}
 
 								// 旧システムからも取得（後方互換性） - Use prepared statement
+								// 新規インストールにはこの旧テーブル自体が存在しないため、
+								// 存在確認してからクエリする（無ければ毎回 database error が出ていた）。
 								$setting_table = $wpdb->prefix . 'ktp_setting';
-								$setting = $wpdb->get_row(
-                                    $wpdb->prepare(
-                                        "SELECT * FROM `{$setting_table}` WHERE id = %d",
-                                        1
-                                    )
-								);
+								$setting = null;
+								if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $setting_table ) ) === $setting_table ) {
+									$setting = $wpdb->get_row(
+										$wpdb->prepare(
+											"SELECT * FROM `{$setting_table}` WHERE id = %d",
+											1
+										)
+									);
+								}
 
 								// 会社情報が新システムで見つからない場合は旧システムから取得
 								if ( empty( $my_company ) && $setting ) {
@@ -1015,30 +1020,12 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 			if ( ! ( $request_method === 'POST' && isset( $_POST['send_order_mail_id'] ) ) ) {
 			}
 
-			// この時点での実行確認
-			// 案件名の保存処理 - Add nonce verification
-			if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['update_project_name_id'], $_POST['order_project_name'] ) ) {
-				// Verify nonce
-				// if ( ! isset( $_POST['project_name_nonce'] ) ||
-				// ! wp_verify_nonce( $_POST['project_name_nonce'], 'update_project_name_action' ) ) {
-				// wp_die( esc_html__( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
-				// }
-
-				// Check user capabilities
-				// if ( ! current_user_can( 'manage_options' ) ) {
-				// wp_die( esc_html__( 'You do not have sufficient permissions to update project names.', 'ktpwp' ) );
-				// }
-
-				$update_id = absint( $_POST['update_project_name_id'] );
-				$project_name = sanitize_text_field( $_POST['order_project_name'] );
-				if ( $update_id > 0 ) {
-					$wpdb->update( $table_name, array( 'project_name' => $project_name ), array( 'id' => $update_id ), array( '%s' ), array( '%d' ) );
-					// POSTリダブミット防止のためリダイレクト
-					$redirect_url = esc_url_raw( $_SERVER['REQUEST_URI'] );
-					// wp_redirect( $redirect_url );
-					// exit;
-				}
-			}
+			// 案件名の更新は KTPWP_Ajax::ajax_update_project_name()（ktp_update_project_name）に
+			// 一本化されている（js/ktp-order-inline-projectname.js から呼ばれる、nonce・権限チェック済み）。
+			// この POST 経路は nonce も権限チェックも無効化されたまま $wpdb->update() を実行しており、
+			// かつ update_project_name_id / order_project_name / project_name_nonce を送信するフォームは
+			// プラグイン内に存在しなかった（実UIは上記 AJAX 経由）ため、再有効化ではなく削除した
+			// （ログイン済みなら誰でも任意の受注の案件名を書き換えられる CSRF だった）。
 
 			// 重要なチェックポイント2を追加
 
@@ -1127,7 +1114,7 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 			if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['save_invoice_items'] ) && isset( $_POST['invoice_items'] ) ) {
 				// Verify nonce
 				if ( ! isset( $_POST['invoice_items_nonce'] ) ||
-                 ! wp_verify_nonce( $_POST['invoice_items_nonce'], 'save_invoice_items_action' ) ) {
+                 ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['invoice_items_nonce'] ) ), 'save_invoice_items_action' ) ) {
 					wp_die( esc_html__( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
 				}
 
@@ -1218,15 +1205,15 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				// 顧客データが存在しない場合でも削除を許可するため、顧客データの存在チェックは行わない
 
 				// Verify nonce for delete action
-				// if ( ! isset( $_POST['delete_nonce'] ) ||
-				// ! wp_verify_nonce( $_POST['delete_nonce'], 'delete_order_action' ) ) {
-				// wp_die( esc_html__( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
-				// }
+				if ( ! isset( $_POST['delete_nonce'] ) ||
+				! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['delete_nonce'] ) ), 'delete_order_action' ) ) {
+					wp_die( esc_html__( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
+				}
 
 				// Check user capabilities
-				// if ( ! current_user_can( 'manage_options' ) ) {
-				// wp_die( esc_html__( 'You do not have sufficient permissions to delete orders.', 'ktpwp' ) );
-				// }
+				if ( ! current_user_can( 'edit_posts' ) && ! current_user_can( 'ktpwp_access' ) ) {
+					wp_die( esc_html__( 'You do not have sufficient permissions to delete orders.', 'ktpwp' ) );
+				}
 
 				// 削除処理 - 顧客データの存在に関係なく受注書を削除
 

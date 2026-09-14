@@ -52,6 +52,15 @@ class KTPWP_Terms_Of_Service {
         global $wpdb;
         $this->table_name = $wpdb->prefix . 'ktp_terms_of_service';
 
+        // テーブル存在チェックは本来 admin 側の plugins_loaded だけで行っており、
+        // 管理者が wp-admin を一度も開かずショートコードのページへ直接来た場合、
+        // テーブルが無いまま以下のメソッドが DB アクセスして
+        // WordPress database error が出ていた。
+        // get_instance() 経由の全呼び出しがこのコンストラクタを通るため、ここで保証する。
+        if ( function_exists( 'ktpwp_ensure_terms_table' ) ) {
+            ktpwp_ensure_terms_table();
+        }
+
         // セッション開始（安全な方法で）
         ktpwp_safe_session_start();
 
@@ -464,7 +473,7 @@ End',
         $table_name = $wpdb->prefix . 'ktp_terms_of_service';
 
         // --- 追加: 同意状態リセット処理 ---
-        if ( isset($_POST['ktp_terms_reset_nonce']) && wp_verify_nonce($_POST['ktp_terms_reset_nonce'], 'ktp_terms_reset') ) {
+        if ( isset( $_POST['ktp_terms_reset_nonce'] ) && wp_verify_nonce(sanitize_text_field( wp_unslash( $_POST['ktp_terms_reset_nonce'] ) ), 'ktp_terms_reset') ) {
             $this->reset_user_terms_agreement();
             echo '<div class="notice notice-success is-dismissible"><p>利用規約同意状態をリセットしました（このユーザーのみ）。</p></div>';
         }
@@ -665,7 +674,7 @@ End',
             return;
         }
 
-        if ( isset( $_POST['ktp_terms_nonce'] ) && wp_verify_nonce( $_POST['ktp_terms_nonce'], 'ktp_terms_update' ) ) {
+        if ( isset( $_POST['ktp_terms_nonce'] ) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['ktp_terms_nonce'] ) ), 'ktp_terms_update' ) ) {
             if ( $this->verify_developer_password() ) {
                 $this->update_terms();
             }

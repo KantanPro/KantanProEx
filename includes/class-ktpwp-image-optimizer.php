@@ -465,7 +465,7 @@ class KTPWP_Image_Optimizer {
      */
     public function ajax_convert_to_webp() {
         $attachment_id = isset( $_POST['attachment_id'] ) ? intval( $_POST['attachment_id'] ) : 0;
-        $nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( $_POST['nonce'] ) : '';
+        $nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
         
         if ( ! wp_verify_nonce( $nonce, 'ktpwp_webp_conversion_' . $attachment_id ) ) {
             wp_send_json_error( __( 'セキュリティチェックに失敗しました', 'ktpwp' ) );
@@ -497,13 +497,16 @@ class KTPWP_Image_Optimizer {
      */
     private function client_supports_webp() {
         // Accept ヘッダーをチェック
-        if ( isset( $_SERVER['HTTP_ACCEPT'] ) && strpos( $_SERVER['HTTP_ACCEPT'], 'image/webp' ) !== false ) {
-            return true;
+        if ( isset( $_SERVER['HTTP_ACCEPT'] ) ) {
+            $accept_header = sanitize_text_field( wp_unslash( $_SERVER['HTTP_ACCEPT'] ) );
+            if ( strpos( $accept_header, 'image/webp' ) !== false ) {
+                return true;
+            }
         }
-        
+
         // User-Agent をチェック
         if ( isset( $_SERVER['HTTP_USER_AGENT'] ) ) {
-            $user_agent = $_SERVER['HTTP_USER_AGENT'];
+            $user_agent = sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) );
             foreach ( $this->webp_supported_browsers as $browser ) {
                 if ( strpos( $user_agent, $browser ) !== false ) {
                     return true;
