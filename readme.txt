@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.40
+Stable tag: 1.4.41
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.41 - 2026年10月09日 =
+* 【セキュリティ】受注・発注メールの添付ファイル機能で、拡張子チェックがクライアント申告のファイル形式だけでも通ってしまい、PHPファイルをアップロードできてしまう脆弱性を修正しました。許可する拡張子のみを受け付けるようにし、添付の一時保存先でもスクリプト実行を禁止する多層防御を追加しています（要・編集権限ユーザーのみが対象の問題ですが、重大なため修正を推奨します）
 
 = 1.4.40 - 2026年09月14日 =
 * 購読者権限のユーザーでもショートコードの業務画面（受注・顧客・協力会社等）を閲覧できてしまう問題を修正しました。閲覧・操作には編集権限またはプラグイン独自の利用権限（ktpwp_access）を必須にしています
