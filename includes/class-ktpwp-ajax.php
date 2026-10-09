@@ -1299,7 +1299,7 @@ class KTPWP_Ajax {
 
 		// サニタイズされたパラメータのログ
 		ktpwp_debug_log( "[AJAX_UPDATE_ITEM_ORDER] Sanitized params: order_id={$order_id}, item_type={$item_type}, items_count=" . count( $items_data ) );
-		ktpwp_debug_log( '[AJAX_UPDATE_ITEM_ORDER] Items data: ' . print_r( $items_data, true ) );
+		ktpwp_debug_log( '[AJAX_UPDATE_ITEM_ORDER] Items count: ' . count( $items_data ) );
 
 		// バリデーション
 		if ( $order_id <= 0 ) {
@@ -2450,10 +2450,10 @@ class KTPWP_Ajax {
 	 * メール内容取得のAJAX処理
 	 */
 	public function ajax_get_email_content() {
-		// エラー出力を抑制してHTMLエラーメッセージを防ぐ
-		$error_reporting = error_reporting();
-		error_reporting(0);
-		
+		// 出力バッファで stray output を抑え、JSON 応答の汚染を防ぐ
+		// （PHPのエラー報告レベルはプラグインから変更しない。本番サイト全体に影響するため）。
+		ob_start();
+
 		try {
 			// セキュリティチェック
 			if ( ! check_ajax_referer( 'ktpwp_ajax_nonce', 'nonce', false ) ) {
@@ -3005,8 +3005,10 @@ class KTPWP_Ajax {
 				)
 			);
 		} finally {
-			// エラー出力設定を復元
-			error_reporting($error_reporting);
+			// バッファに溜まった stray output を破棄する
+			if ( ob_get_level() > 0 ) {
+				ob_end_clean();
+			}
 		}
 	}
 
@@ -4098,11 +4100,8 @@ class KTPWP_Ajax {
 		// 新しいバッファを開始（レスポンス汚染防止）
 		ob_start();
 
-		// エラー出力を抑制（JSON汚染防止）
-		if ( ! defined( 'WP_DEBUG' ) || ! WP_DEBUG ) {
-			error_reporting( 0 );
-			ini_set( 'display_errors', 0 );
-		}
+		// JSON 汚染防止は上の ob_start() に任せる。
+		// PHPのエラー報告レベルや表示設定はプラグインから変更しない（サイト全体に影響するため）。
 
 		// 汚染される可能性のあるWordPressフックを一時的に無効化
 		$this->disable_potentially_interfering_hooks();
@@ -5215,7 +5214,7 @@ class KTPWP_Ajax {
 				return;
 			}
 
-			// nonce検証（一時的に緩和版）
+			// nonce 検証（複数のキー名・アクション名で照合。権限があっても nonce は必須）
 			$nonce_verified = false;
 			$nonce_value = '';
 			$nonce_sources = [
@@ -5233,10 +5232,10 @@ class KTPWP_Ajax {
 					// 複数のnonce名で検証を試行
 					$nonce_names = [
 						'ktp_ajax_nonce',
+						'ktpwp_ajax_nonce',
+						'ktpwp_auto_save_nonce',
 						'_wpnonce',
-						'_ajax_nonce',
-						'auto_save',
-						'general'
+						'_ajax_nonce'
 					];
 					foreach ($nonce_names as $name) {
 						if (wp_verify_nonce($nonce_value, $name)) {
@@ -5246,13 +5245,6 @@ class KTPWP_Ajax {
 						}
 					}
 				}
-			}
-			
-			// 権限があるユーザーの場合は、nonce検証を一時的に緩和
-			if (!$nonce_verified && (current_user_can('edit_posts') || current_user_can('ktpwp_access'))) {
-				ktpwp_debug_log('KTPWP Ajax: Tax category nonce verification failed but user has permissions, proceeding with caution');
-				ktpwp_debug_log('KTPWP Ajax: Attempted tax category nonce value: ' . $nonce_value);
-				$nonce_verified = true;
 			}
 			
 			if (!$nonce_verified) {
@@ -5458,7 +5450,7 @@ class KTPWP_Ajax {
 				return;
 			}
 
-			// nonce検証（一時的に緩和版）
+			// nonce 検証（複数のキー名・アクション名で照合。権限があっても nonce は必須）
 			$nonce_verified = false;
 			$nonce_value = '';
 			$nonce_sources = [
@@ -5476,10 +5468,10 @@ class KTPWP_Ajax {
 					// 複数のnonce名で検証を試行
 					$nonce_names = [
 						'ktp_ajax_nonce',
+						'ktpwp_ajax_nonce',
+						'ktpwp_auto_save_nonce',
 						'_wpnonce',
-						'_ajax_nonce',
-						'auto_save',
-						'general'
+						'_ajax_nonce'
 					];
 					foreach ($nonce_names as $name) {
 						if (wp_verify_nonce($nonce_value, $name)) {
@@ -5489,14 +5481,6 @@ class KTPWP_Ajax {
 						}
 					}
 				}
-			}
-			
-			// 権限があるユーザーの場合は、nonce検証を一時的に緩和
-			if (!$nonce_verified && (current_user_can('edit_posts') || current_user_can('ktpwp_access'))) {
-				ktpwp_debug_log('KTPWP Ajax ajax_get_supplier_qualified_invoice_number: Nonce verification failed but user has permissions, proceeding with caution');
-				ktpwp_debug_log('KTPWP Ajax: Attempted nonce value: ' . $nonce_value);
-				ktpwp_debug_log('[AJAX_GET_SUPPLIER_QUALIFIED_INVOICE] Proceeding without nonce verification due to user permissions');
-				$nonce_verified = true;
 			}
 			
 			if (!$nonce_verified) {

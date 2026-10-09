@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.41
+Stable tag: 1.4.42
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,12 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.42 - 2026年10月09日 =
+* 【プライバシー】顧客・協力会社フォームの郵便番号→住所の自動入力を、管理者が明示的に有効化した日本郵便の公式API（サーバー側で呼び出し）経由のみに変更しました。既定では外部サービスへ通信しません（従来ブラウザから zipcloud へ送信していた処理を廃止）
+* 【品質】`error_reporting()`／`ini_set('display_errors')` の使用を全廃し、AJAX応答の汚染は出力バッファのみで防ぐようにしました（サイト全体のPHP設定を書き換えない）
+* 【セキュリティ】協力会社の税区分・適格請求書番号取得AJAXで、権限があればnonce検証を緩和していた実装をやめ、nonceを必須にしました
+* 同梱 jsPDF ライブラリに残っていた外部CDNのURLを除去（全アセットをローカル配信）、デバッグログのサニタイズ、ORDER BY・識別子SQLの許可リスト化、宛名ラベルアイコンの出力をwp_ksesで安全化
 
 = 1.4.41 - 2026年10月09日 =
 * 【セキュリティ】受注・発注メールの添付ファイル機能で、拡張子チェックがクライアント申告のファイル形式だけでも通ってしまい、PHPファイルをアップロードできてしまう脆弱性を修正しました。許可する拡張子のみを受け付けるようにし、添付の一時保存先でもスクリプト実行を禁止する多層防御を追加しています（要・編集権限ユーザーのみが対象の問題ですが、重大なため修正を推奨します）

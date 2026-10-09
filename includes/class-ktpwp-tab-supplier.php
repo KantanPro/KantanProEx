@@ -98,6 +98,52 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 		 * @param string $tab_name Table name suffix
 		 * @return void
 		 */
+		/**
+		 * 協力会社フォームの郵便番号→住所 自動入力スクリプト。
+		 *
+		 * 日本郵便の公式API（サーバー側・管理者が明示的に有効化）経由のみ。既定は無効で、
+		 * 無効のときは何も出力せず、外部サービスへ利用者の同意なく通信しない。
+		 *
+		 * @return string
+		 */
+		private function render_supplier_postal_lookup_script() {
+			if ( ! ( class_exists( 'KTPWP_JapanPost_Address_API' ) && KTPWP_JapanPost_Address_API::is_enabled() ) ) {
+				return '';
+			}
+			$ajax_json  = wp_json_encode( admin_url( 'admin-ajax.php' ) );
+			$nonce_json = wp_json_encode( wp_create_nonce( 'ktpwp_ajax_nonce' ) );
+			return '<script>
+(function(){
+	var ajaxUrl = ' . $ajax_json . ';
+	var ajaxNonce = ' . $nonce_json . ';
+	document.addEventListener("DOMContentLoaded", function(){
+		var postalCode = document.querySelector(\'input[name="postal_code"]\');
+		if (!postalCode) { return; }
+		var prefecture = document.querySelector(\'input[name="prefecture"]\');
+		var city = document.querySelector(\'input[name="city"]\');
+		var address = document.querySelector(\'input[name="address"]\');
+		postalCode.addEventListener("blur", function(){
+			var zip = String(postalCode.value || "").replace(/[^0-9]/g, "");
+			if (zip.length !== 7) { return; }
+			var fd = new FormData();
+			fd.append("action", "ktp_lookup_postal_address");
+			fd.append("nonce", ajaxNonce);
+			fd.append("zipcode", zip);
+			fetch(ajaxUrl, { method: "POST", body: fd, credentials: "same-origin" })
+				.then(function(r){ return r.json(); })
+				.then(function(res){
+					if (!res || !res.success || !res.data) { return; }
+					if (prefecture) { prefecture.value = res.data.prefecture || ""; }
+					if (city) { city.value = (res.data.city != null ? String(res.data.city) : "") || ""; }
+					if (address) { address.value = (res.data.address != null ? String(res.data.address) : "") || ""; }
+				})
+				.catch(function(){});
+		});
+	});
+})();
+</script>';
+		}
+
 		public function Update_Table( $tab_name ) {
 			// Enhanced debug logging
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -1290,30 +1336,7 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 				$data_title = '<div class="data_detail_box">' .
                           '<div class="data_detail_title">■ ' . esc_html__( '協力会社追加中', 'ktpwp' ) . '</div>';
 				// 郵便番号から住所を自動入力するためのJavaScriptコードを追加（日本郵政のAPIを利用）
-				$data_forms = <<<END
-            <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                var postalCode = document.querySelector('input[name="postal_code"]');
-                var prefecture = document.querySelector('input[name="prefecture"]');
-                var city = document.querySelector('input[name="city"]');
-                var address = document.querySelector('input[name="address"]');
-                postalCode.addEventListener('blur', function() {
-                    var xhr = new XMLHttpRequest();
-                    xhr.open('GET', 'https://zipcloud.ibsnet.co.jp/api/search?zipcode=' + postalCode.value);
-                    xhr.addEventListener('load', function() {
-                        var response = JSON.parse(xhr.responseText);
-                        if (response.results) {
-                            var data = response.results[0];
-                            prefecture.value = data.address1;
-                            city.value = data.address2 + data.address3; // 市区町村と町名を結合
-                            address.value = ''; // 番地は空欄に
-                        }
-                    });
-                    xhr.send();
-                });
-            });
-            </script>
-            END;
+				$data_forms = $this->render_supplier_postal_lookup_script();
 				// 空のフォームフィールドを生成
 				$data_forms .= '<form method="post" action="' . esc_url( $form_action_base_url ) . '">';
 				if ( function_exists( 'wp_nonce_field' ) ) {
@@ -1457,32 +1480,7 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 			elseif ( $action !== 'srcmode' && $action !== 'istmode' ) {
 
 				// 郵便番号から住所を自動入力するためのJavaScriptコードを追加（日本郵政のAPIを利用）
-				$data_forms = <<<END
-            <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                var postalCode = document.querySelector('input[name="postal_code"]');
-                var prefecture = document.querySelector('input[name="prefecture"]');
-                var city = document.querySelector('input[name="city"]');
-                var address = document.querySelector('input[name="address"]');
-                if (postalCode) {
-                    postalCode.addEventListener('blur', function() {
-                        var xhr = new XMLHttpRequest();
-                        xhr.open('GET', 'https://zipcloud.ibsnet.co.jp/api/search?zipcode=' + postalCode.value);
-                        xhr.addEventListener('load', function() {
-                            var response = JSON.parse(xhr.responseText);
-                            if (response.results) {
-                                var data = response.results[0];
-                                if (prefecture) prefecture.value = data.address1;
-                                if (city) city.value = data.address2 + data.address3; // 市区町村と町名を結合
-                                if (address) address.value = ''; // 番地は空欄に
-                            }
-                        });
-                        xhr.send();
-                    });
-                }
-            });
-            </script>
-            END;
+				$data_forms = $this->render_supplier_postal_lookup_script();
 
 				// ボタングループHTML生成
 				$button_group_html = '<div class="button-group" style="display: flex; gap: 10px; margin-left: auto;">';
@@ -1708,7 +1706,7 @@ if ( ! class_exists( 'KTPWP_Supplier_Class' ) ) {
 			$supplier_address_label_aria  = esc_attr__( '宛名', 'ktpwp' );
 			$supplier_address_label_text    = esc_html__( '宛名印刷', 'ktpwp' );
 			$supplier_address_label_icon    = class_exists( 'KTPWP_SVG_Icons' )
-				? KTPWP_SVG_Icons::get_icon( 'contact_mail', array( 'aria-label' => __( '宛名', 'ktpwp' ) ) )
+				? KTPWP_SVG_Icons::kses_icon( KTPWP_SVG_Icons::get_icon( 'contact_mail', array( 'aria-label' => __( '宛名', 'ktpwp' ) ) ) )
 				: '<span class="material-symbols-outlined" aria-label="' . esc_attr__( '宛名', 'ktpwp' ) . '">contact_mail</span>';
 
 			$search_keep_params  = array();
