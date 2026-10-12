@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.43
+Stable tag: 1.4.44
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,10 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.44 - 2026年10月12日 =
+* 【不具合修正】プラグインを更新したあと、データベースの更新処理がページを開くたびにやり直される問題を修正しました。読み込んだ時点で処理が走る書き方のマイグレーションが「未完了」と判定され、全体が失敗扱いになっていました。サーバーによっては DB エラーのログがあふれて 502 エラーになります（無料版 1.3.49 で実際に発生）
+* マイグレーション中の DB エラー（既にある列・索引の追加など）はログに出さず、失敗したときの再試行は 1 時間後にしました
 
 = 1.4.43 - 2026年10月12日 =
 * 【移行】無料版 KantanPro 1.3.49 以降のデータ（テーブル wp_ktpwp_*／オプション ktpwp_*）を、有効化時に自動で引き継ぐようにしました。テーブルは名前を戻すだけ（コピーしない）で、EX 側に既にデータがあるテーブルは上書きせず管理画面に通知します。WordPress.org から入れた無料版（フォルダ名 kantanpro）も自動停止・削除の対象にしました
