@@ -306,12 +306,12 @@ class KTPWP_Ajax {
 				if ( ! current_user_can( 'edit_posts' ) && ! current_user_can( 'ktpwp_access' ) ) {
 					wp_send_json_error( __( '権限がありません', 'ktpwp' ) );
 				}
-				// nonceチェック（必要ならPOSTでnonceも送る）
-				// if ( ! isset($_POST['nonce']) || ! wp_verify_nonce($_POST['nonce'], 'ktp_ajax_nonce') ) {
-				// wp_send_json_error( __( 'セキュリティ検証に失敗しました', 'ktpwp' ) );
-				// }
+				// nonceチェック（受注の進捗を書き換えるので必須。js/ktp-client-invoice.js が ktpClientInvoice.nonce を送る）
+				if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'ktp_ajax_nonce' ) ) {
+					wp_send_json_error( __( 'セキュリティ検証に失敗しました', 'ktpwp' ) );
+				}
 				global $wpdb;
-				$client_id = isset( $_POST['client_id'] ) ? intval( $_POST['client_id'] ) : 0;
+				$client_id = isset( $_POST['client_id'] ) ? absint( wp_unslash( $_POST['client_id'] ) ) : 0;
 				if ( ! $client_id ) {
 					wp_send_json_error( __( 'client_idが指定されていません', 'ktpwp' ) );
 				}

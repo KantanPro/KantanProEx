@@ -1076,7 +1076,8 @@ function ktpRunInvoiceCompletedAfterPrint() {
             clientId = clientIdInput.value;
         }
     }
-    var params = 'action=ktp_set_invoice_completed&client_id=' + encodeURIComponent(clientId);
+    var nonce = (typeof ktpClientInvoice !== 'undefined' && ktpClientInvoice.nonce) ? ktpClientInvoice.nonce : '';
+    var params = 'action=ktp_set_invoice_completed&client_id=' + encodeURIComponent(clientId) + '&nonce=' + encodeURIComponent(nonce);
     xhr.onload = function() {
         if (xhr.status === 200) {
             try {

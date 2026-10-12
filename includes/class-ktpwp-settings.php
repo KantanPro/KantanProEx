@@ -2549,7 +2549,9 @@ class KTPWP_Settings {
             // 通知表示
             settings_errors( 'ktp_settings' );
 
-            if ( isset( $_POST['test_email'] ) ) {
+            if ( isset( $_POST['test_email'], $_POST['ktpwp_test_email_nonce'] )
+                && wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['ktpwp_test_email_nonce'] ) ), 'ktpwp_send_test_email' )
+                && current_user_can( 'manage_options' ) ) {
                 $this->send_test_email();
             }
 
@@ -2610,6 +2612,7 @@ class KTPWP_Settings {
             echo '<p>' . esc_html__( 'SMTPの設定が正しく機能しているか確認するためのテストメールを送信します。', 'ktpwp' ) . '</p>';
             echo '<form method="post">';
             echo '<input type="hidden" name="test_email" value="1">';
+            wp_nonce_field( 'ktpwp_send_test_email', 'ktpwp_test_email_nonce' );
             submit_button( __( 'テストメール送信', 'ktpwp' ), 'secondary', 'submit', false );
             echo '</form>';
             echo '</div>';

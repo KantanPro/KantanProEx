@@ -1037,16 +1037,14 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 				ktpwp_debug_log( 'KTPWP Order: POST keys: ' . implode( ', ', array_keys( $_POST ) ) );
 				ktpwp_debug_log( 'KTPWP Order: $_POST[completion_date] = ' . ( isset( $_POST['completion_date'] ) ? $_POST['completion_date'] : 'NOT SET' ) );
 
-				// Verify nonce
-				// if ( ! isset( $_POST['progress_nonce'] ) ||
-				// ! wp_verify_nonce( $_POST['progress_nonce'], 'update_progress_action' ) ) {
-				// wp_die( esc_html__( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
-				// }
-
-				// Check user capabilities
-				// if ( ! current_user_can( 'manage_options' ) ) {
-				// wp_die( esc_html__( 'You do not have sufficient permissions to update progress.', 'ktpwp' ) );
-				// }
+				// 受注の進捗を書き換えるので、nonce と権限を必ず確認する（フォームは progress_nonce を送る）
+				if ( ! isset( $_POST['progress_nonce'] )
+					|| ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['progress_nonce'] ) ), 'update_progress_action' ) ) {
+					wp_die( esc_html__( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
+				}
+				if ( ! current_user_can( 'edit_posts' ) && ! current_user_can( 'ktpwp_access' ) ) {
+					wp_die( esc_html__( 'You do not have sufficient permissions to update progress.', 'ktpwp' ) );
+				}
 
 				$update_id = absint( $_POST['update_progress_id'] );
 				$update_progress = absint( $_POST['update_progress'] );
@@ -1145,6 +1143,14 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 
 			// コスト項目保存処理
 			if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['save_cost_items'] ) && $_POST['save_cost_items'] == 1 ) {
+				// 受注のコスト項目を書き換えるので、nonce と権限を必ず確認する（請求項目と同じ）
+				if ( ! isset( $_POST['cost_items_nonce'] ) ||
+					! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['cost_items_nonce'] ) ), 'save_cost_items_action' ) ) {
+					wp_die( esc_html__( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
+				}
+				if ( ! current_user_can( 'edit_posts' ) && ! current_user_can( 'ktpwp_access' ) ) {
+					wp_die( esc_html__( 'You do not have sufficient permissions to update invoice items.', 'ktpwp' ) );
+				}
 
 				$order_id = isset( $_POST['order_id'] ) ? absint( $_POST['order_id'] ) : 0;
 				$cost_items = isset( $_POST['cost_items'] ) ? $_POST['cost_items'] : array();

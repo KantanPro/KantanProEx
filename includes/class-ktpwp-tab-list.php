@@ -771,6 +771,7 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 					// 進捗プルダウンを納期コンテナ内に配置
 					$content .= "<form method='post' action='' style='margin: 0px 0 0px 0;display:inline;'>";
 					$content .= "<input type='hidden' name='update_progress_id' value='{$order_id}' />";
+					$content .= wp_nonce_field( 'update_progress_action', 'progress_nonce', true, false );
 					$content .= "<select name='update_progress' class='progress-select status-{$progress}' onchange='this.form.submit()'>";
 					foreach ( $progress_labels as $num => $label ) {
 						$selected = ( $progress === $num ) ? 'selected' : '';
@@ -791,6 +792,14 @@ if ( ! class_exists( 'KTPWP_List_Class' ) ) {
 			}
 			// 進捗更新処理
 			if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['update_progress_id'], $_POST['update_progress'] ) ) {
+				// 受注の進捗を書き換えるので、nonce と権限を必ず確認する
+				if ( ! isset( $_POST['progress_nonce'] )
+					|| ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['progress_nonce'] ) ), 'update_progress_action' ) ) {
+					wp_die( esc_html__( 'Security check failed. Please refresh the page and try again.', 'ktpwp' ) );
+				}
+				if ( ! current_user_can( 'edit_posts' ) && ! current_user_can( 'ktpwp_access' ) ) {
+					wp_die( esc_html__( 'You do not have sufficient permissions to update progress.', 'ktpwp' ) );
+				}
 				$update_id = intval( $_POST['update_progress_id'] );
 				$update_progress = intval( $_POST['update_progress'] );
 				if ( $update_id > 0 && $update_progress >= 1 && $update_progress <= 7 ) {

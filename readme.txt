@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.42
+Stable tag: 1.4.43
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,10 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.43 - 2026年10月12日 =
+* 【移行】無料版 KantanPro 1.3.49 以降のデータ（テーブル wp_ktpwp_*／オプション ktpwp_*）を、有効化時に自動で引き継ぐようにしました。テーブルは名前を戻すだけ（コピーしない）で、EX 側に既にデータがあるテーブルは上書きせず管理画面に通知します。WordPress.org から入れた無料版（フォルダ名 kantanpro）も自動停止・削除の対象にしました
+* 【セキュリティ】受注書・仕事リストの進捗変更、コスト項目の保存、一括請求書の「請求済へ変更」、SMTPテストメール送信で nonce を必須にしました（CSRF対策）
 
 = 1.4.42 - 2026年10月09日 =
 * 【プライバシー】顧客・協力会社フォームの郵便番号→住所の自動入力を、管理者が明示的に有効化した日本郵便の公式API（サーバー側で呼び出し）経由のみに変更しました。既定では外部サービスへ通信しません（従来ブラウザから zipcloud へ送信していた処理を廃止）
