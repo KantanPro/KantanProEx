@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name: KantanProEX
+ * Plugin Name: KantanProEX（WP）
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
  * Version: 1.4.44
@@ -387,7 +387,7 @@ if ( ! function_exists( 'ktpwp_ex_publish_pro_identity' ) ) {
             define( 'KTPWP_EDITION', 'pro' );
         }
         if ( ! defined( 'KANTANPRO_PLUGIN_NAME' ) ) {
-            define( 'KANTANPRO_PLUGIN_NAME', 'KantanProEX' );
+            define( 'KANTANPRO_PLUGIN_NAME', 'KantanProEX（WP）' );
         }
 
         update_option( 'ktp_active_edition', KTPWP_EDITION, false );
@@ -686,7 +686,7 @@ if ( ! defined( 'KANTANPRO_PLUGIN_VERSION' ) ) {
     define( 'KANTANPRO_PLUGIN_VERSION', $detected_version );
 }
 if ( ! defined( 'KANTANPRO_PLUGIN_NAME' ) ) {
-    define( 'KANTANPRO_PLUGIN_NAME', 'KantanProEX' );
+    define( 'KANTANPRO_PLUGIN_NAME', 'KantanProEX（WP）' );
 }
 if ( ! defined( 'KANTANPRO_PLUGIN_DESCRIPTION' ) ) {
     // 翻訳読み込み警告を回避するため、initアクションで設定
@@ -1142,6 +1142,7 @@ if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
         'KTPWP_FM_Import'       => 'includes/class-ktpwp-fm-import.php',
         'KTPWP_Contract_Reminder_Mail' => 'includes/class-ktpwp-contract-reminder-mail.php',
         'KTPWP_Edition'         => 'includes/class-ktpwp-edition.php',
+        'KTPWP_User_Registration' => 'includes/class-ktpwp-user-registration.php',
         'KTPWP_Settings'        => 'includes/class-ktpwp-settings.php',
         'KTPWP_Pdf_Document_Kind' => 'includes/class-ktpwp-pdf-document-kind.php',
         'KTPWP_Pdf_Document_Settings' => 'includes/class-ktpwp-pdf-document-settings.php',
@@ -1183,6 +1184,10 @@ if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
                 }
             }
         }
+    }
+    // ユーザー登録（任意。登録するとメール署名の後ろの宣伝文が入らなくなる）
+    if ( class_exists( 'KTPWP_User_Registration' ) ) {
+        KTPWP_User_Registration::init();
     }
     // 税制ポリシー
     $tax_policy_file = __DIR__ . '/includes/class-ktpwp-tax-policy.php';
@@ -1481,7 +1486,8 @@ function ktpwp_handle_convert_all_images_ajax() {
 add_action( 'admin_enqueue_scripts', 'ktpwp_enqueue_cache_admin_scripts' );
 function ktpwp_enqueue_cache_admin_scripts( $hook ) {
     // KantanPro設定ページでのみ読み込み
-    if ( 'toplevel_page_ktp-settings' === $hook || 'settings_page_ktp-settings' === $hook ) {
+    // js/ktpwp-cache-admin.js はリポジトリに存在しないため、無ければ読み込まない（404 防止）
+    if ( ( 'toplevel_page_ktp-settings' === $hook || 'settings_page_ktp-settings' === $hook ) && file_exists( __DIR__ . '/js/ktpwp-cache-admin.js' ) ) {
         wp_enqueue_script(
             'ktpwp-cache-admin',
             KANTANPRO_PLUGIN_URL . 'js/ktpwp-cache-admin.js',
@@ -5049,7 +5055,8 @@ function ktpwp_scripts_and_styles( $hook = '' ) {
     }
 
     // リファレンス機能のスクリプトを読み込み（ログイン済みユーザーのみ）
-    if ( is_user_logged_in() ) {
+    // 配布ZIPでは create_release_zip.sh が js/plugin-reference.js を除外するため、無ければ読み込まない（404 防止）
+    if ( is_user_logged_in() && file_exists( __DIR__ . '/js/plugin-reference.js' ) ) {
         wp_enqueue_script(
             'ktpwp-reference',
             plugins_url( 'js/plugin-reference.js', __FILE__ ),
@@ -5479,7 +5486,7 @@ function KTPWP_Index() {
             }
 
             // システム名はプラグイン定数を優先して固定表示（無料版の残存オプション値に影響されない）
-            $system_name = defined( 'KANTANPRO_PLUGIN_NAME' ) ? KANTANPRO_PLUGIN_NAME : 'KantanProEX';
+            $system_name = defined( 'KANTANPRO_PLUGIN_NAME' ) ? KANTANPRO_PLUGIN_NAME : 'KantanProEX（WP）';
             $system_description = defined( 'KANTANPRO_PLUGIN_DESCRIPTION' )
                 ? KANTANPRO_PLUGIN_DESCRIPTION
                 : 'スモールビジネスのための販売支援ツール';

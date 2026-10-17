@@ -12,7 +12,7 @@ GITHUB_REPO=""
 case "$EDITION" in
     pro)
         BUILD_DIR_NAME="KantanProEX"
-        PLUGIN_NAME="KantanProEX"
+        PLUGIN_NAME="KantanProEX（WP）"
         STAFF_LIMIT="0"
         GITHUB_REPO="KantanPro/KantanProEx"
         ;;
@@ -90,6 +90,18 @@ perl -pi -e "s|^\s*\*\s*Update URI:.*| * Update URI: https://github.com/${GITHUB
 perl -pi -e "s/define\\(\\s*'KTPWP_EDITION'\\s*,\\s*'[^']*'\\s*\\)/define( 'KTPWP_EDITION', '${EDITION}' )/g" "${KTPWP_FILE}"
 perl -pi -e "s/define\\(\\s*'KANTANPRO_PLUGIN_NAME'\\s*,\\s*'[^']*'\\s*\\)/define( 'KANTANPRO_PLUGIN_NAME', '${PLUGIN_NAME}' )/g" "${KTPWP_FILE}"
 perl -pi -e "s/define\\(\\s*'KANTANPRO_PLUGIN_CANONICAL_DIR'\\s*,\\s*'[^']*'\\s*\\)/define( 'KANTANPRO_PLUGIN_CANONICAL_DIR', '${BUILD_DIR_NAME}' )/g" "${KTPWP_FILE}"
+
+# ユーザー登録のニュースレター登録用の秘密（ソースには置かない）を、リリース物にだけ差し込む。
+REG_SECRET_FILE="${KTPWP_REG_SECRET_FILE:-$HOME/.kantanpro/kpdg-wp-secret.txt}"
+REG_FILE="${BUILD_DIR}/includes/class-ktpwp-user-registration.php"
+if [ -f "${REG_FILE}" ]; then
+    if [ -f "${REG_SECRET_FILE}" ]; then
+        KTPWP_REG_SECRET="$(tr -d '[:space:]' < "${REG_SECRET_FILE}")" perl -pi -e 's/__KTPWP_REG_SECRET__(?=\x27;)/$ENV{KTPWP_REG_SECRET}/' "${REG_FILE}"
+        echo "  - ユーザー登録の登録用シークレットを差し込みました"
+    else
+        echo "⚠️  ${REG_SECRET_FILE} が無いので、ユーザー登録のニュースレター登録は動かないリリースになります"
+    fi
+fi
 
 if grep -q "define( 'KTPWP_STAFF_LIMIT'" "${KTPWP_FILE}"; then
     perl -pi -e "s/define\\(\\s*'KTPWP_STAFF_LIMIT'\\s*,\\s*[0-9]+\\s*\\)/define( 'KTPWP_STAFF_LIMIT', ${STAFF_LIMIT} )/g" "${KTPWP_FILE}"

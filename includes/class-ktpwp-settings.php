@@ -1236,14 +1236,18 @@ class KTPWP_Settings {
         );
 
         // サブメニュー - ダミーデータ作成
-        add_submenu_page(
-            'ktp-settings', // 親メニューのスラッグ
-            __( 'ダミーデータ作成', 'ktpwp' ), // ページタイトル
-            __( 'ダミーデータ作成', 'ktpwp' ), // メニュータイトル
-            'manage_options', // 権限
-            'ktpwp-dummy-data', // メニューのスラッグ（既存ページのスラッグを踏襲）
-            'ktpwp_dummy_data_page' // 既存の表示関数を流用
-        );
+        // 配布ZIPでは create_release_zip.sh が create_dummy_data.php を外す（開発・検証用）。
+        // 無いのにメニューを出すと「ダミーデータ作成スクリプトが見つかりません。」になるので、あるときだけ出す
+        if ( file_exists( KTPWP_PLUGIN_DIR . 'create_dummy_data.php' ) ) {
+            add_submenu_page(
+                'ktp-settings', // 親メニューのスラッグ
+                __( 'ダミーデータ作成', 'ktpwp' ), // ページタイトル
+                __( 'ダミーデータ作成', 'ktpwp' ), // メニュータイトル
+                'manage_options', // 権限
+                'ktpwp-dummy-data', // メニューのスラッグ（既存ページのスラッグを踏襲）
+                'ktpwp_dummy_data_page' // 既存の表示関数を流用
+            );
+        }
 
 		// サブメニュー - バックアップ（エクスポート/インポート）
 		add_submenu_page(
@@ -1879,7 +1883,7 @@ class KTPWP_Settings {
         $is_dev_env        = $this->is_development_environment();
 
         $rows = array(
-            __( 'プラグイン', 'ktpwp' )         => ( defined( 'KANTANPRO_PLUGIN_NAME' ) ? KANTANPRO_PLUGIN_NAME : 'KantanProEX' ) . ' ' . $plugin_version,
+            __( 'プラグイン', 'ktpwp' )         => ( defined( 'KANTANPRO_PLUGIN_NAME' ) ? KANTANPRO_PLUGIN_NAME : 'KantanProEX（WP）' ) . ' ' . $plugin_version,
             __( 'DBバージョン', 'ktpwp' )       => $db_version !== '' ? $db_version : __( '不明', 'ktpwp' ),
             __( 'インストール日', 'ktpwp' )     => $installed_date !== '' ? $installed_date : __( '不明', 'ktpwp' ),
             __( 'WordPress', 'ktpwp' )          => get_bloginfo( 'version' ),

@@ -155,7 +155,7 @@ if ( ! class_exists( 'KTPWP_Stripe_Billing' ) ) {
 				}
 			}
 
-			return defined( 'KANTANPRO_PLUGIN_NAME' ) ? KANTANPRO_PLUGIN_NAME : 'KantanProEX';
+			return defined( 'KANTANPRO_PLUGIN_NAME' ) ? KANTANPRO_PLUGIN_NAME : 'KantanProEX（WP）';
 		}
 
 		/**
