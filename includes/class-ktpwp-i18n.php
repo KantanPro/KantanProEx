@@ -30,6 +30,13 @@ class KTPWP_I18n {
     private $dictionary = null;
 
     /**
+     * Cached dictionary for whole-page replacement (single-character keys excluded).
+     *
+     * @var array<string,string>|null
+     */
+    private $buffer_dictionary = null;
+
+    /**
      * Get instance.
      *
      * @return KTPWP_I18n
@@ -165,7 +172,30 @@ class KTPWP_I18n {
         if ( ! is_string( $buffer ) || $buffer === '' || ! $this->should_translate_to_english() ) {
             return $buffer;
         }
-        return strtr( $buffer, $this->get_dictionary() );
+        return strtr( $buffer, $this->get_buffer_dictionary() );
+    }
+
+    /**
+     * ページ全体の置換に使う辞書（1文字の項目を除く）。
+     *
+     * 出力バッファ全体に strtr をかけるため、「式」「件」「月」「様」のような1文字の項目は
+     * 顧客名や案件名などの利用者データまで書き換える（例: 株式会社 → 株set会社）。
+     * hidden の値も変わるのでそのまま保存され、データが壊れる。
+     * 1文字の項目は translate_fixed_text()（完全一致）でだけ使う。
+     *
+     * @return array<string,string>
+     */
+    private function get_buffer_dictionary() {
+        if ( null === $this->buffer_dictionary ) {
+            $this->buffer_dictionary = array_filter(
+                $this->get_dictionary(),
+                function ( $key ) {
+                    return mb_strlen( (string) $key ) > 1;
+                },
+                ARRAY_FILTER_USE_KEY
+            );
+        }
+        return $this->buffer_dictionary;
     }
 
     /**

@@ -2121,7 +2121,7 @@ if ( ! class_exists( 'KTPWP_Client_Class' ) ) {
             var departmentName = document.querySelector("input[name=\'department_name\']").value;
             var contactPerson = document.querySelector("input[name=\'contact_person\']").value;
             var email = document.querySelector("input[name=\'department_email\']").value;
-            var clientId = ' . esc_js( $data_id ) . ';
+            var clientId = ' . (int) $data_id . '; // 顧客0件のとき esc_js() だと空になり「var clientId = ;」で構文エラーになる
             
             // 部署設定は空欄でも可
             if (!contactPerson || !email) {

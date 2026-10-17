@@ -701,10 +701,13 @@ jQuery(document).ready(function($) {
      */
     function updateProgressButtonWarning() {
         console.log('[DELIVERY-DATES] 進捗ボタン警告マーク更新開始');
-        
+
         // nonceの取得
+        // サーバー側は 'ktp_ajax_nonce' で検証する。共通の ktpwp_ajax.nonce は後から読み込まれる
+        // 定義で 'ktpwp_ajax_nonce'（general）に上書きされることがあり一致しないため、
+        // このスクリプト用に渡している ktp_ajax.nonce を優先する
         const ajaxConfig = getAjaxConfig();
-        const nonce = ajaxConfig.nonce;
+        const nonce = (typeof ktp_ajax !== 'undefined' && ktp_ajax.nonce) ? ktp_ajax.nonce : ajaxConfig.nonce;
         
         if (!nonce) {
             console.error('[DELIVERY-DATES] エラー: nonceが取得できません');

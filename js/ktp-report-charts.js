@@ -817,11 +817,10 @@
         return gradientObj;
     }
 
-    // グローバルスコープに公開（必要に応じて）
+    // グローバルスコープに公開（ktp-report-print.js が印刷前の再描画に使う）
+    // 未定義の関数を並べると ReferenceError で公開自体が失敗するので、実在するものだけにする
     window.KTPReportCharts = {
-        initializeCharts: initializeCharts,
-        getMonthlySalesData: getMonthlySalesData,
-        getProfitTrendData: getProfitTrendData
+        initializeCharts: initializeCharts
     };
 
 })(); 

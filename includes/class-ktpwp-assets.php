@@ -989,6 +989,15 @@ class KTPWP_Assets {
                     }
                 }
                 
+                // 配布ZIPから除外されるファイル（create_release_zip.sh が *-fixed.css 等を消す）は
+                // 404 になるので、中身なしのハンドルとして登録する。wp_enqueue_style() は src が空だと
+                // 登録しないため明示的に登録する（登録しないと、依存している CSS ごと出力されなくなる）
+                if ( ! empty( $style['src'] ) && ! file_exists( KTPWP_PLUGIN_DIR . ltrim( $style['src'], '/' ) ) ) {
+                    wp_register_style( $handle, false, $style['deps'], $version, $style['media'] );
+                    wp_enqueue_style( $handle );
+                    continue;
+                }
+
                 wp_enqueue_style( $handle, $src, $style['deps'], $version, $style['media'] );
             }
         }
@@ -1097,6 +1106,13 @@ class KTPWP_Assets {
                 }
 
                 $src = $this->get_asset_url( $script['src'] );
+                // 配布ZIPから除外されるデバッグ用 JS は 404 になるので、中身なしのハンドルとして登録する
+                // （依存関係は保つ。wp_enqueue_script() は src が空だと登録しないので明示的に登録する）
+                if ( ! file_exists( KTPWP_PLUGIN_DIR . ltrim( $script['src'], '/' ) ) ) {
+                    wp_register_script( $handle, false, $script['deps'], $script['ver'], $script['in_footer'] );
+                    wp_enqueue_script( $handle );
+                    continue;
+                }
                 wp_enqueue_script( $handle, $src, $script['deps'], $script['ver'], $script['in_footer'] );
 
                 // Localizeスクリプト

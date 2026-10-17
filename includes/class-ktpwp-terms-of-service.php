@@ -1385,7 +1385,8 @@ End',
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.5);
-            z-index: 9999;
+            /* .ktp_header（z-index:100000）より手前に出す。9999 だとヘッダーの帯が規約画面に重なる */
+            z-index: 100010;
         }
         .ktpwp-terms-modal {
             position: fixed;
@@ -1397,7 +1398,7 @@ End',
             border-radius: 8px;
             width: 600px;
             max-height: 80vh;
-            z-index: 10000;
+            z-index: 100011;
             display: flex;
             flex-direction: column;
         }
