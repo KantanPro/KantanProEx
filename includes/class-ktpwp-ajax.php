@@ -2968,7 +2968,9 @@ class KTPWP_Ajax {
                 }
             }
 
-            $body   .= "\n\n--\n{$my_company}";
+            // メール署名の後ろに追記したい派生版（デスクトップ版など）向けのフィルタ
+            $my_company_signature = (string) apply_filters( 'ktpwp_mail_signature', $my_company, 'order' );
+            $body                .= "\n\n--\n{$my_company_signature}";
 
             if ( class_exists( 'KTPWP_Stripe_Billing' ) ) {
                 $stripe_billing = KTPWP_Stripe_Billing::get_instance();
@@ -6859,7 +6861,8 @@ class KTPWP_Ajax {
 		// フッター
 		$body .= "よろしくお願いいたします。\n\n";
 		$body .= "--\n";
-		$body .= $my_company . "\n";
+		// メール署名の後ろに追記したい派生版（デスクトップ版など）向けのフィルタ
+		$body .= (string) apply_filters( 'ktpwp_mail_signature', $my_company, 'purchase_order' ) . "\n";
 
 		return $body;
 	}

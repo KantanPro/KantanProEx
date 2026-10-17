@@ -604,6 +604,9 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 										$my_company = sanitize_text_field( strip_tags( $setting->my_company_content ) );
 								}
 
+								// メール署名の後ろに追記したい派生版（デスクトップ版など）向けのフィルタ
+								$my_company = (string) apply_filters( 'ktpwp_mail_signature', $my_company, 'order' );
+
 								// 自社メールアドレスが新システムで見つからない場合は旧システムから取得
 								if ( empty( $my_email ) && $setting ) {
 									$my_email = sanitize_email( $setting->email_address );
