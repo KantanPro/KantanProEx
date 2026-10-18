@@ -21,7 +21,8 @@ class KTPWP_User_Registration {
 	const OPTION         = 'ktpwp_user_registration';
 	const PAGE_SLUG      = 'ktp-user-registration';
 	const CRON_HOOK      = 'ktpwp_user_registration_sync';
-	const ENDPOINT       = 'https://www.kantanpro.com/wp-json/kpdg/v1/subscribe';
+	const ENDPOINT       = 'https://www.kantanpro.com/wp-json/kpdg/v1/';
+	const PENDING_UNSUB  = 'ktpwp_user_registration_unsub'; // 解除したが、まだ kantanpro.com に伝えられていないメールアドレス
 	const LIST_ID        = 8; // MailPoet「KantanProEX（WP）」。この秘密はこのリストにしか登録できない。
 	// リリース zip を作るとき（create_release_zip.sh）に実際の値へ差し替える。ソースには秘密を置かない。
 	const SHARED_SECRET  = '__KTPWP_REG_SECRET__';
@@ -64,17 +65,18 @@ class KTPWP_User_Registration {
 	}
 
 	/**
-	 * 登録メールアドレスを kantanpro.com のニュースレターに登録する。
+	 * kantanpro.com に登録／解除を伝える（ニュースレターの登録・解除と、お礼・解除のお知らせメールの送信は向こう側で行う）。
 	 *
-	 * @param string $email メールアドレス。
+	 * @param string $action 'subscribe' または 'unsubscribe'。
+	 * @param string $email  メールアドレス。
 	 * @return bool
 	 */
-	private static function subscribe( $email ) {
+	private static function request( $action, $email ) {
 		if ( false !== strpos( self::SHARED_SECRET, '__KTPWP_REG_SECRET__' ) ) {
 			return false; // 差し替え前（開発中のソース）は送らない。
 		}
 		$res = wp_remote_post(
-			self::ENDPOINT,
+			self::ENDPOINT . $action,
 			array(
 				'timeout' => 15,
 				'body'    => array(
@@ -89,17 +91,31 @@ class KTPWP_User_Registration {
 	}
 
 	/**
-	 * 登録済みでニュースレターに未送信なら送る。失敗したら1時間後に再試行する。
+	 * 未送信の登録・解除を kantanpro.com に送る。失敗したら1時間後に再試行する。
 	 */
 	public static function sync_newsletter() {
-		$saved = get_option( self::OPTION );
-		if ( ! is_array( $saved ) || empty( $saved['email'] ) || ! empty( $saved['newsletter'] ) ) {
-			return;
+		$retry = false;
+
+		$pending = get_option( self::PENDING_UNSUB );
+		if ( is_string( $pending ) && '' !== $pending ) {
+			if ( self::request( 'unsubscribe', $pending ) ) {
+				delete_option( self::PENDING_UNSUB );
+			} else {
+				$retry = true;
+			}
 		}
-		if ( self::subscribe( $saved['email'] ) ) {
-			$saved['newsletter'] = true;
-			update_option( self::OPTION, $saved, false );
-		} elseif ( ! wp_next_scheduled( self::CRON_HOOK ) ) {
+
+		$saved = get_option( self::OPTION );
+		if ( is_array( $saved ) && ! empty( $saved['email'] ) && empty( $saved['newsletter'] ) ) {
+			if ( self::request( 'subscribe', $saved['email'] ) ) {
+				$saved['newsletter'] = true;
+				update_option( self::OPTION, $saved, false );
+			} else {
+				$retry = true;
+			}
+		}
+
+		if ( $retry && ! wp_next_scheduled( self::CRON_HOOK ) ) {
 			wp_schedule_single_event( time() + HOUR_IN_SECONDS, self::CRON_HOOK );
 		}
 	}
@@ -129,11 +145,21 @@ class KTPWP_User_Registration {
 		$is_error = false;
 		if ( isset( $_POST['ktpwp_reg_nonce'] ) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['ktpwp_reg_nonce'] ) ), 'ktpwp_user_registration' ) ) {
 			if ( isset( $_POST['ktpwp_reg_clear'] ) ) {
+				$old = get_option( self::OPTION );
 				delete_option( self::OPTION );
+				if ( is_array( $old ) && ! empty( $old['email'] ) ) {
+					// ニュースレターからの削除と解除のお知らせメールは kantanpro.com 側で行う。通信できなければ後で再送する。
+					update_option( self::PENDING_UNSUB, $old['email'], false );
+					self::sync_newsletter();
+				}
 				$message = __( '登録を解除しました。', 'ktpwp' );
 			} else {
 				$email = isset( $_POST['ktpwp_reg_email'] ) ? sanitize_email( wp_unslash( $_POST['ktpwp_reg_email'] ) ) : '';
 				if ( is_email( $email ) ) {
+					// 同じメールアドレスの解除が送信待ちのまま再登録されたら、解除は取り消す。
+					if ( get_option( self::PENDING_UNSUB ) === $email ) {
+						delete_option( self::PENDING_UNSUB );
+					}
 					// 宣伝文を消す登録は、通信できなくてもその場で完了させる。ニュースレターへの登録は裏で行い、失敗したら後で再送する。
 					update_option( self::OPTION, array( 'email' => $email, 'newsletter' => false ), false );
 					self::sync_newsletter();
