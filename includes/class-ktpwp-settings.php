@@ -1398,6 +1398,11 @@ class KTPWP_Settings {
 		echo '</form>';
 		echo '</div>';
 
+		// デスクトップ版へ移行
+		if ( class_exists( 'KTPWP_Desktop_Export' ) ) {
+			KTPWP_Desktop_Export::render_section();
+		}
+
 		echo '</div>';
 	}
 

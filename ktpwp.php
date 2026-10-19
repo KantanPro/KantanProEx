@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX（WP）
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.4.45
+ * Version: 1.4.46
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -1140,6 +1140,7 @@ if ( ! function_exists( 'ktpwp_autoload_classes' ) ) {
         'KTPWP_Update_Checker'  => 'includes/class-ktpwp-update-checker.php',
         'KTPWP_SVG_Icons'       => 'includes/class-ktpwp-svg-icons.php',
         'KTPWP_FM_Import'       => 'includes/class-ktpwp-fm-import.php',
+        'KTPWP_Desktop_Export'  => 'includes/class-ktpwp-desktop-export.php',
         'KTPWP_Contract_Reminder_Mail' => 'includes/class-ktpwp-contract-reminder-mail.php',
         'KTPWP_Edition'         => 'includes/class-ktpwp-edition.php',
         'KTPWP_User_Registration' => 'includes/class-ktpwp-user-registration.php',
@@ -1230,6 +1231,11 @@ if ( class_exists( 'KTPWP_FM_Import' ) ) {
 
 if ( class_exists( 'KTPWP_Service_Import_Export' ) ) {
 	KTPWP_Service_Import_Export::bootstrap();
+}
+
+// デスクトップ版（KantanProEX（DT））への移行用ファイルの書き出し
+if ( class_exists( 'KTPWP_Desktop_Export' ) ) {
+	KTPWP_Desktop_Export::bootstrap();
 }
 
 // 多言語化サポートを初期化

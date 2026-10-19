@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.45
+Stable tag: 1.4.46
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,10 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.46 - 2026年10月20日 =
+* 【新機能】「KantanProEX 設定 → バックアップ」に「デスクトップ版へ移行」を追加しました。KantanProEX（DT）（Mac / Windows のアプリ）へ移るためのファイル（ZIP）を書き出します。顧客・受注・請求・契約などのデータ、帳票やメールの設定、スタッフ、帳票のロゴと印影、案件ファイル、サービス画像が入ります。デスクトップ版の「ファイル → WordPress 版から取り込む…」で読み込めます（デスクトップ版 1.0.1 以降）
+* メール（SMTP）のパスワード、日本郵便 API のシークレットキー、Stripe の鍵は書き出しません
 
 = 1.4.45 - 2026年10月18日 =
 * 【新機能】「設定 → ユーザー登録」を追加しました。登録は任意で、しなくてもすべての機能を使えます。登録すると、顧客・協力会社へのメールの署名の後ろに最初から入る「このメールは KantanProEX（WP）で作成しています」の宣伝文が入らなくなり、アップデート情報や活用方法のメールが届きます。登録を解除するとメールの配信も止まります
