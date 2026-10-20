@@ -4911,6 +4911,16 @@ function ktpwp_apply_frontend_tab_state_from_cookie() {
 		return;
 	}
 
+	// URL（または POST）に表示状態のキーが1つでもあるときは、その URL を正とする。
+	// 「すべて」のように list_type を意図的に外したリンクで、Cookie の古い list_type が
+	// 補われて直前の表示（定期のみ）に戻ってしまうのを防ぐ。
+	foreach ( ktpwp_get_tab_state_allowed_keys( $tab_name ) as $allowed_key ) {
+		if ( ( isset( $_GET[ $allowed_key ] ) && (string) wp_unslash( $_GET[ $allowed_key ] ) !== '' )
+			|| ( isset( $_POST[ $allowed_key ] ) && (string) wp_unslash( $_POST[ $allowed_key ] ) !== '' ) ) {
+			return;
+		}
+	}
+
 	foreach ( $parsed['state'] as $key => $value ) {
 		$get_set  = isset( $_GET[ $key ] ) && (string) wp_unslash( $_GET[ $key ] ) !== '';
 		$post_set = isset( $_POST[ $key ] ) && (string) wp_unslash( $_POST[ $key ] ) !== '';
