@@ -61,8 +61,8 @@ class KTPWP_Terms_Of_Service {
             ktpwp_ensure_terms_table();
         }
 
-        // セッション開始（安全な方法で）
-        ktpwp_safe_session_start();
+        // セッションは開始しない。常時 session_start() するとサイトヘルスが
+        // 「アクティブな PHP セッション」を致命的問題として報告し、ループバックも妨げる。
 
         // フックの設定
         add_action( 'admin_init', array( $this, 'handle_terms_actions' ) );
@@ -485,7 +485,9 @@ End',
 
         // ログアウト処理
         if ( isset( $_GET['logout'] ) && $_GET['logout'] === '1' ) {
-            $_SESSION['ktp_developer_authenticated'] = false;
+            if ( session_status() === PHP_SESSION_ACTIVE ) {
+                $_SESSION['ktp_developer_authenticated'] = false;
+            }
             echo '<div class="notice notice-info is-dismissible"><p>' . esc_html__( '認証を解除しました。', 'ktpwp' ) . '</p></div>';
         }
 

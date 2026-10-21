@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.46
+Stable tag: 1.4.47
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.47 - 2026年10月21日 =
+* 【修正】サイトヘルスで「アクティブな PHP セッションを検出」と致命的な問題が表示される不具合を修正しました。利用規約の処理がすべてのページ表示でセッションを開始していたため、不要なセッション開始をやめました
 
 = 1.4.46 - 2026年10月20日 =
 * 【新機能】「KantanProEX 設定 → バックアップ」に「デスクトップ版へ移行」を追加しました。KantanProEX（DT）（Mac / Windows のアプリ）へ移るためのファイル（ZIP）を書き出します。顧客・受注・請求・契約などのデータ、帳票やメールの設定、スタッフ、帳票のロゴと印影、案件ファイル、サービス画像が入ります。デスクトップ版の「ファイル → WordPress 版から取り込む…」で読み込めます（デスクトップ版 1.0.1 以降）
