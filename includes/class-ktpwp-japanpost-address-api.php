@@ -21,12 +21,21 @@ class KTPWP_JapanPost_Address_API {
 	const URL_STUB = 'https://stub-qz73x.da.pf.japanpost.jp';
 
 	/**
-	 * テスト用APIリファレンス 1.0.2.x は searchcode V2 / token V2。スタブは v2 のみ。
-	 * 本番ホストは現行ドキュメントでは v1 が一般的なため本番は v1。
+	 * ver2.0（2026/03/19以降の登録）と ver1.0（それ以前の登録）でクライアントIDの有効なAPIが異なる。
+	 * スタブは v2 のみ。本番は v2 を先に試し、トークンが通った版を覚えて使う（get_bearer_token）。
 	 */
 	private static function api_prefix() {
 		$s = self::get_settings();
-		return ( isset( $s['environment'] ) && $s['environment'] === 'stub' ) ? '/api/v2' : '/api/v1';
+		if ( isset( $s['environment'] ) && $s['environment'] === 'stub' ) {
+			return '/api/v2';
+		}
+		$known = get_transient( self::version_cache_key() );
+		return ( $known === '/api/v1' ) ? '/api/v1' : '/api/v2';
+	}
+
+	private static function version_cache_key() {
+		$s = self::get_settings();
+		return 'ktp_jp_da_ver_' . md5( (string) $s['client_id'] );
 	}
 
 	/**
@@ -264,9 +273,10 @@ class KTPWP_JapanPost_Address_API {
 			return $cached;
 		}
 
-		$base = rtrim( self::get_base_url(), '/' );
-		$url  = $base . self::api_prefix() . '/j/token';
-		$body = wp_json_encode(
+		$base       = rtrim( self::get_base_url(), '/' );
+		$s_env      = isset( $s['environment'] ) ? $s['environment'] : 'production';
+		$candidates = ( $s_env === 'stub' ) ? array( '/api/v2' ) : array( '/api/v2', '/api/v1' );
+		$body       = wp_json_encode(
 			array(
 				'grant_type' => 'client_credentials',
 				'client_id'  => $s['client_id'],
@@ -274,26 +284,40 @@ class KTPWP_JapanPost_Address_API {
 			)
 		);
 
-		$response = wp_remote_post(
-			$url,
-			array(
-				'timeout' => 20,
-				'headers' => array(
-					'Content-Type'    => 'application/json',
-					'X-Forwarded-For' => $xff_ip,
-				),
-				'body'    => $body,
-			)
-		);
-
-		if ( is_wp_error( $response ) ) {
-			return $response;
+		foreach ( $candidates as $prefix ) {
+			$response = wp_remote_post(
+				$base . $prefix . '/j/token',
+				array(
+					'timeout' => 20,
+					'headers' => array(
+						'Content-Type'    => 'application/json',
+						'X-Forwarded-For' => $xff_ip,
+					),
+					'body'    => $body,
+				)
+			);
+			if ( is_wp_error( $response ) ) {
+				return $response;
+			}
+			$code = wp_remote_retrieve_response_code( $response );
+			$json = json_decode( wp_remote_retrieve_body( $response ), true );
+			if ( $code >= 200 && $code < 300 && ! empty( $json['token'] ) ) {
+				set_transient( self::version_cache_key(), $prefix, DAY_IN_SECONDS );
+				$cache_key = 'ktp_jp_da_tok_' . md5( (string) $s['client_id'] . '|' . self::get_base_url() . '|' . $prefix );
+				break;
+			}
+			$json = null;
 		}
-		$code = wp_remote_retrieve_response_code( $response );
-		$json = json_decode( wp_remote_retrieve_body( $response ), true );
-		if ( $code < 200 || $code >= 300 || empty( $json['token'] ) ) {
-			$msg = isset( $json['message'] ) ? (string) $json['message'] : __( 'アクセストークンの取得に失敗しました。クライアントIDとシークレットを確認してください。', 'ktpwp' );
-			return new WP_Error( 'ktp_jp_token', $msg, array( 'status' => $code ) );
+
+		if ( empty( $json['token'] ) ) {
+			$msg = __( 'アクセストークンの取得に失敗しました。クライアントIDとシークレットを確認してください。', 'ktpwp' );
+			if ( isset( $response ) && ! is_wp_error( $response ) ) {
+				$last = json_decode( wp_remote_retrieve_body( $response ), true );
+				if ( isset( $last['message'] ) ) {
+					$msg = (string) $last['message'];
+				}
+			}
+			return new WP_Error( 'ktp_jp_token', $msg, array( 'status' => isset( $code ) ? $code : 0 ) );
 		}
 
 		$token      = (string) $json['token'];
