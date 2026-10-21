@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.47
+Stable tag: 1.4.48
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.48 - 2026年10月21日 =
+* 【新機能】WooCommerce → KantanPro 連携ページ（WooCommerce → KantanPro 連携）に「連携を解除する」ボタンを追加しました。解除すると新しい注文が KantanPro に取り込まれなくなります（取り込み済みの受注はそのまま残ります）。「連携を再開する」で元に戻せます
 
 = 1.4.47 - 2026年10月21日 =
 * 【修正】サイトヘルスで「アクティブな PHP セッションを検出」と致命的な問題が表示される不具合を修正しました。利用規約の処理がすべてのページ表示でセッションを開始していたため、不要なセッション開始をやめました

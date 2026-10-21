@@ -61,6 +61,35 @@ class KTPWP_WooCommerce_Integration {
 		add_action( 'admin_post_ktpwp_sync_woocommerce_orders', array( $this, 'handle_sync_woocommerce_orders' ) );
 		add_action( 'admin_post_ktpwp_link_woocommerce_clients', array( $this, 'handle_link_woocommerce_clients' ) );
 		add_action( 'admin_post_ktpwp_relink_woocommerce_clients', array( $this, 'handle_relink_woocommerce_clients' ) );
+		add_action( 'admin_post_ktpwp_toggle_woocommerce_sync', array( $this, 'handle_toggle_woocommerce_sync' ) );
+	}
+
+	/**
+	 * WooCommerce 連携が有効か（未設定は有効＝従来どおり）
+	 */
+	public function is_sync_enabled(): bool {
+		return get_option( 'ktpwp_wc_sync_enabled', '1' ) !== '0';
+	}
+
+	/**
+	 * 連携の有効/解除を切り替える
+	 */
+	public function handle_toggle_woocommerce_sync(): void {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( esc_html__( '権限がありません。', 'ktpwp' ) );
+		}
+		check_admin_referer( 'ktpwp_toggle_wc_sync' );
+		$enable = isset( $_GET['enable'] ) && '1' === $_GET['enable'];
+		update_option( 'ktpwp_wc_sync_enabled', $enable ? '1' : '0' );
+		set_transient(
+			'ktpwp_wc_sync_message',
+			$enable
+				? __( 'WooCommerce との連携を有効にしました。', 'ktpwp' )
+				: __( 'WooCommerce との連携を解除しました。今後の注文は KantanPro に取り込まれません（取り込み済みの受注はそのまま残ります）。', 'ktpwp' ),
+			30
+		);
+		wp_safe_redirect( admin_url( 'admin.php?page=ktpwp-woocommerce-sync' ) );
+		exit;
 	}
 
 	/**
@@ -99,6 +128,9 @@ class KTPWP_WooCommerce_Integration {
 	 * @param WC_Order $order    注文オブジェクト（省略時は get_order で取得）
 	 */
 	public function sync_order_to_ktp( int $order_id, $order = null ): void {
+		if ( ! $this->is_sync_enabled() ) {
+			return;
+		}
 		if ( ! $order instanceof WC_Order ) {
 			$order = wc_get_order( $order_id );
 		}
@@ -685,9 +717,20 @@ class KTPWP_WooCommerce_Integration {
 		$url_link   = wp_nonce_url( admin_url( 'admin-post.php?action=ktpwp_link_woocommerce_clients' ), 'ktpwp_link_wc_clients' );
 		$url_relink = wp_nonce_url( admin_url( 'admin-post.php?action=ktpwp_relink_woocommerce_clients' ), 'ktpwp_relink_wc_clients' );
 		$need_link  = $this->count_orders_without_client();
+		$enabled    = $this->is_sync_enabled();
+		$url_toggle = wp_nonce_url( admin_url( 'admin-post.php?action=ktpwp_toggle_woocommerce_sync&enable=' . ( $enabled ? '0' : '1' ) ), 'ktpwp_toggle_wc_sync' );
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'KantanPro 連携', 'ktpwp' ); ?></h1>
+			<h2><?php esc_html_e( '連携の状態', 'ktpwp' ); ?></h2>
+			<?php if ( $enabled ) : ?>
+				<p><?php esc_html_e( '現在: 連携中（新しい注文は自動で KantanPro に取り込まれます）', 'ktpwp' ); ?></p>
+				<p><a href="<?php echo esc_url( $url_toggle ); ?>" class="button button-secondary" onclick="return confirm('<?php echo esc_js( __( 'WooCommerce との連携を解除しますか？今後の注文は KantanPro に取り込まれなくなります。取り込み済みの受注は削除されません。', 'ktpwp' ) ); ?>');"><?php esc_html_e( '連携を解除する', 'ktpwp' ); ?></a></p>
+			<?php else : ?>
+				<p><strong><?php esc_html_e( '現在: 連携を解除中（注文の取り込みは停止しています）', 'ktpwp' ); ?></strong></p>
+				<p><a href="<?php echo esc_url( $url_toggle ); ?>" class="button button-primary"><?php esc_html_e( '連携を再開する', 'ktpwp' ); ?></a></p>
+			<?php endif; ?>
+			<hr />
 			<p><?php esc_html_e( 'WooCommerce の注文のうち、まだ KantanPro に取り込まれていないものを一括で同期します。', 'ktpwp' ); ?></p>
 			<p><a href="<?php echo esc_url( $url_sync ); ?>" class="button button-primary"><?php esc_html_e( '未同期の注文を KantanPro に同期', 'ktpwp' ); ?></a></p>
 			<?php if ( $this->order_table_has_external_columns() ) : ?>
@@ -713,6 +756,11 @@ class KTPWP_WooCommerce_Integration {
 			wp_die( esc_html__( '権限がありません。', 'ktpwp' ) );
 		}
 		check_admin_referer( 'ktpwp_sync_wc_orders' );
+		if ( ! $this->is_sync_enabled() ) {
+			set_transient( 'ktpwp_wc_sync_error', __( '連携を解除中のため同期できません。先に連携を再開してください。', 'ktpwp' ), 60 );
+			wp_safe_redirect( admin_url( 'admin.php?page=ktpwp-woocommerce-sync' ) );
+			exit;
+		}
 		$this->ensure_order_table_ready();
 		$synced = 0;
 		$args   = array(
