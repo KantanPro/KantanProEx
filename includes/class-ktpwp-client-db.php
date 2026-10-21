@@ -333,6 +333,10 @@ if ( ! class_exists( 'KTPWP_Client_DB' ) ) {
 				}
 
 				if ( $result !== false ) {
+					// 受注を削除した場合に仕事リストの件数が古いまま残らないよう、件数キャッシュを破棄
+					if ( class_exists( 'KTPWP_List_Warning_Counts' ) ) {
+						KTPWP_List_Warning_Counts::invalidate();
+					}
 					$next_id = $this->get_next_display_id( $table_name, $data_id );
 					$cookie_name = 'ktp_' . $tab_name . '_id';
 					setcookie( $cookie_name, $next_id, time() + ( 86400 * 30 ), '/' );
