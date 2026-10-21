@@ -344,7 +344,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 		var closeBtn = document.createElement("button");
 		closeBtn.textContent = "' . esc_js( __( '閉じる', 'ktpwp' ) ) . '";
 		closeBtn.style.cssText = "font-size:0.8em;color:#000;display:block;margin:10px auto 0;padding:10px;background:#cdcccc;border-radius:5px;border-color:#999;cursor:pointer";
-		closeBtn.onclick = function() { document.body.removeChild(popup); location.href = "' . esc_js( $close_redirect_url ) . '"; };
+		closeBtn.onclick = function() { document.body.removeChild(popup); location.href = ' . wp_json_encode( $close_redirect_url ) . '; };
 		popup.appendChild(closeBtn);
 	};
 	if (document.readyState === "loading") {

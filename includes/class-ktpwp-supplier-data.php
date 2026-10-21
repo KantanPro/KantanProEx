@@ -304,7 +304,7 @@ if ( ! class_exists( 'KTPWP_Supplier_Data' ) ) {
                             document.addEventListener("DOMContentLoaded", function() {
                                 showSuccessNotification("' . esc_js( esc_html__( '協力会社を削除しました。', 'ktpwp' ) ) . '");
                                 setTimeout(function() {
-                                    window.location.href = "' . esc_js( $redirect_url ) . '";
+                                    window.location.href = ' . wp_json_encode( $redirect_url ) . ';
                                 }, 1000);
                             });
                         </script>';
