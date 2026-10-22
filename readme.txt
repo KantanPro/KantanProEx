@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.50
+Stable tag: 1.4.51
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.51 - 2026年10月22日 =
+* 【修正】日本郵便の郵便番号・デジタルアドレス API で、2026年3月19日以降に登録した新しいクライアントID・シークレットを入れると「スコープがありません」と出て住所が入らない不具合を修正しました（API ver2.0 を先に試し、通らなければ ver1.0 を使います。それ以前に登録したものも引き続き使えます）
 
 = 1.4.50 - 2026年10月21日 =
 * 【修正】協力会社を削除したあと、協力会社の画面に戻らず仕事リストに移ってしまう不具合を修正しました（協力会社の追加・複製のあと、重複確認ポップアップを閉じたあとも同様でした）
