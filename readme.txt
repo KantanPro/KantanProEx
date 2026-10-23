@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.53
+Stable tag: 1.4.54
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.54 - 2026年10月24日 =
+* 【変更】サービスに「在庫を管理する」チェックを追加しました。既定は「管理しない」（受付数に上限なし）で、チェックしたときだけ在庫数の入力欄が出て、在庫数による受付制限（完売・保留中）が働きます。既存のサービスは、在庫数を 1 以外にしていたもの、および公開中の定期契約サービスを「管理する」にして、従来の動作を保ちます
 
 = 1.4.53 - 2026年10月24日 =
 * 【修正】ダミーデータ作成で、顧客・サービス・協力会社だけが入り受注書が1件も作成されないことがある不具合を修正しました（受注テーブルの列構成が古いサイトでも、存在する列だけで作成します）。受注書が作れなかった場合は、成功と表示せず原因を表示します

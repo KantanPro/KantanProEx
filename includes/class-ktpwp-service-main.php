@@ -475,6 +475,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
                     $formatted_price = number_format( $price, 0, '.', ',' );
 					$is_public = isset( $row->is_public ) ? (int) $row->is_public : 0;
 					$row_stock = isset( $row->stock ) ? max( 0, absint( $row->stock ) ) : 1;
+					$row_stock_managed = ! empty( $row->stock_managed ) ? 1 : 0;
 					$contract_cycle_value = class_exists( 'KTPWP_Contract_Billing_Cycle' ) && isset( $row->contract_billing_cycle )
 						? KTPWP_Contract_Billing_Cycle::sanitize( $row->contract_billing_cycle )
 						: ( class_exists( 'KTPWP_Contract_Billing_Cycle' ) ? KTPWP_Contract_Billing_Cycle::NONE : 'none' );
@@ -495,7 +496,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					'<td class="col-id">' . $id . '</td>' .
 					'<td class="col-image"><span class="ktp-service-list-thumb-wrap"><img src="' . esc_url( $thumb_url ) . '" alt="' . esc_attr( $service_name_raw ) . '" class="ktp-service-list-thumb" loading="lazy" decoding="async" onerror="this.src=\'' . esc_url( $default_thumb_url ) . '\'" /></span></td>' .
 					'<td class="col-name" title="' . esc_attr( $service_name_raw ) . '">' . $service_name . '</td>' .
-					'<td class="col-public">' . $this->render_service_public_badge( $is_public, $row_stock, (int) $row->id, $contract_cycle_value ) . '</td>' .
+					'<td class="col-public">' . $this->render_service_public_badge( $is_public, $row_stock, (int) $row->id, $contract_cycle_value, $row_stock_managed ) . '</td>' .
 					$contract_cycle_cell .
 					$price_unit_cell .
 					'<td class="col-category">' . $category . '</td>' .
@@ -567,6 +568,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			$is_public = 0;
 			$contract_billing_cycle = class_exists( 'KTPWP_Contract_Billing_Cycle' ) ? KTPWP_Contract_Billing_Cycle::NONE : 'none';
 			$stock = 1;
+			$stock_managed = 0;
 			$public_quantity_fixed = 0;
 			$public_instant_purchase = 0;
 			$public_html = '';
@@ -638,6 +640,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 						? KTPWP_Contract_Billing_Cycle::sanitize( $row->contract_billing_cycle )
 						: ( class_exists( 'KTPWP_Contract_Billing_Cycle' ) ? KTPWP_Contract_Billing_Cycle::NONE : 'none' );
 					$stock = isset( $row->stock ) ? max( 0, absint( $row->stock ) ) : 1;
+					$stock_managed = ! empty( $row->stock_managed ) ? 1 : 0;
 					$public_quantity_fixed = class_exists( 'KTPWP_Service_DB' )
 						? KTPWP_Service_DB::sanitize_public_quantity_fixed( $row->public_quantity_fixed ?? null )
 						: 0;
@@ -828,7 +831,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 					}
 				}
 
-				$data_forms .= $this->render_stock_field( 1 );
+				$data_forms .= $this->render_stock_field( 1, 0 );
 				$data_forms .= $this->render_is_public_checkbox_field( 0 );
 				$data_forms .= $this->render_public_quantity_mode_field( 0 );
 				$data_forms .= $this->render_public_instant_purchase_field( 0 );
@@ -1049,7 +1052,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 						$data_forms .= "<div class=\"form-group\"><label>{$label_i18n}：</label> <input type=\"{$field['type']}\" name=\"{$fieldName}\" value=\"" . esc_attr( $value ) . "\"{$pattern}{$required}{$placeholder}{$step}{$min}></div>";
 					}
 				}
-				$data_forms .= $this->render_stock_field( (int) $stock );
+				$data_forms .= $this->render_stock_field( (int) $stock, (int) $stock_managed );
 				$data_forms .= $this->render_is_public_checkbox_field( (int) $is_public );
 				$data_forms .= $this->render_public_quantity_mode_field( (int) $public_quantity_fixed );
 				$data_forms .= $this->render_public_instant_purchase_field( (int) $public_instant_purchase );
@@ -1790,23 +1793,32 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 		/**
 		 * 在庫数フィールドの HTML を返す。
 		 *
-		 * @param int $stock 在庫数。
+		 * 「在庫を管理する」にチェックしたときだけ在庫数の入力欄を出す（既定は管理しない）。
+		 *
+		 * @param int $stock         在庫数。
+		 * @param int $stock_managed 在庫を管理するか（1=管理する）。
 		 * @return string
 		 */
-		private function render_stock_field( $stock ) {
-			$stock = max( 0, absint( $stock ) );
-			$html  = $this->render_service_contract_fields_styles();
-			$html .= '<div id="ktpwp-service-stock" class="ktpwp-service-field-block ktpwp-service-field-block--stock">';
-			$html .= '<div class="ktpwp-service-field-block__label">';
-			$html .= '<span class="ktpwp-service-field-block__label-text ktpwp-service-field-block__section-title">' . esc_html__( '在庫数（対応可能回数など）', 'ktpwp' ) . '</span>';
-			$html .= '<span class="ktpwp-service-field-block__hint">' . esc_html__( '販売所の受付上限です。0 で完売。契約件数と問い合わせ案件の合計が在庫数に達すると、すべての顧客からの問い合わせを停止（保留中）します。', 'ktpwp' ) . '</span>';
-			$html .= '</div>';
+		private function render_stock_field( $stock, $stock_managed = 0 ) {
+			$stock         = max( 0, absint( $stock ) );
+			$stock_managed = $stock_managed ? 1 : 0;
+			$input_hidden  = $stock_managed ? '' : ' style="display:none"';
+			$toggle        = "var b=document.getElementById('ktpwp-service-stock-body');if(b){b.style.display=this.checked?'':'none';}";
+			$html          = $this->render_service_contract_fields_styles();
+			$html         .= '<div id="ktpwp-service-stock" class="ktpwp-service-field-block ktpwp-service-field-block--stock">';
+			$html         .= '<div class="ktpwp-service-field-block__label">';
+			$html         .= '<span class="ktpwp-service-field-block__label-text ktpwp-service-field-block__section-title">' . esc_html__( '在庫', 'ktpwp' ) . '</span>';
+			$html         .= '<span class="ktpwp-service-field-block__hint">' . esc_html__( '在庫を管理しないサービスは、受付数に上限がありません（既定）。', 'ktpwp' ) . '</span>';
+			$html         .= '</div>';
+			$html         .= '<div class="ktpwp-service-field-block__control">';
+			$html         .= '<label class="ktpwp-service-stock-managed"><input type="checkbox" id="stock_managed" name="stock_managed" value="1"' . checked( 1, $stock_managed, false ) . ' onchange="' . esc_attr( $toggle ) . '" style="width:auto;margin-right:6px;">' . esc_html__( '在庫を管理する', 'ktpwp' ) . '</label>';
+			$html         .= '<div id="ktpwp-service-stock-body"' . $input_hidden . '>';
+			$html         .= '<span class="ktpwp-service-field-block__hint">' . esc_html__( '在庫数（対応可能回数など）。販売所の受付上限です。0 で完売。契約件数と問い合わせ案件の合計が在庫数に達すると、すべての顧客からの問い合わせを停止（保留中）します。', 'ktpwp' ) . '</span>';
 			if ( $stock === 0 ) {
 				$html .= '<p class="ktpwp-service-stock-sold-out-notice">' . esc_html__( '公開ページでは「完売御礼！」と表示され、問い合わせは受け付けません。', 'ktpwp' ) . '</p>';
 			}
-			$html .= '<div class="ktpwp-service-field-block__control">';
 			$html .= '<input type="number" id="stock" name="stock" min="0" step="1" value="' . esc_attr( (string) $stock ) . '">';
-			$html .= '</div></div>';
+			$html .= '</div></div></div>';
 
 			return $html;
 		}
@@ -2040,9 +2052,14 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 		 * @param int|null $stock                  在庫数。
 		 * @param int      $service_id             サービス ID。
 		 * @param string   $contract_billing_cycle 請求サイクル。
+		 * @param int      $stock_managed          在庫を管理するか（1=管理する）。
 		 * @return string
 		 */
-		private function render_service_public_badge( $is_public, $stock = null, $service_id = 0, $contract_billing_cycle = 'none' ) {
+		private function render_service_public_badge( $is_public, $stock = null, $service_id = 0, $contract_billing_cycle = 'none', $stock_managed = 0 ) {
+			if ( ! $stock_managed ) {
+				$stock = null;
+			}
+
 			$service_id = absint( $service_id );
 			$is_recurring = class_exists( 'KTPWP_Contract_Billing_Cycle' )
 				&& KTPWP_Contract_Billing_Cycle::is_recurring( $contract_billing_cycle );
@@ -2050,6 +2067,7 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			if ( (int) $is_public === 1 && $service_id > 0 && $is_recurring && class_exists( 'KTPWP_Contract_Service_Public_Availability' ) ) {
 				$service = (object) array(
 					'stock'                  => $stock ?? 1,
+					'stock_managed'          => $stock_managed ? 1 : 0,
 					'contract_billing_cycle' => $contract_billing_cycle,
 				);
 				$availability = KTPWP_Contract_Service_Public_Availability::get_public_availability(

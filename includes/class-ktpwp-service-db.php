@@ -68,6 +68,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				is_public TINYINT(1) NOT NULL DEFAULT 0,
 				contract_billing_cycle VARCHAR(20) NOT NULL DEFAULT 'none',
 				stock INT UNSIGNED NOT NULL DEFAULT 1,
+				stock_managed TINYINT(1) NOT NULL DEFAULT 0,
 				public_quantity_fixed TINYINT(1) NOT NULL DEFAULT 0,
 				public_instant_purchase TINYINT(1) NOT NULL DEFAULT 0,
 				public_html TEXT NULL,
@@ -135,6 +136,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				? KTPWP_Contract_Billing_Cycle::sanitize( isset( $_POST['contract_billing_cycle'] ) ? wp_unslash( $_POST['contract_billing_cycle'] ) : '' )
 				: 'none';
 			$stock = isset( $_POST['stock'] ) ? max( 0, absint( $_POST['stock'] ) ) : 1;
+			$stock_managed = isset( $_POST['stock_managed'] ) && '1' === (string) $_POST['stock_managed'] ? 1 : 0;
 			$public_quantity_fixed = self::sanitize_public_quantity_fixed(
 				isset( $_POST['public_quantity_fixed'] ) ? wp_unslash( $_POST['public_quantity_fixed'] ) : null
 			);
@@ -186,6 +188,10 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 							$data['stock'] = $stock;
 						}
 
+						if ( $this->service_table_has_column( $table_name, 'stock_managed' ) ) {
+							$data['stock_managed'] = $stock_managed;
+						}
+
 						if ( $this->service_table_has_public_quantity_fixed_column( $table_name ) ) {
 							$data['public_quantity_fixed'] = $public_quantity_fixed;
 						}
@@ -203,6 +209,9 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 							$format[] = '%s';
 						}
 						if ( isset( $data['stock'] ) ) {
+							$format[] = '%d';
+						}
+						if ( isset( $data['stock_managed'] ) ) {
 							$format[] = '%d';
 						}
 						if ( isset( $data['public_quantity_fixed'] ) ) {
@@ -311,6 +320,7 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 				? KTPWP_Contract_Billing_Cycle::sanitize( isset( $_POST['contract_billing_cycle'] ) ? wp_unslash( $_POST['contract_billing_cycle'] ) : '' )
 				: 'none';
 			$stock = isset( $_POST['stock'] ) ? max( 0, absint( $_POST['stock'] ) ) : 1;
+			$stock_managed = isset( $_POST['stock_managed'] ) && '1' === (string) $_POST['stock_managed'] ? 1 : 0;
 			$public_quantity_fixed = self::sanitize_public_quantity_fixed(
 				isset( $_POST['public_quantity_fixed'] ) ? wp_unslash( $_POST['public_quantity_fixed'] ) : null
 			);
@@ -355,6 +365,11 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 
 			if ( $this->service_table_has_stock_column( $table_name ) ) {
 				$insert_data['stock'] = $stock;
+				$insert_format[] = '%d';
+			}
+
+			if ( $this->service_table_has_column( $table_name, 'stock_managed' ) ) {
+				$insert_data['stock_managed'] = $stock_managed;
 				$insert_format[] = '%d';
 			}
 
@@ -512,6 +527,11 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 
 			if ( $this->service_table_has_stock_column( $table_name ) ) {
 				$duplicate_data['stock'] = isset( $original_data->stock ) ? max( 0, absint( $original_data->stock ) ) : 1;
+				$duplicate_format[] = '%d';
+			}
+
+			if ( $this->service_table_has_column( $table_name, 'stock_managed' ) ) {
+				$duplicate_data['stock_managed'] = isset( $original_data->stock_managed ) ? (int) ! empty( $original_data->stock_managed ) : 0;
 				$duplicate_format[] = '%d';
 			}
 
@@ -1478,6 +1498,29 @@ if ( ! class_exists( 'KTPWP_Service_DB' ) ) {
 			$cache[ $table_name ] = is_array( $columns ) && in_array( 'contract_billing_cycle', $columns, true );
 
 			return $cache[ $table_name ];
+		}
+
+		/**
+		 * サービステーブルに指定のカラムがあるか確認する。
+		 *
+		 * @param string $table_name  テーブル名。
+		 * @param string $column_name カラム名。
+		 * @return bool
+		 */
+		private function service_table_has_column( $table_name, $column_name ) {
+			global $wpdb;
+
+			static $cache = array();
+
+			$key = $table_name . '.' . $column_name;
+			if ( isset( $cache[ $key ] ) ) {
+				return $cache[ $key ];
+			}
+
+			$columns       = $wpdb->get_col( "SHOW COLUMNS FROM `{$table_name}`" );
+			$cache[ $key ] = is_array( $columns ) && in_array( $column_name, $columns, true );
+
+			return $cache[ $key ];
 		}
 
 		/**

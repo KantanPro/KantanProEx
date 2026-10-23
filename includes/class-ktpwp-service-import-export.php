@@ -1200,6 +1200,8 @@ document.addEventListener("DOMContentLoaded", function() {
 		}
 
 		$stock                   = isset( $row['stock'] ) && (string) $row['stock'] !== '' ? max( 0, absint( $row['stock'] ) ) : 1;
+		// 在庫を管理しないのが既定。取り込む行で在庫が 1 以外なら、在庫を管理するサービスとして扱う。
+		$stock_managed           = isset( $row['stock'] ) && (string) $row['stock'] !== '' && 1 !== absint( $row['stock'] ) ? 1 : 0;
 		$public_quantity_fixed   = ! empty( $row['public_quantity_fixed'] ) && in_array( strtolower( (string) $row['public_quantity_fixed'] ), array( '1', 'true', 'yes' ), true ) ? 1 : 0;
 		$public_instant_purchase = ! empty( $row['public_instant_purchase'] ) && in_array( strtolower( (string) $row['public_instant_purchase'] ), array( '1', 'true', 'yes' ), true ) ? 1 : 0;
 		$public_html             = isset( $row['public_html'] ) ? wp_kses_post( (string) $row['public_html'] ) : '';
@@ -1243,6 +1245,10 @@ document.addEventListener("DOMContentLoaded", function() {
 		if ( self::table_has_column( $table, 'stock' ) ) {
 			$fields['stock'] = $stock;
 			$formats[]       = '%d';
+		}
+		if ( self::table_has_column( $table, 'stock_managed' ) ) {
+			$fields['stock_managed'] = $stock_managed;
+			$formats[]               = '%d';
 		}
 		if ( self::table_has_column( $table, 'public_quantity_fixed' ) ) {
 			$fields['public_quantity_fixed'] = $public_quantity_fixed;

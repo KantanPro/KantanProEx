@@ -64,7 +64,7 @@ if ( ! class_exists( 'KTPWP_EX_Free_Data_Import' ) ) {
 			'ktp_service_contract_billing_cycle_migration_completed', 'ktp_service_initial_fees_migration_completed',
 			'ktp_service_is_public_migration_completed', 'ktp_service_public_html_migration_completed',
 			'ktp_service_public_instant_purchase_migration_completed',
-			'ktp_service_public_quantity_fixed_migration_completed', 'ktp_service_stock_migration_completed',
+			'ktp_service_public_quantity_fixed_migration_completed', 'ktp_service_stock_migration_completed', 'ktp_service_stock_managed_migration_completed',
 			'ktp_service_tax_rate_migration_completed', 'ktp_settings', 'ktp_settings_migrated', 'ktp_smtp_settings',
 			'ktp_strict_cleanup_timestamp', 'ktp_supplier_migration_20250703_completed',
 			'ktp_supplier_skills_table_version', 'ktp_sync_production_to_local_structure_timestamp', 'ktp_tax_policy',

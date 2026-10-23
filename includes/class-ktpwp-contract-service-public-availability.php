@@ -40,6 +40,22 @@ if ( ! class_exists( 'KTPWP_Contract_Service_Public_Availability' ) ) {
 		}
 
 		/**
+		 * 在庫を管理するサービスか（既定は管理しない）。
+		 *
+		 * stock_managed を持たない行（旧データ・外部から渡された行）は従来どおり管理扱いにする。
+		 *
+		 * @param object $service サービス行。
+		 * @return bool
+		 */
+		public static function is_stock_managed( $service ) {
+			if ( ! is_object( $service ) || ! isset( $service->stock_managed ) ) {
+				return true;
+			}
+
+			return (int) $service->stock_managed === 1;
+		}
+
+		/**
 		 * 在庫数の生値（0=完売、未設定は 1）。
 		 *
 		 * @param object $service サービス行。
@@ -114,7 +130,7 @@ if ( ! class_exists( 'KTPWP_Contract_Service_Public_Availability' ) ) {
 				$is_recurring = self::service_is_recurring( $service_id );
 			}
 
-			if ( ! $is_recurring ) {
+			if ( ! $is_recurring || ! self::is_stock_managed( $service ) ) {
 				return array(
 					'stock'                   => $stock,
 					'used_slots'              => 0,
@@ -163,6 +179,10 @@ if ( ! class_exists( 'KTPWP_Contract_Service_Public_Availability' ) ) {
 			);
 
 			if ( $service_id <= 0 ) {
+				return $result;
+			}
+
+			if ( ! self::is_stock_managed( $service ) ) {
 				return $result;
 			}
 
