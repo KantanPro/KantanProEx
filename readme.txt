@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.56
+Stable tag: 1.4.57
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.57 - 2026年10月24日 =
+* 【修正】受注書のコスト項目で協力会社の職能を選ぶとき、SQLite 環境（デスクトップ版）で「登録されている職能がありません」と表示される不具合を修正しました（単価の整形を MySQL 専用の SQL から PHP に移しました。WordPress 版の表示は変わりません）
 
 = 1.4.56 - 2026年10月24日 =
 * 【修正】サービス・顧客・協力会社のリストで、列の見出しを2回押しても昇順にならず、常に降順のままになることがある不具合を修正しました（並び順の判定に使うクラスが読み込まれる前に判定していたため）。1回目で並べ替え、2回目で逆順になります

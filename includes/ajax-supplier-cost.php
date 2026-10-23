@@ -104,19 +104,15 @@ add_action(
 				wp_send_json( array() );
 			}
 			
+			// 単価の整形（末尾の 0 の除去）は SQL ではなく PHP で行う。
+			// MySQL 専用の関数（REGEXP / TRIM TRAILING / CAST AS DECIMAL）は SQLite では使えず、
+			// デスクトップ版で「登録されている職能がありません」になっていた。
 			$sql = $wpdb->prepare(
 				"
 			SELECT 
 				id, 
 				product_name, 
-				CASE 
-					WHEN CAST(unit_price AS CHAR) REGEXP '^[0-9]+\\.$' THEN 
-						CAST(unit_price AS UNSIGNED)
-					WHEN CAST(unit_price AS CHAR) REGEXP '^[0-9]+\\.0+$' THEN 
-						CAST(unit_price AS UNSIGNED)
-					ELSE 
-						TRIM(TRAILING '0' FROM TRIM(TRAILING '.' FROM CAST(unit_price AS DECIMAL(20,10))))
-				END as unit_price,
+				unit_price,
 				quantity, 
 				unit, 
 				tax_rate,
@@ -134,6 +130,15 @@ add_action(
 			
 			$skills = $wpdb->get_results( $sql, ARRAY_A );
 			ktpwp_supplier_cost_log('[SUPPLIER-COST-AJAX] クエリ結果: ' . print_r( $skills, true ) );
+
+			if ( is_array( $skills ) ) {
+				foreach ( $skills as &$skill_row ) {
+					if ( isset( $skill_row['unit_price'] ) && is_numeric( $skill_row['unit_price'] ) ) {
+						$skill_row['unit_price'] = rtrim( rtrim( sprintf( '%.10F', (float) $skill_row['unit_price'] ), '0' ), '.' );
+					}
+				}
+				unset( $skill_row );
+			}
 			
 			if ( $wpdb->last_error ) {
 				ktpwp_supplier_cost_log('[SUPPLIER-COST-AJAX] データベースエラー: ' . $wpdb->last_error );
