@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX（WP）
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.4.52
+ * Version: 1.4.53
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -7586,6 +7586,14 @@ function ktpwp_handle_create_dummy_data_ajax() {
             $client_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}ktp_client" );
             if ( $client_count < 1 ) {
                 wp_send_json_error( array( 'message' => __( 'ダミーデータの作成に失敗しました。必要なテーブルが存在するか、PHPエラーログを確認してください。', 'ktpwp' ) ) );
+                return;
+            }
+
+            // 顧客だけ入って受注が 0 件のまま「成功」と返さない（原因をそのまま画面に出す）
+            $order_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}ktp_order" );
+            if ( $order_count < 1 ) {
+                $order_errors = ( isset( $GLOBALS['ktpwp_dummy_errors'] ) && is_array( $GLOBALS['ktpwp_dummy_errors'] ) ) ? array_unique( $GLOBALS['ktpwp_dummy_errors'] ) : array();
+                wp_send_json_error( array( 'message' => __( 'ダミーデータの受注書を作成できませんでした。', 'ktpwp' ) . ( $order_errors ? ' ' . implode( ' / ', array_map( 'esc_html', $order_errors ) ) : '' ) ) );
                 return;
             }
 

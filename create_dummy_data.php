@@ -590,6 +590,8 @@ $order_names = $is_japanese_locale
     : array('Website Renewal', 'E-commerce Site Development', 'Business System Development', 'Marketing Strategy Planning', 'Logo Design Production', 'Data Analysis Service', 'Mobile App Development', 'SEO Consulting Service', 'Social Media Management', 'Video Production');
 
 $order_ids = array();
+$used_order_numbers = array();
+$GLOBALS['ktpwp_dummy_errors'] = array();
 foreach ($client_ids as $client_id) {
     // 顧客ごとにランダムな数の注文を作成（2-8件）
     $order_count = rand(2, 8);
@@ -728,51 +730,44 @@ foreach ($client_ids as $client_id) {
         
         // サービスIDは使用しない（テーブル構造に存在しないため）
         
-        // まず基本的なデータを挿入
-        $sql = $wpdb->prepare(
-            "INSERT INTO {$wpdb->prefix}ktp_order (
-                order_number, client_id, project_name, order_date, 
-                desired_delivery_date, expected_delivery_date, 
-                status, updated_at, time, customer_name, user_name, search_field,
-                progress, memo, completion_date
-            ) VALUES (
-                %s, %d, %s, %s, %s, %s, %s, %s, %d, %s, %s, %s, %d, %s, %s
-            )",
-            $order_number,
-            $client_id,
-            $project_name,
-            $order_date,
-            $delivery_date,
-            $delivery_date,
-            $status_labels[$status],
-            $current_datetime,
-            $order_timestamp,
-            $customer_name, // 会社名のみを使用
-            $user_name,
-            $search_field,
-            $status,
-            get_dummy_data_note_text(),
-            $completion_date
-        );
-        
-        $result = $wpdb->query($sql);
-        
-        if ($result === false) {
-            safe_echo("ERROR: 受注書作成に失敗しました: " . $wpdb->last_error);
-        } else {
-            // 挿入後にcreated_atフィールドを更新（強制的に値を設定）
-            $update_sql = $wpdb->prepare(
-                "UPDATE {$wpdb->prefix}ktp_order SET created_at = %s WHERE id = %d",
-                $created_time,
-                $wpdb->insert_id
-            );
-            
-            $update_result = $wpdb->query($update_sql);
-            if ($update_result === false) {
-                safe_echo("WARNING: created_atフィールドの更新に失敗しました: " . $wpdb->last_error);
-            }
+        // 受注番号は重複させない（UNIQUE KEY が付いているサイトがある）
+        while (isset($used_order_numbers[$order_number])) {
+            $order_number = 'ORD-' . date('Ymd', strtotime($order_date)) . '-' . sprintf('%03d', rand(1, 999));
         }
-        
+        $used_order_numbers[$order_number] = true;
+
+        // 本番サイトによって ktp_order の列構成が違う（古い構造だと列が足りない）ため、
+        // 実在する列だけを挿入する
+        $order_row = array(
+            'order_number' => $order_number,
+            'client_id' => $client_id,
+            'project_name' => $project_name,
+            'order_date' => $order_date,
+            'desired_delivery_date' => $delivery_date,
+            'expected_delivery_date' => $delivery_date,
+            'status' => $status_labels[$status],
+            'created_at' => $created_time,
+            'updated_at' => $current_datetime,
+            'time' => $order_timestamp,
+            'customer_name' => (string) $customer_name,
+            'user_name' => $user_name,
+            'search_field' => $search_field,
+            'progress' => $status,
+            'memo' => get_dummy_data_note_text(),
+            'completion_date' => $completion_date,
+        );
+        if (!isset($order_columns)) {
+            $order_columns = (array) $wpdb->get_col("SHOW COLUMNS FROM {$wpdb->prefix}ktp_order", 0);
+        }
+        $order_row = array_intersect_key($order_row, array_flip($order_columns));
+
+        $result = $wpdb->insert($wpdb->prefix . 'ktp_order', $order_row);
+
+        if ($result === false) {
+            $GLOBALS['ktpwp_dummy_errors'][] = $wpdb->last_error;
+            safe_echo("ERROR: 受注書作成に失敗しました: " . $wpdb->last_error);
+        }
+
         if ($result) {
             $order_id = $wpdb->insert_id;
             $order_ids[] = $order_id;
