@@ -571,6 +571,10 @@ window.ktpAddCostRowFromSkill = function(skill, currentRow) {
     if (typeof window.ktpRenderPurchaseRecordRow === 'function') {
         window.ktpRenderPurchaseRecordRow($newRow, window.ktpCurrentSupplierName || '', '');
     }
+    // 追加した行を含めて、行の交互配色（奇数行=水色、偶数行=白）を振り直す
+    if (typeof window.ktpRefreshCostItemRowStripes === 'function') {
+        window.ktpRefreshCostItemRowStripes();
+    }
     
     // 行のインデックスを更新（updateRowIndexes関数がある場合）
     if (typeof updateRowIndexes === 'function') {

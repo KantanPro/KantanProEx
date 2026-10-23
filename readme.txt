@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.58
+Stable tag: 1.4.59
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.59 - 2026年10月24日 =
+* 【修正】受注書のコスト項目で、協力会社の職能を「追加」した直後、行の背景色の交互配色（奇数行=水色、偶数行=白）が崩れる不具合を修正しました（追加した行を含めて振り直します。WordPress 版・デスクトップ版共通）
 
 = 1.4.58 - 2026年10月24日 =
 * 【修正】受注書のコスト項目で、協力会社の職能を「追加」したときだけ、仕入欄が「○○に発注」のリンク表示（旧仕様）になり、仕入ステータスのプルダウン（未着手など）と仕入記録行が出ない不具合を修正しました。「更新」や「+」で追加した行と同じ表示になります（WordPress 版・デスクトップ版共通）

@@ -500,6 +500,8 @@
             groupIndex++;
         });
     }
+    // 協力会社選択ポップアップ（ktp-supplier-selector.js）など他ファイルから呼べるように公開
+    window.ktpRefreshCostItemRowStripes = refreshCostItemRowStripes;
 
     // 行を削除
     function deleteRow(currentRow) {
