@@ -1236,8 +1236,7 @@ class KTPWP_Settings {
         );
 
         // サブメニュー - ダミーデータ作成
-        // 配布ZIPでは create_release_zip.sh が create_dummy_data.php を外す（開発・検証用）。
-        // 無いのにメニューを出すと「ダミーデータ作成スクリプトが見つかりません。」になるので、あるときだけ出す
+        // スクリプトが無いのにメニューを出すと「ダミーデータ作成スクリプトが見つかりません。」になるので、あるときだけ出す
         if ( file_exists( KTPWP_PLUGIN_DIR . 'create_dummy_data.php' ) ) {
             add_submenu_page(
                 'ktp-settings', // 親メニューのスラッグ

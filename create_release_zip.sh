@@ -144,8 +144,7 @@ find "${BUILD_DIR}" -type f \( -name "README.md" -o -name "*.md" -o -name "*.htm
 # 翻訳ソース（実行時は .mo のみ必要）
 find "${BUILD_DIR}/languages" -type f \( -name "*.po" -o -name "*.pot" \) -delete 2>/dev/null || true
 
-# デモデータ生成（開発・検証用。本番配布には不要）
-rm -f "${BUILD_DIR}/create_dummy_data.php"
+# create_dummy_data.php は「ダミーデータ作成」メニューの本体なので配布ZIPに含める（外すとメニューごと消える）
 
 find "${BUILD_DIR}" -type f -name ".local-development" -delete
 find "${BUILD_DIR}" -type f -name "DEVELOPMENT-ENVIRONMENT-SETUP.md" -delete

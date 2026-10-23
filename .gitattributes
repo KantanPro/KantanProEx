@@ -7,7 +7,6 @@ wp-cli-aliases.sh export-ignore
 setup-wp-cli.sh export-ignore
 create_release_zip.sh export-ignore
 run-dummy-data.sh export-ignore
-create_dummy_data.php export-ignore
 test-*.php export-ignore
 debug-*.php export-ignore
 *.bak export-ignore
