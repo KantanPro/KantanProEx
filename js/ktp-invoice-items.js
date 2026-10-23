@@ -783,6 +783,23 @@
     window.updateTotalAndProfit = updateTotalAndProfit;
 
     // 新しい行を追加（重複防止機能付き）
+    // 請求項目の交互配色クラス（奇数行=水色、偶数行=白）を表示順に振り直す。
+    // 参考行（provisional）は数えない。行の追加・削除・ドラッグ並び替えのあとに呼ぶ。
+    function refreshInvoiceItemRowStripes() {
+        let rowIndex = 0;
+        $('#order_content .invoice-items-table tbody tr.invoice-item-row').each(function () {
+            const $row = $(this);
+            if ($row.hasClass('invoice-item-row--provisional') || $row.hasClass('ui-sortable-helper')) {
+                return;
+            }
+            const stripeClass = (rowIndex % 2 === 0) ? 'invoice-item-row--odd' : 'invoice-item-row--even';
+            $row.removeClass('invoice-item-row--even invoice-item-row--odd').addClass(stripeClass);
+            rowIndex++;
+        });
+    }
+    // サービス選択ポップアップ（ktp-service-selector.js）など他ファイルから呼べるように公開
+    window.ktpRefreshInvoiceItemRowStripes = refreshInvoiceItemRowStripes;
+
     function addNewRow(currentRow, callId) { // callId を追加
         if (window.ktpDebugMode) console.log(`[INVOICE][${callId}] addNewRow開始 (呼び出し元ID: ${callId})`);
 
@@ -850,6 +867,7 @@
                 
                 // 新しい行で金額の自動計算を実行
                 calculateAmount($newRow);
+                refreshInvoiceItemRowStripes();
                 
                 $newRow.find('.product-name').focus();
                 success = true;
@@ -909,6 +927,7 @@
                             if (result.success) {
                                 if (window.ktpDebugMode) console.log('[INVOICE] deleteRowサーバー側削除成功');
                                 currentRow.remove();
+                                refreshInvoiceItemRowStripes();
                                 updateTotalAndProfit(); // 合計金額を更新
                             } else {
                                 if (window.ktpDebugMode) console.warn('[INVOICE] deleteRowサーバー側削除失敗', result);
@@ -950,11 +969,13 @@
                 // サーバーに保存されていない行は、確認後すぐに削除
                 if (window.ktpDebugMode) console.log('[INVOICE] deleteRow: サーバー未保存行のため即時削除');
                 currentRow.remove();
+                refreshInvoiceItemRowStripes();
                 updateTotalAndProfit(); // 合計金額を更新
             } else {
                 // itemIdがない、またはorderIdがない場合は、クライアント側でのみ削除（通常は発生しないはず）
                 if (window.ktpDebugMode) console.warn('[INVOICE] deleteRow: itemIdまたはorderIdが不足しているため、クライアント側でのみ削除');
                 currentRow.remove();
+                refreshInvoiceItemRowStripes();
                 updateTotalAndProfit(); // 合計金額を更新
             }
         }
@@ -1072,6 +1093,8 @@
             },
             stop: function (event, ui) {
                 ui.item.removeClass('dragging');
+                // ドラッグで行の順序が変わったので、交互配色を振り直す
+                refreshInvoiceItemRowStripes();
             }
         }).disableSelection();
         }

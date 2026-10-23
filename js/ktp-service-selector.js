@@ -845,6 +845,11 @@
             }, 100);
         }
 
+        // 追加した行を含めて交互配色（奇数行=水色、偶数行=白）を振り直す
+        if (typeof window.ktpRefreshInvoiceItemRowStripes === 'function') {
+            window.ktpRefreshInvoiceItemRowStripes();
+        }
+
         // 合計と利益を更新
         if (typeof updateTotalAndProfit === 'function') {
             updateTotalAndProfit();
