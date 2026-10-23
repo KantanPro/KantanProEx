@@ -2180,6 +2180,7 @@
     }
 
     // 協力会社選択ポップアップ（ktp-supplier-selector.js）など他ファイルから呼べるように公開
+    window.ktpBuildPurchaseStatusSelectHtml = ktpBuildPurchaseStatusSelectHtml;
     window.ktpEnsurePurchaseStatusSelect = ktpEnsurePurchaseStatusSelect;
     window.ktpRenderPurchaseRecordRow = ktpRenderPurchaseRecordRow;
 

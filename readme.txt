@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.57
+Stable tag: 1.4.58
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.58 - 2026年10月24日 =
+* 【修正】受注書のコスト項目で、協力会社の職能を「追加」したときだけ、仕入欄が「○○に発注」のリンク表示（旧仕様）になり、仕入ステータスのプルダウン（未着手など）と仕入記録行が出ない不具合を修正しました。「更新」や「+」で追加した行と同じ表示になります（WordPress 版・デスクトップ版共通）
 
 = 1.4.57 - 2026年10月24日 =
 * 【修正】受注書のコスト項目で協力会社の職能を選ぶとき、SQLite 環境（デスクトップ版）で「登録されている職能がありません」と表示される不具合を修正しました（単価の整形を MySQL 専用の SQL から PHP に移しました。WordPress 版の表示は変わりません）

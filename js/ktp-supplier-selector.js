@@ -517,7 +517,7 @@ window.ktpAddCostRowFromSkill = function(skill, currentRow) {
             <td style="text-align:left;">
                 <div style="display:inline-flex;align-items:center;margin-left:0;padding-left:0;">
                     <input type="number" name="cost_items[${newIndex}][tax_rate]" class="cost-item-input tax-rate" value="${skill.tax_rate === null ? '' : Math.round(skill.tax_rate || 10)}" step="1" min="0" max="100" style="width:50px; text-align:right; display:inline-block; margin-left:0; padding-left:0;" placeholder="税率">
-                    <span style="margin-left:2px; white-space:nowrap;">%</nspan>
+                    <span style="margin-left:2px; white-space:nowrap;">%</span>
                 </div>
             </td>`;
 
@@ -549,11 +549,7 @@ window.ktpAddCostRowFromSkill = function(skill, currentRow) {
                 <input type="text" name="cost_items[${newIndex}][remarks]" class="cost-item-input remarks" value="">
                 <input type="hidden" name="cost_items[${newIndex}][sort_order]" value="${newIndex + 1}">
             </td>
-            <td>
-                <span class="purchase-display${isSupplier ? ' purchase-link' : ''}" 
-                    ${isSupplier ? `data-purchase='${window.ktpCurrentSupplierName}' style='color:#0073aa;cursor:pointer;text-decoration:underline;'` : ''}>
-                    ${isSupplier ? `${window.ktpCurrentSupplierName}に発注` : '手入力'}
-                </span>
+            <td class="purchase-cell">
                 <input type="hidden" name="cost_items[${newIndex}][purchase]" value="${isSupplier ? window.ktpCurrentSupplierName : ''}">
             </td>
         </tr>
@@ -567,6 +563,14 @@ window.ktpAddCostRowFromSkill = function(skill, currentRow) {
         $tbody.append(newRowHtml);
     }
     const $newRow = $tbody.find('tr').last();
+
+    // 仕入欄は「更新」時や「+」で追加した行と同じ作り（仕入ステータスのプルダウン＋仕入記録行）にする
+    if (typeof window.ktpBuildPurchaseStatusSelectHtml === 'function') {
+        $newRow.find('.purchase-cell').prepend(window.ktpBuildPurchaseStatusSelectHtml('pending', window.ktpCurrentSupplierId || 0, window.ktpCurrentSupplierName || '', 0));
+    }
+    if (typeof window.ktpRenderPurchaseRecordRow === 'function') {
+        window.ktpRenderPurchaseRecordRow($newRow, window.ktpCurrentSupplierName || '', '');
+    }
     
     // 行のインデックスを更新（updateRowIndexes関数がある場合）
     if (typeof updateRowIndexes === 'function') {
