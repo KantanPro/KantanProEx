@@ -52,6 +52,10 @@ if ( ! class_exists( 'KTPWP_Client_UI' ) ) {
 
 			// ソート順の取得（デフォルトはIDの降順）
 			$sort_by = 'id';
+			// 並び順の判定に使うクラスが未読み込みだと、昇順の指定が無視されて常に降順になる
+			if ( ! class_exists( 'KTPWP_List_Table' ) ) {
+				require_once __DIR__ . '/class-ktpwp-list-table.php';
+			}
 			$sort_order = class_exists( 'KTPWP_List_Table' ) ? KTPWP_List_Table::default_sort_order() : 'DESC';
 
 			// 注文履歴用のソート順（デフォルトは日付の降順）

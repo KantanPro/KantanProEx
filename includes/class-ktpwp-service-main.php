@@ -244,6 +244,10 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 			// -----------------------------
 			// ソート順の取得（デフォルトはIDの降順 - 新しい順）
 			$sort_by = 'id';
+			// 並び順の判定に使うクラスが未読み込みだと、昇順の指定が無視されて常に降順になる
+			if ( ! class_exists( 'KTPWP_List_Table' ) ) {
+				require_once __DIR__ . '/class-ktpwp-list-table.php';
+			}
 			$sort_order = class_exists( 'KTPWP_List_Table' ) ? KTPWP_List_Table::default_sort_order() : 'DESC';
 
 			if ( isset( $_GET['sort_by'] ) ) {
