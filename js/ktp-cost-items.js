@@ -706,8 +706,11 @@
                         }
                         
                         // 成功通知を表示（条件付き）
-                        // 実際に値が変更された場合のみ通知を表示
+                        // 実際に値が変更された場合のみ通知を表示する。
+                        // 金額（amount）は単価×数量からの自動計算で、画面を開いたときにも保存される。
+                        // 利用者の操作ではないので通知しない（単価・数量などの編集は、その項目の保存で通知される）
                         if (typeof window.showSuccessNotification === 'function' && 
+                            fieldName !== 'amount' &&
                             result.data && result.data.value_changed === true) {
                             window.showSuccessNotification('原価項目が保存されました');
                         }

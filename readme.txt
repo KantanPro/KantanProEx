@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.60
+Stable tag: 1.4.61
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.61 - 2026年10月24日 =
+* 【修正】受注書タブを開いただけで「請求項目が保存されました」「原価項目が保存されました」の緑の通知が出ることがある不具合を修正しました（画面を開いたときの金額の自動再計算の保存は通知しません。単価・数量などを編集したときの通知は従来どおりです。WordPress 版・デスクトップ版共通）
 
 = 1.4.60 - 2026年10月24日 =
 * 【修正】受注書の請求項目で、行をドラッグして並び替えたり、行を追加・削除したりしたとき、行の背景色の交互配色（奇数行=水色、偶数行=白）が崩れる不具合を修正しました（サービス選択から追加した行も含め、表示順に振り直します。WordPress 版・デスクトップ版共通）
