@@ -74,8 +74,7 @@ function ktp_get_sales_ledger_data_for_pdf( $year ) {
         o.completion_date as date,
         o.progress,
         o.customer_name as client_name,
-        COALESCE(SUM(ii.amount), 0) as total_amount,
-        GROUP_CONCAT(ii.product_name SEPARATOR ', ') as products
+        COALESCE(SUM(ii.amount), 0) as total_amount
     FROM {$wpdb->prefix}ktp_order o
     LEFT JOIN {$wpdb->prefix}ktp_order_invoice_items ii ON o.id = ii.order_id
     WHERE YEAR(o.completion_date) = %d
@@ -88,6 +87,26 @@ function ktp_get_sales_ledger_data_for_pdf( $year ) {
 
     $results = $wpdb->get_results( $wpdb->prepare( $query, $year ), ARRAY_A );
 
+    // 品名の連結は SQL（GROUP_CONCAT … SEPARATOR は MySQL 専用）ではなく PHP で行う
+    $products_by_order = array();
+    if ( ! empty( $results ) ) {
+        $order_ids    = array_map( 'intval', array_column( $results, 'id' ) );
+        $placeholders = implode( ',', array_fill( 0, count( $order_ids ), '%d' ) );
+        $item_rows    = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT order_id, product_name FROM {$wpdb->prefix}ktp_order_invoice_items WHERE order_id IN ({$placeholders}) AND amount IS NOT NULL ORDER BY id ASC",
+                $order_ids
+            ),
+            ARRAY_A
+        );
+        foreach ( (array) $item_rows as $item_row ) {
+            if ( $item_row['product_name'] === null || $item_row['product_name'] === '' ) {
+                continue;
+            }
+            $products_by_order[ (int) $item_row['order_id'] ][] = $item_row['product_name'];
+        }
+    }
+
     // データを整形
     $sales_data = array();
     foreach ( $results as $row ) {
@@ -97,7 +116,7 @@ function ktp_get_sales_ledger_data_for_pdf( $year ) {
             'client_name' => $row['client_name'] ?: __( '未設定', 'ktpwp' ),
             'client_address' => '',
             'order_title' => $row['order_title'] ?: __( '無題', 'ktpwp' ),
-            'products' => $row['products'] ?: '',
+            'products' => isset( $products_by_order[ (int) $row['id'] ] ) ? implode( ', ', $products_by_order[ (int) $row['id'] ] ) : '',
             'total_amount' => floatval( $row['total_amount'] ),
             'progress' => intval( $row['progress'] )
         );

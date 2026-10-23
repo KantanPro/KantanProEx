@@ -5172,9 +5172,6 @@ function ktpwp_init_ajax_handlers() {
         ktpwp_debug_log('KTPWP: ktpwp_handle_clear_data_ajax function not found');
     }
     
-    // テスト用AJAXハンドラー
-    add_action( 'wp_ajax_ktpwp_test_ajax', 'ktpwp_test_ajax_handler' );
-    
     // 通知非表示AJAXハンドラー
     add_action( 'wp_ajax_ktpwp_dismiss_invoice_items_fix_notification', 'ktpwp_dismiss_invoice_items_fix_notification' );
 }

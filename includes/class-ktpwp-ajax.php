@@ -6874,16 +6874,9 @@ class KTPWP_Ajax {
 	 */
 	public function init() {
 		// 既存のAJAXハンドラー
-		add_action( 'wp_ajax_ktp_get_departments', array( $this, 'get_departments' ) );
-		add_action( 'wp_ajax_ktp_get_supplier_costs', array( $this, 'get_supplier_costs' ) );
 		
 		// レポートタブ用のAJAXハンドラー
 		add_action( 'wp_ajax_ktp_get_report_data', array( $this, 'get_report_data' ) );
-		add_action( 'wp_ajax_ktp_get_sales_data', array( $this, 'get_sales_data' ) );
-		add_action( 'wp_ajax_ktp_get_progress_data', array( $this, 'get_progress_data' ) );
-		add_action( 'wp_ajax_ktp_get_client_data', array( $this, 'get_client_data' ) );
-		add_action( 'wp_ajax_ktp_get_service_data', array( $this, 'get_service_data' ) );
-		add_action( 'wp_ajax_ktp_get_supplier_data', array( $this, 'get_supplier_data' ) );
 		
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 			ktpwp_debug_log( 'レポートAJAXハンドラー登録完了: ktp_get_report_data' );
