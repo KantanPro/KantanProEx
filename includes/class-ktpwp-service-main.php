@@ -833,9 +833,11 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 
 				$data_forms .= $this->render_stock_field( 1, 0 );
 				$data_forms .= $this->render_is_public_checkbox_field( 0 );
+				$data_forms .= $this->render_public_fields_open( 0 );
 				$data_forms .= $this->render_public_quantity_mode_field( 0 );
 				$data_forms .= $this->render_public_instant_purchase_field( 0 );
 				$data_forms .= $this->render_public_html_field( '' );
+				$data_forms .= '</div>';
 				$default_cycle = class_exists( 'KTPWP_Contract_Billing_Cycle' ) ? KTPWP_Contract_Billing_Cycle::NONE : 'none';
 				$data_forms .= $this->render_contract_billing_cycle_field( $default_cycle );
 				$data_forms .= $this->render_service_recurring_fields_block_open( $default_cycle );
@@ -1054,9 +1056,11 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 				}
 				$data_forms .= $this->render_stock_field( (int) $stock, (int) $stock_managed );
 				$data_forms .= $this->render_is_public_checkbox_field( (int) $is_public );
+				$data_forms .= $this->render_public_fields_open( (int) $is_public );
 				$data_forms .= $this->render_public_quantity_mode_field( (int) $public_quantity_fixed );
 				$data_forms .= $this->render_public_instant_purchase_field( (int) $public_instant_purchase );
 				$data_forms .= $this->render_public_html_field( (string) $public_html );
+				$data_forms .= '</div>';
 				$cycle_value = class_exists( 'KTPWP_Contract_Billing_Cycle' )
 					? KTPWP_Contract_Billing_Cycle::sanitize( $contract_billing_cycle )
 					: 'none';
@@ -1638,10 +1642,24 @@ if ( ! class_exists( 'KTPWP_Service_Class' ) ) {
 
 			return '<div class="form-group ktpwp-service-public-field">'
 				. '<label>'
-				. '<input type="checkbox" name="is_public" value="1"' . $checked . '>'
+				. '<input type="checkbox" name="is_public" value="1"' . $checked . ' onchange="' . esc_attr( "var b=document.getElementById('ktpwp-service-public-fields');if(b){b.style.display=this.checked?'':'none';}" ) . '">'
 				. '<span class="ktpwp-service-public-field__text">' . esc_html__( 'サイトに公開', 'ktpwp' ) . '</span>'
 				. '</label>'
 				. '</div>';
+		}
+
+		/**
+		 * 「サイトに公開」がオンのときだけ表示する公開用フィールド群の開始タグ。
+		 *
+		 * 閉じタグ（</div>）は呼び出し側で出力する。隠れていても値は送信される。
+		 *
+		 * @param int $is_public 公開フラグ（0 or 1）。
+		 * @return string
+		 */
+		private function render_public_fields_open( $is_public ) {
+			$style = (int) $is_public === 1 ? '' : ' style="display:none"';
+
+			return '<div id="ktpwp-service-public-fields"' . $style . '>';
 		}
 
 		/**

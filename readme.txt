@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.54
+Stable tag: 1.4.55
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.55 - 2026年10月24日 =
+* 【変更】サービスの「公開フォームの数量」「公開商品の即時購入」「公開用HTML」を、「サイトに公開」にチェックしたときだけ表示するようにしました（非公開のサービスには不要なため。隠れている間も入力済みの値は保たれます）
 
 = 1.4.54 - 2026年10月24日 =
 * 【変更】サービスに「在庫を管理する」チェックを追加しました。既定は「管理しない」（受付数に上限なし）で、チェックしたときだけ在庫数の入力欄が出て、在庫数による受付制限（完売・保留中）が働きます。既存のサービスは、在庫数を 1 以外にしていたもの、および公開中の定期契約サービスを「管理する」にして、従来の動作を保ちます
