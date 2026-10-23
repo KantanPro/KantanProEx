@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.61
+Stable tag: 1.4.62
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.62 - 2026年10月24日 =
+* 【変更】受注書の案件ファイルを追加・削除したときの「ファイルを追加しました。」「ファイルを削除しました。」を、画面上部に出しっぱなしになる帯ではなく、他の操作と同じ右上の緑の通知（数秒で消える）にしました。失敗したときの表示は従来どおりです（WordPress 版・デスクトップ版共通）
 
 = 1.4.61 - 2026年10月24日 =
 * 【修正】受注書タブを開いただけで「請求項目が保存されました」「原価項目が保存されました」の緑の通知が出ることがある不具合を修正しました（画面を開いたときの金額の自動再計算の保存は通知しません。単価・数量などを編集したときの通知は従来どおりです。WordPress 版・デスクトップ版共通）
