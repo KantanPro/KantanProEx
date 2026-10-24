@@ -1616,12 +1616,11 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 							'del_err'          => array( 'border-color:#f44336;background:#ffebee;', __( 'ファイルを削除できませんでした。', 'ktpwp' ) ),
 							'del_err_perm'     => array( 'border-color:#f44336;background:#ffebee;', __( '権限がありません。', 'ktpwp' ) ),
 						);
-						if ( isset( $map[ $n ] ) && in_array( $n, array( 'upload_ok', 'del_ok' ), true ) ) {
-							// 成功は他の操作と同じ、右上の緑の通知（数秒で消える）で知らせる。
+						if ( isset( $map[ $n ] ) ) {
+							// 結果は他の操作と同じ、右上の通知（成功は緑・失敗は赤。しばらくして消える）で知らせる。
 							// 再読み込みで繰り返し出ないよう、URL から通知用のパラメータを外す。
-							$content .= '<script>(function(){var m=' . wp_json_encode( $map[ $n ][1] ) . ';function go(){if(typeof window.showSuccessNotification==="function"){window.showSuccessNotification(m);}}if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",go);}else{go();}try{var u=new URL(window.location.href);u.searchParams.delete("ktp_of_notice");window.history.replaceState(null,"",u.toString());}catch(e){}})();</script>';
-						} elseif ( isset( $map[ $n ] ) ) {
-							$content .= '<div class="ktp-of-notice" style="padding:12px 14px;margin:12px 0;border:1px solid;border-radius:6px;' . esc_attr( $map[ $n ][0] ) . '"><p style="margin:0;">' . esc_html( $map[ $n ][1] ) . '</p></div>';
+							$notice_fn = in_array( $n, array( 'upload_ok', 'del_ok' ), true ) ? 'showSuccessNotification' : 'ktpShowErrorNotification';
+							$content  .= '<script>(function(){var m=' . wp_json_encode( $map[ $n ][1] ) . ';function go(){if(typeof window.' . $notice_fn . '==="function"){window.' . $notice_fn . '(m);}}if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",go);}else{go();}try{var u=new URL(window.location.href);u.searchParams.delete("ktp_of_notice");window.history.replaceState(null,"",u.toString());}catch(e){}})();</script>';
 						}
 					}
 

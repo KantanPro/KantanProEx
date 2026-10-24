@@ -1332,3 +1332,22 @@ window.showSuccessNotification = function (message) {
         }
     }, 3000);
 };
+
+// 失敗通知を表示する関数（成功通知と同じ右上に赤で出し、しばらくして消える）。
+// 既存の showErrorNotification は他の画面で「あれば使う」形で呼ばれているため、別名にして影響を避ける。
+window.ktpShowErrorNotification = function (message) {
+    var notification = document.createElement('div');
+    notification.className = 'ktp-error-notification';
+    notification.setAttribute('role', 'alert');
+    notification.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #dc3545; color: white; padding: 10px 20px; border-radius: 5px; z-index: 2147483647; font-size: 14px; max-width: 80vw;';
+    notification.textContent = message;
+
+    document.body.appendChild(notification);
+
+    // 失敗は読み取る時間が要るので、成功（3秒）より少し長く出す
+    setTimeout(function () {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 6000);
+};

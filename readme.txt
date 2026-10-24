@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.62
+Stable tag: 1.4.63
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.63 - 2026年10月24日 =
+* 【変更】受注書の案件ファイルを追加・削除できなかったとき（サイズ超過・形式エラー・権限なしなど）の表示を、画面上部に出しっぱなしになる帯ではなく、右上の赤い通知（しばらくして消える）にしました（WordPress 版・デスクトップ版共通）
 
 = 1.4.62 - 2026年10月24日 =
 * 【変更】受注書の案件ファイルを追加・削除したときの「ファイルを追加しました。」「ファイルを削除しました。」を、画面上部に出しっぱなしになる帯ではなく、他の操作と同じ右上の緑の通知（数秒で消える）にしました。失敗したときの表示は従来どおりです（WordPress 版・デスクトップ版共通）
