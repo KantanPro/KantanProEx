@@ -540,6 +540,29 @@ class KTPWP_Contact_Form {
             return;
         }
 
+        $form_id = method_exists( $contact_form, 'id' ) ? (int) $contact_form->id() : 0;
+        $this->import_submission( $posted_data, $form_id, array( 'set_cookie' => true ) );
+    }
+
+    /**
+     * CF7 の送信データから顧客・受注を作成する。
+     *
+     * デスクトップ版（CF7 の無い環境）では、公開サイトの受付プラグイン（ktp-dt-bridge）が
+     * 預かった送信データ（get_posted_data() の値）をここへ渡す。
+     *
+     * @param array $posted_data 送信データ（get_posted_data() の値）。
+     * @param int   $form_id     CF7 のフォーム ID。
+     * @param array $options     received_at: 送信された時刻（UNIX 秒。省略時は今）、set_cookie: 送信者にクッキーを付けるか、
+     *                           allow_same_sender: 同じ人・同じフォームの送信が続いても取り込む（まとめて取り込むとき）。
+     * @return int 作成した受注 ID。ブロック中・重複などで作らなかったら 0。
+     */
+    public function import_submission( array $posted_data, $form_id = 0, array $options = array() ) {
+        if ( empty( $posted_data ) ) {
+            return 0;
+        }
+
+        $received_at = ! empty( $options['received_at'] ) ? (int) $options['received_at'] : null;
+
         // フィールドマッピングを動的に調整
         $this->adjust_field_mapping( $posted_data );
 
@@ -550,16 +573,16 @@ class KTPWP_Contact_Form {
             require_once dirname( __FILE__ ) . '/class-ktpwp-inquiry-block.php';
         }
         if ( ! empty( $client_data['email'] ) && KTPWP_Inquiry_Block::is_email_blocked( $client_data['email'] ) ) {
-            return;
+            return 0;
         }
 
         if ( ! class_exists( 'KTPWP_Inquiry_Client_Resolver' ) ) {
             require_once dirname( __FILE__ ) . '/class-ktpwp-inquiry-client-resolver.php';
         }
 
-        $form_id = method_exists( $contact_form, 'id' ) ? (int) $contact_form->id() : 0;
-        if ( KTPWP_Inquiry_Client_Resolver::should_skip_duplicate_inquiry( $client_data['email'] ?? '', $form_id ) ) {
-            return;
+        // 同じ送信の二重処理を防ぐ判定は 1 リクエスト内のもの。別々の送信をまとめて取り込むときは外す
+        if ( empty( $options['allow_same_sender'] ) && KTPWP_Inquiry_Client_Resolver::should_skip_duplicate_inquiry( $client_data['email'] ?? '', (int) $form_id ) ) {
+            return 0;
         }
 
         $resolved = KTPWP_Inquiry_Client_Resolver::resolve(
@@ -575,15 +598,21 @@ class KTPWP_Contact_Form {
         $department_id = is_array( $resolved ) ? ( $resolved['department_id'] ?? null ) : null;
         $department_id = $department_id ? (int) $department_id : null;
 
-        if ( $client_id ) {
-            // 受注データも作成
-            $order_data = $this->prepare_order_data( $posted_data, $client_id, $department_id );
+        if ( ! $client_id ) {
+            return 0;
+        }
 
-            $this->save_order_data( $order_data );
+        // 受注データも作成
+        $order_data = $this->prepare_order_data( $posted_data, $client_id, $department_id, $received_at );
 
-            // クッキー設定
+        $order_id = $this->save_order_data( $order_data );
+
+        // クッキー設定
+        if ( ! empty( $options['set_cookie'] ) ) {
             $this->set_client_cookie( $client_id );
         }
+
+        return $order_id ? (int) $order_id : 0;
     }
 
     /**
@@ -755,9 +784,10 @@ class KTPWP_Contact_Form {
      * @param array $posted_data 送信されたデータ
      * @param int   $client_id 顧客ID
      * @param int|null $department_id 部署ID
+     * @param int|null $received_at 送信された時刻（UNIX 秒。省略時は今）
      * @return array 準備された受注データ
      */
-    private function prepare_order_data( $posted_data, $client_id, $department_id = null ) {
+    private function prepare_order_data( $posted_data, $client_id, $department_id = null, $received_at = null ) {
         $customer_name = $this->get_field_value( $posted_data, $this->field_mapping['name'] );
         $company_name = $this->get_field_value( $posted_data, $this->field_mapping['company_name'] );
         $subject      = $this->get_field_value( $posted_data, $this->field_mapping['subject'] );
@@ -789,8 +819,11 @@ class KTPWP_Contact_Form {
             $subject,
             $message,
             $category,
-            $department_id
+            $department_id,
+            $received_at
         );
+
+        $time = $received_at ? (int) $received_at : time();
 
         return array(
             'client_id'            => $client_id,
@@ -799,8 +832,8 @@ class KTPWP_Contact_Form {
             'user_name'            => sanitize_text_field( $customer_name ),
             'project_name'         => ! empty( $subject ) ? sanitize_text_field( $subject ) : $this->default_values['project_name'],
             'progress'             => $this->default_values['progress'],
-            'time'                 => time(),
-            'created_at'           => current_time( 'mysql' ),
+            'time'                 => $time,
+            'created_at'           => wp_date( 'Y-m-d H:i:s', $time ),
             'updated_at'           => current_time( 'mysql' ),
             'memo'                 => $order_memo,
         );
@@ -880,9 +913,10 @@ class KTPWP_Contact_Form {
      * @param string   $message       本文。
      * @param string   $category      カテゴリ（任意）。
      * @param int|null $department_id 部署 ID（任意）。
+     * @param int|null $received_at   送信された時刻（UNIX 秒。省略時は今）。
      * @return string
      */
-    private function create_order_memo( $subject, $message, $category = '', $department_id = null ) {
+    private function create_order_memo( $subject, $message, $category = '', $department_id = null, $received_at = null ) {
         $body = $this->create_memo( $subject, $message );
 
         $category = sanitize_text_field( (string) $category );
@@ -893,7 +927,7 @@ class KTPWP_Contact_Form {
         $header = sprintf(
             '── %s %s ──',
             __( '問い合わせ受信', 'ktpwp' ),
-            current_time( 'Y-m-d H:i:s' )
+            $received_at ? wp_date( 'Y-m-d H:i:s', (int) $received_at ) : current_time( 'Y-m-d H:i:s' )
         );
 
         $department_label = $this->resolve_department_label( $department_id );

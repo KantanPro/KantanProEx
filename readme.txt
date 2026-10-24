@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.64
+Stable tag: 1.4.65
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,9 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.65 - 2026年10月24日 =
+* 【改善】Contact Form 7 の送信と WooCommerce の注文から受注を作る処理を、送信データ・注文データだけで呼び出せる形に分けました（デスクトップ版の「サイトからの受注」で同じ処理を使うため。WordPress 版での動きは変わりません）
 
 = 1.4.64 - 2026年10月24日 =
 * 【修正】受注書が1件も無いときに、受注書タブで「受注書 ID 1 が見つかりません。」と表示される不具合を修正しました（「受注書データがありません。」と案内します）
