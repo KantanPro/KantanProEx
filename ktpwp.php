@@ -3,7 +3,7 @@
  * Plugin Name: KantanProEX（WP）
  * Plugin URI: https://www.kantanpro.com/
  * Description: スモールビジネスのための販売支援ツール。ショートコード[ktpwp_all_tab]を固定ページに設置してください。
- * Version: 1.4.63
+ * Version: 1.4.64
  * Author: KantanPro
  * Author URI: https://www.kantanpro.com/kantanpro-page
  * License: GPL v2 or later
@@ -4738,7 +4738,7 @@ function ktpwp_ensure_shortcodes_registered() {
         }
     }
 
-    if ( ! get_option( 'ktp_service_stock_managed_migration_completed' ) ) {
+    if ( ! get_option( 'ktp_service_stock_managed_migration_completed' ) || ! get_option( 'ktp_service_stock_managed_backfill_completed' ) ) {
         $migration_file = plugin_dir_path( __FILE__ ) . 'includes/migrations/20261024_add_stock_managed_to_service.php';
         if ( file_exists( $migration_file ) ) {
             require_once $migration_file;

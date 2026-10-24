@@ -59,6 +59,7 @@ final class KTPWP_Service_Import_Export {
 			'image_base64',
 			'contract_billing_cycle',
 			'stock',
+			'stock_managed',
 			'public_quantity_fixed',
 			'public_instant_purchase',
 			'public_html',
@@ -82,6 +83,7 @@ final class KTPWP_Service_Import_Export {
 			'image_base64'            => __( '画像データ（Base64）', 'ktpwp' ),
 			'contract_billing_cycle'  => __( '契約課金サイクル', 'ktpwp' ),
 			'stock'                   => __( '在庫', 'ktpwp' ),
+			'stock_managed'           => __( '在庫を管理する', 'ktpwp' ),
 			'public_quantity_fixed'   => __( '公開数量固定', 'ktpwp' ),
 			'public_instant_purchase' => __( '即時購入', 'ktpwp' ),
 			'public_html'             => __( '公開HTML', 'ktpwp' ),
@@ -585,7 +587,7 @@ document.addEventListener("DOMContentLoaded", function() {
 				continue;
 			}
 			$value = $record[ $key ];
-			if ( $key === 'is_public' || $key === 'public_quantity_fixed' || $key === 'public_instant_purchase' ) {
+			if ( $key === 'is_public' || $key === 'stock_managed' || $key === 'public_quantity_fixed' || $key === 'public_instant_purchase' ) {
 				$row[ $key ] = (int) $value;
 			} elseif ( $key === 'price' || $key === 'tax_rate' ) {
 				$row[ $key ] = $value === null ? '' : $value;
@@ -1030,6 +1032,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			'image_base64'            => array( 'image_base64', '画像データ（base64）', 'image_data' ),
 			'contract_billing_cycle'  => array( 'contract_billing_cycle', '契約課金サイクル' ),
 			'stock'                   => array( 'stock', '在庫' ),
+			'stock_managed'           => array( 'stock_managed', '在庫を管理する', '在庫管理' ),
 			'public_quantity_fixed'   => array( 'public_quantity_fixed', '公開数量固定' ),
 			'public_instant_purchase' => array( 'public_instant_purchase', '即時購入' ),
 			'public_html'             => array( 'public_html', '公開html' ),
@@ -1200,8 +1203,13 @@ document.addEventListener("DOMContentLoaded", function() {
 		}
 
 		$stock                   = isset( $row['stock'] ) && (string) $row['stock'] !== '' ? max( 0, absint( $row['stock'] ) ) : 1;
-		// 在庫を管理しないのが既定。取り込む行で在庫が 1 以外なら、在庫を管理するサービスとして扱う。
-		$stock_managed           = isset( $row['stock'] ) && (string) $row['stock'] !== '' && 1 !== absint( $row['stock'] ) ? 1 : 0;
+		// 在庫を管理しないのが既定。「在庫を管理する」列があればその値を使い、
+		// 列が無い古いファイルでは、在庫が 1 以外なら在庫を管理するサービスとして扱う。
+		if ( isset( $row['stock_managed'] ) && (string) $row['stock_managed'] !== '' ) {
+			$stock_managed = in_array( strtolower( trim( (string) $row['stock_managed'] ) ), array( '1', 'true', 'yes', '管理する', 'する' ), true ) ? 1 : 0;
+		} else {
+			$stock_managed = isset( $row['stock'] ) && (string) $row['stock'] !== '' && 1 !== absint( $row['stock'] ) ? 1 : 0;
+		}
 		$public_quantity_fixed   = ! empty( $row['public_quantity_fixed'] ) && in_array( strtolower( (string) $row['public_quantity_fixed'] ), array( '1', 'true', 'yes' ), true ) ? 1 : 0;
 		$public_instant_purchase = ! empty( $row['public_instant_purchase'] ) && in_array( strtolower( (string) $row['public_instant_purchase'] ), array( '1', 'true', 'yes' ), true ) ? 1 : 0;
 		$public_html             = isset( $row['public_html'] ) ? wp_kses_post( (string) $row['public_html'] ) : '';

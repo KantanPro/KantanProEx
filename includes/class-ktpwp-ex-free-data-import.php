@@ -64,7 +64,7 @@ if ( ! class_exists( 'KTPWP_EX_Free_Data_Import' ) ) {
 			'ktp_service_contract_billing_cycle_migration_completed', 'ktp_service_initial_fees_migration_completed',
 			'ktp_service_is_public_migration_completed', 'ktp_service_public_html_migration_completed',
 			'ktp_service_public_instant_purchase_migration_completed',
-			'ktp_service_public_quantity_fixed_migration_completed', 'ktp_service_stock_migration_completed', 'ktp_service_stock_managed_migration_completed',
+			'ktp_service_public_quantity_fixed_migration_completed', 'ktp_service_stock_migration_completed', 'ktp_service_stock_managed_migration_completed', 'ktp_service_stock_managed_backfill_completed',
 			'ktp_service_tax_rate_migration_completed', 'ktp_settings', 'ktp_settings_migrated', 'ktp_smtp_settings',
 			'ktp_strict_cleanup_timestamp', 'ktp_supplier_migration_20250703_completed',
 			'ktp_supplier_skills_table_version', 'ktp_sync_production_to_local_structure_timestamp', 'ktp_tax_policy',
@@ -151,6 +151,11 @@ if ( ! class_exists( 'KTPWP_EX_Free_Data_Import' ) ) {
 			if ( $renamed !== array() ) {
 				// EX にまだデータが無かった（＝無料版から移ってきた）なら、無料版の設定を優先する
 				self::copy_options( ! $ex_had_data );
+				// 無料版のサービス表には「在庫を管理する」列が無い。次の読み込みで列の追加をやり直す
+				if ( in_array( 'service', $renamed, true ) ) {
+					delete_option( 'ktp_service_stock_managed_migration_completed' );
+					delete_option( 'ktp_service_stock_managed_backfill_completed' );
+				}
 				set_transient( self::RESULT_TRANSIENT, count( $renamed ), DAY_IN_SECONDS );
 			}
 

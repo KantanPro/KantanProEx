@@ -1709,6 +1709,12 @@ class KTPWP_Settings {
 								$insert[ $key ] = $value;
 							}
 						}
+						// 「在庫を管理する」列が無い古いバックアップのサービスは、
+						// 列を追加したときと同じ基準（在庫が 1 以外、または公開中の定期契約）で管理する扱いにする
+						if ( substr( $target_table, -strlen( 'ktp_service' ) ) === 'ktp_service' && in_array( 'stock_managed', $columns, true ) && ! array_key_exists( 'stock_managed', $insert ) ) {
+							$is_recurring_public = ! empty( $insert['is_public'] ) && isset( $insert['contract_billing_cycle'] ) && ! in_array( (string) $insert['contract_billing_cycle'], array( '', 'none' ), true );
+							$insert['stock_managed'] = ( ( isset( $insert['stock'] ) && (int) $insert['stock'] !== 1 ) || $is_recurring_public ) ? 1 : 0;
+						}
 						if ( ! empty( $insert ) ) {
 							$wpdb->insert( $target_table, $insert );
 						}

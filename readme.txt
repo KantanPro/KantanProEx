@@ -4,7 +4,7 @@ Tags: business, order management, customer management, invoice, report, staff ch
 Requires at least: 5.0
 Tested up to: 6.9.1
 Requires PHP: 7.4
-Stable tag: 1.4.63
+Stable tag: 1.4.64
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -322,6 +322,10 @@ curl -sS -X POST \
 * MySQL 5.6 以上 または MariaDB 10.0 以上
 * 推奨メモリ: 256MB 以上
 * 推奨PHP拡張: GD（画像処理用）
+
+= 1.4.64 - 2026年10月24日 =
+* 【修正】受注書が1件も無いときに、受注書タブで「受注書 ID 1 が見つかりません。」と表示される不具合を修正しました（「受注書データがありません。」と案内します）
+* 【修正】「在庫を管理する」の設定を、サービスの CSV/JSON 書き出し・取り込み、バックアップの復元、無料版からのデータ引き継ぎでも正しく引き継ぐようにしました（列の無い古いファイルは、在庫が 1 以外または公開中の定期契約なら「管理する」として扱います）
 
 = 1.4.63 - 2026年10月24日 =
 * 【変更】受注書の案件ファイルを追加・削除できなかったとき（サイズ超過・形式エラー・権限なしなど）の表示を、画面上部に出しっぱなしになる帯ではなく、右上の赤い通知（しばらくして消える）にしました（WordPress 版・デスクトップ版共通）

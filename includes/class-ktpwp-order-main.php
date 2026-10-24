@@ -2203,7 +2203,12 @@ if ( ! class_exists( 'KTPWP_Order_Class' ) ) {
 
 				// 仕事リストタブと統一されたデータ0の時の案内表示
 				$no_order_message = esc_html__( '受注書データがありません。', 'ktpwp' );
-				if ( $order_id_not_found > 0 ) {
+				// 受注書が1件も無いときは、URL や記憶に残っていた古い ID（ダミーデータ削除後の 1 など）を
+				// 「見つかりません」と出さず、データが無い旨の案内にする
+				$has_any_order = $order_id_not_found > 0
+					? (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$table_name}` WHERE 1=1{$order_block_exclude_sql}" ) > 0
+					: false;
+				if ( $order_id_not_found > 0 && $has_any_order ) {
 					$no_order_message = sprintf(
 						/* translators: %d: order ID */
 						esc_html__( '受注書 ID %d が見つかりません。', 'ktpwp' ),
